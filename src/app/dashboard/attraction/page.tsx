@@ -166,6 +166,11 @@ export default function AttractionPage() {
 
   const canCreateAttraction = role === "admin" || role === "tl-brand";
 
+  // Prevent SSR rendering
+  if (!mounted) {
+    return null;
+  }
+
   // ---------- load / sync ----------
   useEffect(() => {
     setMounted(true);
