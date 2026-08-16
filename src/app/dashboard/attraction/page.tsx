@@ -13,6 +13,8 @@ import {
   CalendarDays,
 } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 interface CustomEvent {
   id: string;
   title: string;
