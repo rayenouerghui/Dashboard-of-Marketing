@@ -34,6 +34,98 @@ interface DayAttraction {
   isPast: boolean;
 }
 
+// ---------- small presentational helpers ----------
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium transition-colors ${
+        active
+          ? "bg-white text-brand-600 shadow-sm dark:bg-gray-700 dark:text-white"
+          : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function Field({
+  label,
+  icon,
+  children,
+}: {
+  label: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+        {icon}
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function LogoOrInitials({ src, name, size = 40 }: { src?: string; name: string; size?: number }) {
+  if (src) {
+    return (
+      <Image
+        src={src}
+        alt={name}
+        width={size}
+        height={size}
+        style={{ width: size, height: size }}
+        className="shrink-0 rounded-full border border-gray-200 object-cover dark:border-gray-600"
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size }}
+      className="flex shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-[11px] font-bold text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
+    >
+      {name.substring(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 py-10 text-center dark:border-gray-700">
+      <CalendarDays className="mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No attractions scheduled yet</p>
+      <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+        Use the form to add the first one
+      </p>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`h-3 w-3 rounded-full ${color}`} />
+      <span className="text-gray-600 dark:text-gray-400">{label}</span>
+    </div>
+  );
+}
+
 const UNIVERSITY_LOGOS = [
   "ECB.png",
   "ENS_Logo_TL.jpg",
@@ -593,98 +685,6 @@ export default function AttractionPage() {
           {toast}
         </div>
       )}
-    </div>
-  );
-}
-
-// ---------- small presentational helpers ----------
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-md px-3.5 py-2 text-sm font-medium transition-colors ${
-        active
-          ? "bg-white text-brand-600 shadow-sm dark:bg-gray-700 dark:text-white"
-          : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-function Field({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-        {icon}
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function LogoOrInitials({ src, name, size = 40 }: { src?: string; name: string; size?: number }) {
-  if (src) {
-    return (
-      <Image
-        src={src}
-        alt={name}
-        width={size}
-        height={size}
-        style={{ width: size, height: size }}
-        className="shrink-0 rounded-full border border-gray-200 object-cover dark:border-gray-600"
-      />
-    );
-  }
-  return (
-    <div
-      style={{ width: size, height: size }}
-      className="flex shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-[11px] font-bold text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300"
-    >
-      {name.substring(0, 2).toUpperCase()}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 py-10 text-center dark:border-gray-700">
-      <CalendarDays className="mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
-      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No attractions scheduled yet</p>
-      <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
-        Use the form to add the first one
-      </p>
-    </div>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className={`h-3 w-3 rounded-full ${color}`} />
-      <span className="text-gray-600 dark:text-gray-400">{label}</span>
     </div>
   );
 }
