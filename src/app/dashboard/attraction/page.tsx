@@ -10,12 +10,12 @@ export const runtime = 'nodejs';
 
 // Simple placeholder for Image to avoid SSR issues
 const SafeImage = ({ src, alt, width, height, className, style }: any) => {
+  if (typeof window === 'undefined') return <div className={className} style={style} />;
   return <img src={src} alt={alt} width={width} height={height} className={className} style={style} />;
 };
 
 // Simple SVG icons to avoid lucide-react SSR issues
 const CalendarPlus = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -29,7 +29,6 @@ const CalendarPlus = ({ className }: { className?: string }) => {
 };
 
 const LayoutList = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -43,7 +42,6 @@ const LayoutList = ({ className }: { className?: string }) => {
 };
 
 const Trash2 = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 6h18"></path>
@@ -56,7 +54,6 @@ const Trash2 = ({ className }: { className?: string }) => {
 };
 
 const Check = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12"></polyline>
@@ -65,7 +62,6 @@ const Check = ({ className }: { className?: string }) => {
 };
 
 const MapPin = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
@@ -75,7 +71,6 @@ const MapPin = ({ className }: { className?: string }) => {
 };
 
 const StickyNote = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"></path>
@@ -85,7 +80,6 @@ const StickyNote = ({ className }: { className?: string }) => {
 };
 
 const Building2 = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path>
@@ -100,7 +94,6 @@ const Building2 = ({ className }: { className?: string }) => {
 };
 
 const CalendarDays = ({ className }: { className?: string }) => {
-  if (typeof window === 'undefined') return null;
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -268,14 +261,9 @@ export default function AttractionPage() {
 
   const canCreateAttraction = role === "admin" || role === "tl-brand";
 
-  // Prevent SSR rendering completely
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  // Prevent SSR rendering
+  // Prevent SSR rendering - return simple placeholder during build
   if (!mounted) {
-    return null;
+    return <div className="p-6">Loading...</div>;
   }
 
   // ---------- load / sync ----------
