@@ -6,7 +6,6 @@ import {
   CalendarPlus,
   LayoutList,
   Trash2,
-  X,
   Check,
   MapPin,
   StickyNote,
