@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     return config;
   },
 
+  turbopack: {},
+
   allowedDevOrigins: ["169.254.130.146"],
 };
 
