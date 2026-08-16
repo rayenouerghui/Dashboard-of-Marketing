@@ -1,12 +1,17 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 export const maxDuration = 60;
+export const runtime = 'nodejs';
+
+// Simple placeholder for Image to avoid SSR issues
+const SafeImage = ({ src, alt, width, height, className, style }: any) => {
+  return <img src={src} alt={alt} width={width} height={height} className={className} style={style} />;
+};
 
 // Simple SVG icons to avoid lucide-react SSR issues
 const CalendarPlus = ({ className }: { className?: string }) => (
@@ -160,7 +165,7 @@ function Field({
 function LogoOrInitials({ src, name, size = 40 }: { src?: string; name: string; size?: number }) {
   if (src) {
     return (
-      <Image
+      <SafeImage
         src={src}
         alt={name}
         width={size}
@@ -506,7 +511,7 @@ export default function AttractionPage() {
                               : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
                           }`}
                         >
-                          <Image
+                          <SafeImage
                             src={path}
                             alt={logo}
                             width={32}
