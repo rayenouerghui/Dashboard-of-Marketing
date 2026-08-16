@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { MapPin, CalendarDays } from "lucide-react";
 
+export const dynamic = 'force-dynamic';
+
 const STORAGE_KEY = "customCalendarEvents";
 
 interface CustomEvent {
