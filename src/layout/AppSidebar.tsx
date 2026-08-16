@@ -1,9 +1,11 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
+import { LoginModal } from "@/components/auth/LoginModal";
+import { useAuth } from "@/context/AuthContext";
 import {
   CalenderIcon,
   ChevronDownIcon,
@@ -24,13 +26,20 @@ type NavItem = {
   subItems?: { name: string; path: string }[];
 };
 
+const memberNavItems: NavItem[] = [
+  { icon: <GridIcon />, name: "Today Attraction", path: "/member-dashboard" },
+  { icon: <CalenderIcon />, name: "Attraction Timeline", path: "/member-dashboard/timeline" },
+  { icon: <PieChartIcon />, name: "Ranking", path: "/member-dashboard/ranking" },
+];
+
 const navItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <UserCircleIcon />, name: "Universities", path: "/dashboard/universities" },
-  { icon: <ListIcon />, name: "Digital Leads", path: "/dashboard/leads" },
+  { icon: <PieChartIcon />, name: "Conversion Rate", path: "/dashboard/conversion-rate" },
+  { icon: <ListIcon />, name: "Digital Attraction", path: "/dashboard/digital-attraction" },
   { icon: <PieChartIcon />, name: "Physical Attractions", path: "/dashboard/physical-attraction" },
   { icon: <CalenderIcon />, name: "Timeline Attraction", path: "/dashboard/timeline" },
-  { icon: <CalenderIcon />, name: "Calendar", path: "/dashboard/calendar" },
+  { icon: <CalenderIcon />, name: "Attraction Management", path: "/dashboard/attraction" },
   { icon: <PieChartIcon />, name: "Ranking Attraction", path: "/dashboard/ranking" },
   { icon: <TaskIcon />, name: "Booking Post", path: "/dashboard/booking-post" },
 ];
@@ -44,29 +53,30 @@ const othersItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
+  const { role } = useAuth();
   const [openSubmenu, setOpenSubmenu] = useState<{ type: "main" | "others"; index: number } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [, setLogoClicks] = useState(0);
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const isActive = useCallback((path: string) => path === pathname, [pathname]);
 
-  useEffect(() => {
-    let matched = false;
-    ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((sub) => {
-            if (isActive(sub.path)) {
-              setOpenSubmenu({ type: menuType as "main" | "others", index });
-              matched = true;
-            }
-          });
+  const activeSubmenu = useMemo(() => {
+    for (const [menuType, items] of [
+      ["main", navItems],
+      ["others", othersItems],
+    ] as const) {
+      for (const [index, nav] of items.entries()) {
+        if (nav.subItems?.some((sub) => isActive(sub.path))) {
+          return { type: menuType, index } as { type: "main" | "others"; index: number };
         }
-      });
-    });
-    if (!matched) setOpenSubmenu(null);
-  }, [pathname, isActive]);
+      }
+    }
+    return null;
+  }, [isActive]);
+
+  const activeMenuState = openSubmenu ?? activeSubmenu;
 
   useEffect(() => {
     if (openSubmenu !== null) {
@@ -83,6 +93,20 @@ const AppSidebar: React.FC = () => {
     );
   };
 
+  const handleLogoClick = () => {
+    setLogoClicks((prev) => {
+      const next = prev + 1;
+      if (next >= 5) {
+        setIsLoginOpen(true);
+        return 0;
+      }
+      return next;
+    });
+  };
+
+  const visibleNavItems = role === "member" ? memberNavItems : navItems;
+  const visibleOthersItems = role === "member" ? [] : othersItems;
+
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
@@ -91,15 +115,15 @@ const AppSidebar: React.FC = () => {
             <button
               onClick={() => handleSubmenuToggle(index, menuType)}
               className={`menu-item group ${
-                openSubmenu?.type === menuType && openSubmenu?.index === index ? "menu-item-active" : "menu-item-inactive"
+                activeMenuState?.type === menuType && activeMenuState?.index === index ? "menu-item-active" : "menu-item-inactive"
               } cursor-pointer ${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}
             >
-              <span className={openSubmenu?.type === menuType && openSubmenu?.index === index ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
+              <span className={activeMenuState?.type === menuType && activeMenuState?.index === index ? "menu-item-icon-active" : "menu-item-icon-inactive"}>
                 {nav.icon}
               </span>
               {(isExpanded || isHovered || isMobileOpen) && <span className="menu-item-text">{nav.name}</span>}
               {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon className={`ml-auto w-5 h-5 transition-transform duration-200 ${openSubmenu?.type === menuType && openSubmenu?.index === index ? "rotate-180 text-brand-500" : ""}`} />
+                <ChevronDownIcon className={`ml-auto w-5 h-5 transition-transform duration-200 ${activeMenuState?.type === menuType && activeMenuState?.index === index ? "rotate-180 text-brand-500" : ""}`} />
               )}
             </button>
           ) : (
@@ -114,7 +138,7 @@ const AppSidebar: React.FC = () => {
             <div
               ref={(el) => { subMenuRefs.current[`${menuType}-${index}`] = el; }}
               className="overflow-hidden transition-all duration-300"
-              style={{ height: openSubmenu?.type === menuType && openSubmenu?.index === index ? `${subMenuHeight[`${menuType}-${index}`]}px` : "0px" }}
+              style={{ height: activeMenuState?.type === menuType && activeMenuState?.index === index ? `${subMenuHeight[`${menuType}-${index}`]}px` : "0px" }}
             >
               <ul className="mt-2 space-y-1 ml-9">
                 {nav.subItems.map((sub) => (
@@ -142,7 +166,7 @@ const AppSidebar: React.FC = () => {
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
-        <Link href="/dashboard">
+        <button type="button" onClick={handleLogoClick} className="cursor-pointer">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <div className="dark:hidden">
@@ -155,7 +179,7 @@ const AppSidebar: React.FC = () => {
           ) : (
             <Image src="/images/logo/aiesec-logo-dark.png" alt="AIESEC" width={32} height={32} loading="eager" />
           )}
-        </Link>
+        </button>
       </div>
 
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
@@ -165,13 +189,13 @@ const AppSidebar: React.FC = () => {
               <h2 className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
                 {isExpanded || isHovered || isMobileOpen ? "Main" : <HorizontaLDots />}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(visibleNavItems, "main")}
             </div>
             <div>
               <h2 className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
                 {isExpanded || isHovered || isMobileOpen ? "Management" : <HorizontaLDots />}
               </h2>
-              {renderMenuItems(othersItems, "others")}
+              {renderMenuItems(visibleOthersItems, "others")}
             </div>
           </div>
         </nav>
@@ -186,6 +210,8 @@ const AppSidebar: React.FC = () => {
           </div>
         )}
       </div>
+
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
     </aside>
   );
 };

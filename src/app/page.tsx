@@ -1,12 +1,17 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function LandingPage() {
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+  }, []);
 
   const handleEnter = () => {
-    router.push("/dashboard");
+    router.push("/member-dashboard");
   };
 
   return (
@@ -15,13 +20,14 @@ export default function LandingPage() {
       onClick={handleEnter}
     >
       <video
+        key={isMobile ? "phone" : "desktop"}
         autoPlay
         loop
         muted
         playsInline
         className="w-full h-full object-contain max-w-screen max-h-screen"
       >
-        <source src="/welcome-video.mp4" type="video/mp4" />
+        <source src={isMobile ? "/welcome-video-phone.mp4" : "/welcome-video.mp4"} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
       
@@ -32,3 +38,4 @@ export default function LandingPage() {
     </div>
   );
 }
+

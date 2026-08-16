@@ -9,16 +9,7 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
-    
-    turbopack: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
-  
+
   allowedDevOrigins: ["169.254.130.146"],
 };
 

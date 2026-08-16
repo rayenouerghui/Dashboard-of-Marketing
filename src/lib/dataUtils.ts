@@ -188,11 +188,22 @@ export const getDashboardStats = () => {
 // ─── University Stats ──────────────────────────────────────────────────────────
 
 export const getUniversityStats = () => {
-  const leads = getDigitalLeads();
+  const digitalLeads = getDigitalLeads();
+  const physicalLeads = getPhysicalAttractionLeads();
 
-  const universityData = leads.reduce((acc, lead) => {
-    if (!acc[lead.university]) {
-      acc[lead.university] = {
+  const universityData: Record<string, {
+    name: string;
+    totalLeads: number;
+    volunteering: number;
+    professional: number;
+    teaching: number;
+    successfulAccounts: number;
+  }> = {};
+
+  // Process digital leads
+  digitalLeads.forEach((lead) => {
+    if (!universityData[lead.university]) {
+      universityData[lead.university] = {
         name: lead.university,
         totalLeads: 0,
         volunteering: 0,
@@ -201,20 +212,28 @@ export const getUniversityStats = () => {
         successfulAccounts: 0,
       };
     }
-    acc[lead.university].totalLeads++;
-    if (lead.volunteering) acc[lead.university].volunteering++;
-    if (lead.professional) acc[lead.university].professional++;
-    if (lead.teaching) acc[lead.university].teaching++;
-    if (lead.accountStatus.includes('✅')) acc[lead.university].successfulAccounts++;
-    return acc;
-  }, {} as Record<string, {
-    name: string;
-    totalLeads: number;
-    volunteering: number;
-    professional: number;
-    teaching: number;
-    successfulAccounts: number;
-  }>);
+    universityData[lead.university].totalLeads++;
+    if (lead.volunteering) universityData[lead.university].volunteering++;
+    if (lead.professional) universityData[lead.university].professional++;
+    if (lead.teaching) universityData[lead.university].teaching++;
+    if (lead.accountStatus.includes('✅')) universityData[lead.university].successfulAccounts++;
+  });
+
+  // Add physical leads to university data
+  physicalLeads.forEach((lead) => {
+    if (!universityData[lead.university]) {
+      universityData[lead.university] = {
+        name: lead.university,
+        totalLeads: 0,
+        volunteering: 0,
+        professional: 0,
+        teaching: 0,
+        successfulAccounts: 0,
+      };
+    }
+    universityData[lead.university].totalLeads++;
+    if (lead.accountStatus.includes('Account created')) universityData[lead.university].successfulAccounts++;
+  });
 
   return Object.values(universityData).sort((a, b) => b.totalLeads - a.totalLeads);
 };

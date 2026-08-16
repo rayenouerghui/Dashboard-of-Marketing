@@ -1,17 +1,29 @@
 "use client";
 
+import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
-import React from "react";
+import { useRouter, usePathname } from "next/navigation";
+import React, { useEffect } from "react";
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { role } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+
+  useEffect(() => {
+    // Members must not access any /dashboard/* route
+    if (role === "member") {
+      router.replace("/member-dashboard");
+    }
+  }, [role, router]);
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
@@ -32,7 +44,7 @@ export default function AdminLayout({
         {/* Header */}
         <AppHeader />
         {/* Page Content */}
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
+        <div className="p-4 mx-auto max-w-[--breakpoint-2xl] md:p-6">{children}</div>
       </div>
     </div>
   );

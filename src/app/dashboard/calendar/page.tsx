@@ -1,10 +1,13 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import Image from "next/image";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import type { EventClickArg } from "@fullcalendar/core";
 import { getPhysicalAttractionLeads } from "@/lib/dataUtils";
 import { PhysicalAttractionLead } from "@/lib/dataUtils";
+import { useAuth } from "@/context/AuthContext";
 
 interface CalendarEvent {
   id?: string;
@@ -16,7 +19,6 @@ interface CalendarEvent {
     university: string;
     universityLogo?: string;
     note?: string;
-    attractionType: string;
     personResponsible?: string;
     firstName?: string;
     lastName?: string;
@@ -34,12 +36,26 @@ interface ModalProps {
   mode: "add" | "edit";
 }
 
-const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDelete, event, mode }) => {
-  const [formData, setFormData] = useState({
+const getInitialFormData = (event?: CalendarEvent, mode: "add" | "edit" = "add") => {
+  if (event && mode === "edit") {
+    return {
+      date: event.start || new Date().toISOString().split("T")[0],
+      university: event.extendedProps.university || "",
+      universityLogo: event.extendedProps.universityLogo || "",
+      note: event.extendedProps.note || "",
+    };
+  }
+
+  return {
+    date: event?.start || new Date().toISOString().split("T")[0],
     university: "",
     universityLogo: "",
     note: "",
-  });
+  };
+};
+
+const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDelete, event, mode }) => {
+  const [formData, setFormData] = useState(() => getInitialFormData(event, mode));
 
   const universityLogos = [
     "ECB.png",
@@ -58,29 +74,18 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
     "iset chargia.jpg",
   ];
 
-  useEffect(() => {
-    if (event && mode === "edit") {
-      setFormData({
-        university: event.extendedProps.university || "",
-        universityLogo: event.extendedProps.universityLogo || "",
-        note: event.extendedProps.note || "",
-      });
-    }
-  }, [event, mode]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newEvent: CalendarEvent = {
       id: event?.id,
       title: `${formData.university} - Physical Attraction`,
-      start: event?.start || new Date().toISOString().split('T')[0],
+      start: formData.date,
       backgroundColor: "#465FFF",
       borderColor: "#465FFF",
       extendedProps: {
         university: formData.university,
         universityLogo: formData.universityLogo,
         note: formData.note,
-        attractionType: "Physical Attraction",
       },
     };
     onSave(newEvent);
@@ -97,6 +102,19 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
         </h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Date
+            </label>
+            <input
+              type="date"
+              required
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
               University Name
@@ -128,10 +146,12 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
             </select>
             {formData.universityLogo && (
               <div className="mt-2 flex items-center gap-2">
-                <img
+                <Image
                   src={formData.universityLogo}
                   alt="University Logo Preview"
-                  className="h-12 w-12 object-contain rounded border border-gray-200 dark:border-gray-700"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 rounded border border-gray-200 object-contain dark:border-gray-700"
                 />
                 <span className="text-xs text-gray-500 dark:text-gray-400">Preview</span>
               </div>
@@ -155,7 +175,7 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
               type="submit"
               className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
             >
-              {mode === "add" ? "Add" : "Save"}
+              {mode === "add" ? "Add attraction" : "Save changes"}
             </button>
             <button
               type="button"
@@ -184,76 +204,85 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
 };
 
 export default function CalendarPage() {
+  const { role } = useAuth();
   const physicalLeads = getPhysicalAttractionLeads();
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [customEvents, setCustomEvents] = useState<CalendarEvent[]>([]);
+  const [customEvents, setCustomEvents] = useState<CalendarEvent[]>(() => {
+    if (typeof window === "undefined") return [];
+
+    try {
+      const saved = localStorage.getItem("customCalendarEvents");
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error("Failed to parse custom events from localStorage", error);
+      return [];
+    }
+  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | undefined>();
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load custom events from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("customCalendarEvents");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setCustomEvents(parsed);
-      } catch (e) {
-        console.error("Failed to parse custom events from localStorage", e);
-        setCustomEvents([]);
-      }
-    }
-    setIsLoaded(true);
-  }, []);
+  const canCreateAttraction = role === "admin" || role === "tl-brand";
 
-  // Save custom events to localStorage (only after initial load)
   useEffect(() => {
-    if (!isLoaded) return; // Don't save during initial load
-    
     try {
       localStorage.setItem("customCalendarEvents", JSON.stringify(customEvents));
-    } catch (e) {
-      console.error("Failed to save custom events to localStorage", e);
+    } catch (error) {
+      console.error("Failed to save custom events to localStorage", error);
     }
-  }, [customEvents, isLoaded]);
+  }, [customEvents]);
 
-  useEffect(() => {
-    // Convert physical attraction leads to calendar events
-    const calendarEvents = physicalLeads.map((lead: PhysicalAttractionLead) => {
-      const date = new Date(lead.submittedAt);
-      return {
-        id: `lead-${lead.expaId}`,
-        title: `${lead.university.split(':')[0]?.trim() || lead.university} - ${lead.internshipType}`,
-        start: date.toISOString().split('T')[0],
-        backgroundColor: lead.accountStatus.includes('✅') ? '#10B981' : '#F59E0B',
-        borderColor: lead.accountStatus.includes('✅') ? '#10B981' : '#F59E0B',
-        extendedProps: {
-          university: lead.university,
-          internshipType: lead.internshipType,
-          referral: lead.referral,
-          firstName: lead.firstName,
-          lastName: lead.lastName,
-          email: lead.email,
-          accountStatus: lead.accountStatus,
-          attractionType: lead.internshipType,
-        }
-      };
-    });
+  const calendarEvents = useMemo(
+    () =>
+      physicalLeads.map((lead: PhysicalAttractionLead) => {
+        const date = new Date(lead.submittedAt);
+        return {
+          id: `lead-${lead.expaId}`,
+          title: `${lead.university.split(":")[0]?.trim() || lead.university} - ${lead.internshipType}`,
+          start: date.toISOString().split("T")[0],
+          backgroundColor: lead.accountStatus.includes("✅") ? "#10B981" : "#F59E0B",
+          borderColor: lead.accountStatus.includes("✅") ? "#10B981" : "#F59E0B",
+          extendedProps: {
+            university: lead.university,
+            internshipType: lead.internshipType,
+            referral: lead.referral,
+            firstName: lead.firstName,
+            lastName: lead.lastName,
+            email: lead.email,
+            accountStatus: lead.accountStatus,
+            attractionType: lead.internshipType,
+          },
+        };
+      }),
+    [physicalLeads],
+  );
 
-    setEvents([...calendarEvents, ...customEvents]);
-  }, [physicalLeads, customEvents]);
+  const events = useMemo(() => [...calendarEvents, ...customEvents], [calendarEvents, customEvents]);
 
-  const handleDateClick = (arg: any) => {
+  const handleDateClick = (arg: { dateStr: string }) => {
+    if (!canCreateAttraction) return;
     setSelectedDate(arg.dateStr);
     setSelectedEvent(undefined);
     setModalMode("add");
     setIsModalOpen(true);
   };
 
-  const handleEventClick = (info: any) => {
+  const handleEventClick = (info: EventClickArg) => {
     const event = info.event;
+    const eventExtendedProps = event.extendedProps as {
+      university?: string;
+      universityLogo?: string;
+      note?: string;
+      attractionType?: string;
+      personResponsible?: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      accountStatus?: string;
+      internshipType?: string;
+      referral?: string;
+    };
+
     // Check if it's a custom event (starts with "custom-")
     if (event.id?.startsWith("custom-")) {
       setSelectedEvent({
@@ -262,20 +291,28 @@ export default function CalendarPage() {
         start: event.startStr,
         backgroundColor: event.backgroundColor,
         borderColor: event.borderColor,
-        extendedProps: event.extendedProps,
+        extendedProps: {
+          university: eventExtendedProps.university || "",
+          universityLogo: eventExtendedProps.universityLogo,
+          note: eventExtendedProps.note,
+          personResponsible: eventExtendedProps.personResponsible,
+          firstName: eventExtendedProps.firstName,
+          lastName: eventExtendedProps.lastName,
+          email: eventExtendedProps.email,
+          accountStatus: eventExtendedProps.accountStatus,
+        },
       });
       setModalMode("edit");
       setIsModalOpen(true);
     } else {
-      // Show lead details for existing leads
-      const props = event.extendedProps;
+      const props = eventExtendedProps;
       alert(`
-University: ${props.university}
-Internship Type: ${props.internshipType}
-Referral: ${props.referral}
-Name: ${props.firstName} ${props.lastName}
-Email: ${props.email}
-Status: ${props.accountStatus}
+University: ${props.university || "N/A"}
+Internship Type: ${props.internshipType || "N/A"}
+Referral: ${props.referral || "N/A"}
+Name: ${props.firstName || ""} ${props.lastName || ""}
+Email: ${props.email || "N/A"}
+Status: ${props.accountStatus || "N/A"}
       `);
     }
   };
@@ -283,15 +320,15 @@ Status: ${props.accountStatus}
   const handleSaveEvent = (event: CalendarEvent) => {
     if (modalMode === "add") {
       const newEvent = { ...event, id: `custom-${Date.now()}` };
-      setCustomEvents([...customEvents, newEvent]);
+      setCustomEvents((previous) => [...previous, newEvent]);
     } else {
-      setCustomEvents(customEvents.map(e => e.id === event.id ? event : e));
+      setCustomEvents((previous) => previous.map((e) => (e.id === event.id ? event : e)));
     }
   };
 
   const handleDeleteEvent = () => {
     if (selectedEvent?.id) {
-      setCustomEvents(customEvents.filter(e => e.id !== selectedEvent.id));
+      setCustomEvents((previous) => previous.filter((e) => e.id !== selectedEvent.id));
     }
   };
 
@@ -303,9 +340,25 @@ Status: ${props.accountStatus}
             Calendar
           </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Track attraction days and events. Click a date to add an attraction.
+            Track attraction days and events. Click any date to add one or more attractions for that day.
           </p>
         </div>
+        {canCreateAttraction && (
+          <button
+            onClick={() => {
+              setSelectedDate(new Date().toISOString().split("T")[0]);
+              setSelectedEvent(undefined);
+              setModalMode("add");
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Attraction
+          </button>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -350,7 +403,7 @@ Status: ${props.accountStatus}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
-        event={selectedEvent ? { ...selectedEvent, start: selectedDate } : undefined}
+        event={selectedEvent ? { ...selectedEvent, start: selectedDate || selectedEvent.start } : { id: undefined, title: "", start: selectedDate || new Date().toISOString().split("T")[0], backgroundColor: "#465FFF", borderColor: "#465FFF", extendedProps: { university: "" } }}
         mode={modalMode}
       />
     </div>

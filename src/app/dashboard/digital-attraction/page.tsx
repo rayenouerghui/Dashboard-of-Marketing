@@ -1,12 +1,17 @@
-﻿"use client";
-import React, { useMemo, useState } from "react";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
+"use client";
+import React, { useState, useMemo } from "react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
-import { getPhysicalUniversityStats, getPhysicalConversionStats, formatRate } from "@/data/stats";
-import { getPhysicalAttractionLeads, PhysicalAttractionLead } from "@/lib/dataUtils";
+import { getDigitalUniversityStats, getDigitalConversionStats, formatRate } from "@/data/stats";
+import { getDigitalLeads, Lead } from "@/lib/dataUtils";
 
 const PAGE_SIZES = [25, 50, 100];
-type View = "leads" | "universities";
 
 function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "green" }) {
   const bg = color === "green" ? "bg-green-500" : "bg-blue-500";
@@ -20,45 +25,48 @@ function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "g
   );
 }
 
-export default function PhysicalAttractionPage() {
-  const allLeads = getPhysicalAttractionLeads();
-  const universityStats = useMemo(() => getPhysicalUniversityStats(), []);
+type View = "leads" | "universities";
+
+export default function DigitalAttractionPage() {
+  const allLeads = getDigitalLeads();
+  const universityStats = useMemo(() => getDigitalUniversityStats(), []);
 
   const [view, setView] = useState<View>("leads");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterLevel, setFilterLevel] = useState("all");
+  const [filterType, setFilterType] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [uniSearch, setUniSearch] = useState("");
   const [uniSort, setUniSort] = useState<"total" | "applicationRate" | "approvalRate">("total");
 
-  const filteredLeads = useMemo(
-    () =>
-      allLeads.filter((lead: PhysicalAttractionLead) => {
-        const q = searchTerm.toLowerCase();
-        const matchesSearch =
-          !q ||
-          lead.firstName.toLowerCase().includes(q) ||
-          lead.lastName.toLowerCase().includes(q) ||
-          lead.email.toLowerCase().includes(q) ||
-          lead.university.toLowerCase().includes(q);
-        const matchesStatus =
-          filterStatus === "all" ||
-          (filterStatus === "created" && lead.accountStatus.includes("check")) ||
-          (filterStatus === "existing" && lead.accountStatus.includes("warning"));
-        const matchesLevel = filterLevel === "all" || lead.universityLevel === filterLevel;
-        return matchesSearch && matchesStatus && matchesLevel;
-      }),
-    [allLeads, searchTerm, filterStatus, filterLevel]
-  );
+  const internshipTypes = useMemo(() => {
+    const types = new Set<string>();
+    allLeads.forEach((l) => l.internshipType.split(",").forEach((t) => types.add(t.trim())));
+    return [...types].filter(Boolean).sort();
+  }, [allLeads]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
-  const paginatedLeads = filteredLeads.slice((page - 1) * pageSize, page * pageSize);
-  const universityLevels = useMemo(
-    () => [...new Set(allLeads.map((l) => l.universityLevel))].filter(Boolean).sort(),
-    [allLeads]
-  );
+  const filtered = useMemo(() => {
+    return allLeads.filter((lead: Lead) => {
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        lead.firstName.toLowerCase().includes(q) ||
+        lead.lastName.toLowerCase().includes(q) ||
+        lead.email.toLowerCase().includes(q) ||
+        lead.university.toLowerCase().includes(q) ||
+        lead.phone.includes(q);
+      const matchStatus =
+        filterStatus === "all" ||
+        (filterStatus === "created" && lead.accountStatus.includes("✅")) ||
+        (filterStatus === "existing" && lead.accountStatus.includes("⚠️"));
+      const matchType = filterType === "all" || lead.internshipType.includes(filterType);
+      return matchSearch && matchStatus && matchType;
+    });
+  }, [allLeads, search, filterStatus, filterType]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const filteredUnis = useMemo(() => {
     const q = uniSearch.toLowerCase();
@@ -70,15 +78,15 @@ export default function PhysicalAttractionPage() {
     });
   }, [universityStats, uniSearch, uniSort]);
 
-  function reset<T>(setter: (v: T) => void, val: T) { setter(val); setPage(1); }
+  function handleFilterChange(setter: (v: string) => void, val: string) {
+    setter(val);
+    setPage(1);
+  }
 
-  const stats = {
-    total: allLeads.length,
-    created: allLeads.filter((l) => l.accountStatus.includes("Account created")).length,
-    existing: allLeads.filter((l) => l.accountStatus.includes("already exists")).length,
-  };
-  const physicalStats = getPhysicalConversionStats();
-  const successRate = physicalStats.conversionRate.toFixed(1);
+  const created = filtered.filter((l) => l.accountStatus.includes("✅")).length;
+  const existing = filtered.filter((l) => l.accountStatus.includes("⚠️")).length;
+  const digitalStats = getDigitalConversionStats();
+  const successRate = digitalStats.conversionRate.toFixed(1);
 
   return (
     <div className="space-y-6">
@@ -87,28 +95,34 @@ export default function PhysicalAttractionPage() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-brand-500 dark:text-brand-400">
             Attraction overview
           </p>
-          <h1 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">Physical Attractions</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Leads from physical attraction campaigns</p>
+          <h1 className="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">Digital Attraction</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            National OGX sign-ups — conversion stats and referral rankings
+          </p>
         </div>
 
-        <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
-          <span className="h-2 w-2 rounded-full bg-blue-500" />
-          {filteredLeads.length} active leads
+        <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
+          <span className="h-2 w-2 rounded-full bg-green-500" />
+          {filtered.length} active signups
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Total Leads</p>
-          <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Total Signups</p>
+          <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{filtered.length}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">New Accounts</p>
-          <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">{stats.created}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Accounts Created</p>
+          <p className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">{created}</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Existing Accounts</p>
-          <p className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.existing}</p>
+          <p className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">{existing}</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Success Rate</p>
+          <p className="mt-2 text-2xl font-bold text-brand-600 dark:text-brand-400">{successRate}%</p>
         </div>
       </div>
 
@@ -150,6 +164,7 @@ export default function PhysicalAttractionPage() {
               <option value="approvalRate">Sort by Approval Rate</option>
             </select>
           </div>
+
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
             <div className="max-w-full overflow-x-auto">
               <Table>
@@ -170,7 +185,7 @@ export default function PhysicalAttractionPage() {
                       <TableCell className="py-3 text-gray-400 text-theme-xs dark:text-gray-600">{idx + 1}</TableCell>
                       <TableCell className="py-3">
                         <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">{uni.shortName}</p>
-                        <p className="max-w-xs truncate text-xs text-gray-400 dark:text-gray-500">{uni.name}</p>
+                        <p className="max-w-[240px] truncate text-xs text-gray-400 dark:text-gray-500">{uni.name}</p>
                       </TableCell>
                       <TableCell className="py-3 text-gray-600 text-theme-sm dark:text-gray-400">{uni.total}</TableCell>
                       <TableCell className="py-3 text-blue-600 text-theme-sm font-semibold dark:text-blue-400">{uni.applications}</TableCell>
@@ -191,28 +206,28 @@ export default function PhysicalAttractionPage() {
           <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] sm:flex-row sm:items-center">
             <input
               type="text"
-              placeholder="Search name, email, university..."
-              value={searchTerm}
-              onChange={(e) => reset(setSearchTerm, e.target.value)}
+              placeholder="Search name, email, university, phone…"
+              value={search}
+              onChange={(e) => handleFilterChange(setSearch, e.target.value)}
               className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:placeholder:text-gray-500 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
             />
             <select
               value={filterStatus}
-              onChange={(e) => reset(setFilterStatus, e.target.value)}
+              onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
             >
-              <option value="all">All Status</option>
-              <option value="created">Created</option>
-              <option value="existing">Exists</option>
+              <option value="all">All Statuses</option>
+              <option value="created">Created ✅</option>
+              <option value="existing">Exists ⚠️</option>
             </select>
             <select
-              value={filterLevel}
-              onChange={(e) => reset(setFilterLevel, e.target.value)}
+              value={filterType}
+              onChange={(e) => handleFilterChange(setFilterType, e.target.value)}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
             >
-              <option value="all">All Levels</option>
-              {universityLevels.map((level) => (
-                <option key={level} value={level}>{level}</option>
+              <option value="all">All Types</option>
+              {internshipTypes.map((t) => (
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
             <select
@@ -220,12 +235,14 @@ export default function PhysicalAttractionPage() {
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
             >
-              {PAGE_SIZES.map((s) => <option key={s} value={s}>{s} / page</option>)}
+              {PAGE_SIZES.map((s) => (
+                <option key={s} value={s}>{s} / page</option>
+              ))}
             </select>
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {filteredLeads.length} result{filteredLeads.length !== 1 ? "s" : ""} — conversion rate:{" "}
+            {filtered.length} result{filtered.length !== 1 ? "s" : ""} — account creation rate: {" "}
             <strong className="text-gray-700 dark:text-gray-200">{successRate}%</strong>
           </p>
 
@@ -234,40 +251,61 @@ export default function PhysicalAttractionPage() {
               <Table>
                 <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                   <TableRow>
+                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">#</TableCell>
                     <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Name</TableCell>
                     <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Email</TableCell>
+                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Phone</TableCell>
                     <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">University</TableCell>
-                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Level</TableCell>
-                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Internship</TableCell>
-                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Member</TableCell>
+                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Internship Type</TableCell>
+                    <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Referral</TableCell>
                     <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Status</TableCell>
                     <TableCell isHeader className="py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Date</TableCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {paginatedLeads.map((lead: PhysicalAttractionLead) => (
-                    <TableRow key={lead.submissionId}>
-                      <TableCell className="py-3">
-                        <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">{lead.firstName} {lead.lastName}</p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">{lead.phone}</p>
-                      </TableCell>
-                      <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.email}</TableCell>
-                      <TableCell className="py-3 max-w-[160px] text-gray-500 text-theme-sm dark:text-gray-400">
-                        <span title={lead.university}>{lead.university.split(":")[0].trim()}</span>
-                      </TableCell>
-                      <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.universityLevel}</TableCell>
-                      <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.internshipType}</TableCell>
-                      <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.memberName || "—"}</TableCell>
-                      <TableCell className="py-3">
-                        <Badge size="sm" color={lead.accountStatus.includes("created") ? "success" : "warning"}>
-                          {lead.accountStatus.includes("created") ? "Created" : "Exists"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-3 whitespace-nowrap text-gray-500 text-theme-sm dark:text-gray-400">
-                        {new Date(lead.submittedAt).toLocaleDateString("en-GB")}
-                      </TableCell>
+                  {paginated.length === 0 ? (
+                    <TableRow>
+                      <td className="py-8 text-center text-gray-400 dark:text-gray-500" colSpan={9}>
+                        No leads match your filters.
+                      </td>
                     </TableRow>
-                  ))}
+                  ) : (
+                    paginated.map((lead: Lead, idx: number) => (
+                      <TableRow key={lead.submissionId}>
+                        <TableCell className="py-3 text-gray-400 text-theme-xs dark:text-gray-600">
+                          {(page - 1) * pageSize + idx + 1}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <p className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                            {lead.firstName} {lead.lastName}
+                          </p>
+                        </TableCell>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.email}</TableCell>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.phone || "—"}</TableCell>
+                        <TableCell className="py-3 max-w-[200px] truncate text-gray-500 text-theme-sm dark:text-gray-400">
+                          {lead.university.split(":")[0].trim()}
+                        </TableCell>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">
+                          <div className="flex flex-wrap gap-1">
+                            {lead.internshipType.split(",").map((t) => (
+                              <span key={t} className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                {t.trim().replace(" Internship", "")}
+                              </span>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 text-gray-500 text-theme-sm dark:text-gray-400">{lead.referral}</TableCell>
+                        <TableCell className="py-3">
+                          <Badge size="sm" color={lead.accountStatus.includes("✅") ? "success" : "warning"}>
+                            {lead.accountStatus.includes("✅") ? "Created" : "Exists"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-3 whitespace-nowrap text-gray-500 text-theme-sm dark:text-gray-400">
+                          {new Date(lead.submittedAt).toLocaleDateString("en-GB")}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -275,26 +313,39 @@ export default function PhysicalAttractionPage() {
 
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Showing {Math.min((page - 1) * pageSize + 1, filteredLeads.length)}-{Math.min(page * pageSize, filteredLeads.length)} of {filteredLeads.length}
+              Showing {Math.min((page - 1) * pageSize + 1, filtered.length)}–{Math.min(page * pageSize, filtered.length)} of {filtered.length} leads
             </p>
             <div className="flex gap-2">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                Prev
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                ← Previous
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const start = Math.max(1, Math.min(page - 2, totalPages - 4));
                 const p = start + i;
                 return (
-                  <button key={p} onClick={() => setPage(p)}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${page === p ? "bg-brand-500 text-white" : "border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"}`}>
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                      page === p
+                        ? "bg-brand-500 text-white"
+                        : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    }`}
+                  >
                     {p}
                   </button>
                 );
               })}
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                Next
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              >
+                Next →
               </button>
             </div>
           </div>

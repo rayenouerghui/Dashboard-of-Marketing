@@ -6,6 +6,7 @@ import { MoreDotIcon } from "@/icons";
 import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { getDashboardStats } from "@/lib/dataUtils";
+import { useAuth } from "@/context/AuthContext";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -25,6 +26,8 @@ function saveTarget(val: number) {
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function MonthlyTarget() {
   const stats = getDashboardStats();
+  const { role } = useAuth();
+  const canEditGoal = role === "admin";
 
   // Admin-configurable weekly target
   const [weeklyTarget, setWeeklyTarget] = useState<number>(() => loadTarget());
@@ -98,23 +101,25 @@ export default function MonthlyTarget() {
               Leads collected this week vs target
             </p>
           </div>
-          <div className="relative inline-block">
-            <button onClick={() => setIsOpen(!isOpen)} className="dropdown-toggle">
-              <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
-            </button>
-            <Dropdown isOpen={isOpen} onClose={() => setIsOpen(false)} className="w-48 p-2">
-              <DropdownItem
-                onItemClick={() => { setEditing(true); setInputVal(String(weeklyTarget)); setIsOpen(false); }}
-                className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
-              >
-                ✏️ Set Weekly Target
-              </DropdownItem>
-            </Dropdown>
-          </div>
+          {canEditGoal && (
+            <div className="relative inline-block">
+              <button onClick={() => setIsOpen(!isOpen)} className="dropdown-toggle">
+                <MoreDotIcon className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-300" />
+              </button>
+              <Dropdown isOpen={isOpen} onClose={() => setIsOpen(false)} className="w-48 p-2">
+                <DropdownItem
+                  onItemClick={() => { setEditing(true); setInputVal(String(weeklyTarget)); setIsOpen(false); }}
+                  className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
+                >
+                  ✏️ Set Weekly Target
+                </DropdownItem>
+              </Dropdown>
+            </div>
+          )}
         </div>
 
         {/* Inline target editor */}
-        {editing && (
+        {canEditGoal && editing && (
           <div className="mt-4 flex items-center gap-2">
             <label className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
               Target leads / week:
@@ -140,6 +145,12 @@ export default function MonthlyTarget() {
             >
               Cancel
             </button>
+          </div>
+        )}
+
+        {!canEditGoal && (
+          <div className="mt-4 rounded-lg border border-dashed border-gray-300 bg-white/60 px-3 py-2 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/40 dark:text-gray-400">
+            Daily attraction goal is managed by the Admin.
           </div>
         )}
 
