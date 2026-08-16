@@ -10,6 +10,7 @@ export const runtime = 'nodejs';
 
 // Simple placeholder for Image to avoid SSR issues
 const SafeImage = ({ src, alt, width, height, className, style }: any) => {
+  if (typeof window === 'undefined') return null;
   return <img src={src} alt={alt} width={width} height={height} className={className} style={style} />;
 };
 
