@@ -222,7 +222,7 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | undefined>();
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  const canCreateAttraction = role === "admin" || role === "tl-brand";
+  const canCreateAttraction = role === "admin";
 
   useEffect(() => {
     try {

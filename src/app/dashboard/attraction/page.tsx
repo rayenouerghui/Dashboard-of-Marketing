@@ -259,7 +259,7 @@ export default function AttractionPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0);
 
-  const canCreateAttraction = role === "admin" || role === "tl-brand";
+  const canCreateAttraction = role === "admin";
 
   // Prevent SSR rendering - return simple placeholder during build
   if (!mounted) {

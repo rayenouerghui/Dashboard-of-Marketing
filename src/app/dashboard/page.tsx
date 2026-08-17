@@ -16,8 +16,6 @@ export default function Dashboard() {
     switch (role) {
       case "admin":
         return "Welcome Admin";
-      case "tl-brand":
-        return "Welcome TL Brand";
       default:
         return "Welcome";
     }
@@ -31,8 +29,6 @@ export default function Dashboard() {
         <p className="mt-2 text-brand-100">
           {role === "admin" 
             ? "You have full access to all dashboard features and settings."
-            : role === "tl-brand"
-            ? "You have access to brand-related metrics and team management."
             : "Welcome to the AIESEC Operations Dashboard."}
         </p>
       </div>

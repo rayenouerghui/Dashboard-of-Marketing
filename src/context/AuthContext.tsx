@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export type AppRole = "member" | "tl-brand" | "admin";
+export type AppRole = "member" | "admin";
 
 interface AuthContextValue {
   role: AppRole;
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // This means after closing and reopening the browser the user is always
     // back as "member", even if they were logged in before.
     const saved = sessionStorage.getItem(SESSION_KEY);
-    if (saved === "tl-brand" || saved === "admin") {
+    if (saved === "admin") {
       setRoleState(saved);
     }
     // If nothing saved (or "member"), stay as member — no elevation on revisit.
@@ -51,11 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (username: string, password: string) => {
     const u = username.trim().toLowerCase();
     const p = password.trim().toLowerCase();
-
-    if (u === "pizza" && p === "pizza") {
-      setRoleState("tl-brand");
-      return true;
-    }
 
     if (u === "crispy" && p === "crispy") {
       setRoleState("admin");
