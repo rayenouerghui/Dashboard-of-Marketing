@@ -228,12 +228,16 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
                   </div>
 
                   {/* Title */}
-                  <h3 className="mt-2 line-clamp-2 text-[11px] sm:text-base font-semibold leading-tight text-gray-800 dark:text-white transition-colors">
+                  <h3 className={`mt-2 line-clamp-2 font-semibold leading-tight text-gray-800 dark:text-white transition-colors ${
+                    isExpanded ? "text-lg sm:text-xl" : "text-[11px] sm:text-base"
+                  }`}>
                     {opportunity.title}
                   </h3>
 
                   {/* Quick facts — compact icon row */}
-                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                  <div className={`mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-gray-500 dark:text-gray-400 ${
+                    isExpanded ? "text-sm sm:text-base" : "text-[10px] sm:text-xs"
+                  }`}>
                     <span className="inline-flex items-center gap-1">
                       ⏱️ {opportunity.duration}
                     </span>
@@ -262,18 +266,24 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
                   >
                     <div className="overflow-hidden">
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-3 dark:border-gray-800">
-                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 sm:col-span-2">
+                        <div className={`flex items-center gap-2 text-gray-600 dark:text-gray-400 sm:col-span-2 ${
+                          isExpanded ? "text-base sm:text-lg" : "text-xs"
+                        }`}>
                           🌍 {opportunity.country}
                         </div>
 
                         {/* Benefits */}
                         <div>
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                          <p className={`font-medium text-gray-500 dark:text-gray-400 mb-2 ${
+                            isExpanded ? "text-sm sm:text-base" : "text-xs"
+                          }`}>
                             Benefits
                           </p>
                           <ul className="space-y-1">
                             {opportunity.benefits.map((benefit, idx) => (
-                              <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                              <li key={idx} className={`text-gray-600 dark:text-gray-400 flex items-start gap-2 ${
+                                isExpanded ? "text-sm sm:text-base" : "text-xs"
+                              }`}>
                                 <span className="text-green-500 mt-0.5">✓</span>
                                 <span>{benefit}</span>
                               </li>
@@ -283,12 +293,16 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
 
                         {/* Requirements */}
                         <div>
-                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                          <p className={`font-medium text-gray-500 dark:text-gray-400 mb-2 ${
+                            isExpanded ? "text-sm sm:text-base" : "text-xs"
+                          }`}>
                             Requirements
                           </p>
                           <ul className="space-y-1">
                             {opportunity.requirements.map((requirement, idx) => (
-                              <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                              <li key={idx} className={`text-gray-600 dark:text-gray-400 flex items-start gap-2 ${
+                                isExpanded ? "text-sm sm:text-base" : "text-xs"
+                              }`}>
                                 <span className="mt-0.5" style={{ color }}>•</span>
                                 <span>{requirement}</span>
                               </li>
