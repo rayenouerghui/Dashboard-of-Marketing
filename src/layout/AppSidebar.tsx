@@ -17,6 +17,7 @@ import {
   GroupIcon,
   DocsIcon,
   TaskIcon,
+  DollarLineIcon,
 } from "../icons/index";
 
 type NavItem = {
@@ -24,22 +25,26 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   subItems?: { name: string; path: string }[];
+  highlight?: boolean;
 };
 
 const memberNavItems: NavItem[] = [
   { icon: <GridIcon />, name: "Today Attraction", path: "/member-dashboard" },
+  { icon: <DollarLineIcon />, name: "Sales Speech", path: "/member-dashboard/sales" },
   { icon: <CalenderIcon />, name: "Attraction Timeline", path: "/member-dashboard/timeline" },
   { icon: <PieChartIcon />, name: "Ranking", path: "/member-dashboard/ranking" },
+  { icon: <DocsIcon />, name: "Resources", path: "/member-dashboard/resources", highlight: true },
 ];
 
 const navItems: NavItem[] = [
   { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
   { icon: <UserCircleIcon />, name: "Universities", path: "/dashboard/universities" },
+  { icon: <DollarLineIcon />, name: "Create Opps for Universities", path: "/dashboard/opportunities" },
   { icon: <PieChartIcon />, name: "Conversion Rate", path: "/dashboard/conversion-rate" },
   { icon: <ListIcon />, name: "Digital Attraction", path: "/dashboard/digital-attraction" },
   { icon: <PieChartIcon />, name: "Physical Attractions", path: "/dashboard/physical-attraction" },
   { icon: <CalenderIcon />, name: "Timeline Attraction", path: "/dashboard/timeline" },
-  { icon: <CalenderIcon />, name: "Attraction Management", path: "/dashboard/attraction" },
+  { icon: <CalenderIcon />, name: "Attraction Management", path: "/dashboard/attraction-management" },
   { icon: <PieChartIcon />, name: "Ranking Attraction", path: "/dashboard/ranking" },
   { icon: <TaskIcon />, name: "Booking Post", path: "/dashboard/booking-post" },
 ];
@@ -128,9 +133,12 @@ const AppSidebar: React.FC = () => {
             </button>
           ) : (
             nav.path && (
-              <Link href={nav.path} className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"}`}>
+              <Link href={nav.path} className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"} ${nav.highlight ? "relative" : ""}`}>
+                {nav.highlight && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                )}
                 <span className={isActive(nav.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}>{nav.icon}</span>
-                {(isExpanded || isHovered || isMobileOpen) && <span className="menu-item-text">{nav.name}</span>}
+                {(isExpanded || isHovered || isMobileOpen) && <span className={`menu-item-text ${nav.highlight ? "text-red-600 dark:text-red-400 font-semibold" : ""}`}>{nav.name}</span>}
               </Link>
             )
           )}

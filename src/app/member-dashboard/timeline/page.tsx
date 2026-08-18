@@ -283,15 +283,17 @@ export default function TimelinePage() {
 
                           <div className="flex items-start gap-3">
                             {logo ? (
-                              <Image
-                                src={logo}
-                                alt="University Logo"
-                                width={36}
-                                height={36}
-                                className="h-9 w-9 rounded-full border border-gray-200 object-cover dark:border-gray-600"
-                              />
+                              <div className="relative h-12 w-12 shrink-0 rounded-lg bg-gray-50 dark:bg-gray-800 overflow-hidden">
+                                <Image
+                                  src={logo}
+                                  alt="University Logo"
+                                  fill
+                                  className="object-contain p-1"
+                                  sizes="48px"
+                                />
+                              </div>
                             ) : (
-                              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-gray-100 text-[10px] font-bold text-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-xs font-bold text-gray-600 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300">
                                 {getShortUniversityName(university).substring(0, 2).toUpperCase()}
                               </div>
                             )}

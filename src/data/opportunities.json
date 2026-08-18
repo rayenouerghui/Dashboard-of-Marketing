@@ -1,0 +1,324 @@
+[
+  {
+    "id": "opp-001",
+    "universityId": "uni-001",
+    "title": "Web Developer Intern",
+    "duration": "12 weeks",
+    "date": "2025-01-15",
+    "country": "Germany",
+    "product": "GTa",
+    "benefits": [
+      "Monthly stipend €800",
+      "Accommodation provided",
+      "Language courses included",
+      "Professional mentorship",
+      "Networking opportunities"
+    ],
+    "requirements": [
+      "Proficiency in HTML, CSS, JavaScript",
+      "Experience with React or Vue.js",
+      "Basic knowledge of German (A2 level)",
+      "Currently enrolled in computer science or related field",
+      "Available for 12 weeks starting January 2025"
+    ]
+  },
+  {
+    "id": "opp-002",
+    "universityId": "uni-002",
+    "title": "Biomedical Research Assistant",
+    "duration": "16 weeks",
+    "date": "2025-01-20",
+    "country": "France",
+    "product": "GV",
+    "benefits": [
+      "Research grant €1000/month",
+      "Laboratory access",
+      "Publication opportunities",
+      "Housing assistance",
+      "French language support"
+    ],
+    "requirements": [
+      "Background in biology or medicine",
+      "Laboratory experience",
+      "Strong analytical skills",
+      "French or English proficiency",
+      "Interest in medical research"
+    ]
+  },
+  {
+    "id": "opp-003",
+    "universityId": "uni-003",
+    "title": "Software Engineer Intern",
+    "duration": "12 weeks",
+    "date": "2025-02-01",
+    "country": "Canada",
+    "product": "GTa",
+    "benefits": [
+      "Competitive salary CAD 3500/month",
+      "Health insurance included",
+      "Relocation assistance",
+      "Tech industry exposure",
+      "Permanent residence pathway"
+    ],
+    "requirements": [
+      "Computer science or software engineering student",
+      "Proficiency in Python, Java, or C++",
+      "Strong problem-solving skills",
+      "English proficiency (IELTS 6.5+)",
+      "Available for 12 weeks starting February 2025"
+    ]
+  },
+  {
+    "id": "opp-004",
+    "universityId": "uni-004",
+    "title": "Business Analyst Intern",
+    "duration": "10 weeks",
+    "date": "2025-02-15",
+    "country": "United Kingdom",
+    "product": "GV",
+    "benefits": [
+      "Monthly stipend £2000",
+      "London accommodation allowance",
+      "Professional certification",
+      "Corporate training",
+      "Networking events"
+    ],
+    "requirements": [
+      "Business or economics student",
+      "Strong analytical skills",
+      "Excel and data analysis proficiency",
+      "Excellent English communication",
+      "Interest in consulting"
+    ]
+  },
+  {
+    "id": "opp-005",
+    "universityId": "uni-005",
+    "title": "Medical Research Intern",
+    "duration": "14 weeks",
+    "date": "2025-01-25",
+    "country": "Switzerland",
+    "product": "GV",
+    "benefits": [
+      "Research stipend CHF 3000/month",
+      "World-class laboratory access",
+      "Publication opportunities",
+      "Housing in Geneva",
+      "French language courses"
+    ],
+    "requirements": [
+      "Medical or biomedical student",
+      "Research experience preferred",
+      "Strong academic record",
+      "French or German proficiency",
+      "Available for 14 weeks starting January 2025"
+    ]
+  },
+  {
+    "id": "opp-006",
+    "universityId": "uni-006",
+    "title": "Community Development Volunteer",
+    "duration": "8 weeks",
+    "date": "2025-03-01",
+    "country": "Spain",
+    "product": "GTe",
+    "benefits": [
+      "Cultural immersion experience",
+      "Host family accommodation",
+      "Spanish language lessons",
+      "Local transportation",
+      "Volunteer certificate"
+    ],
+    "requirements": [
+      "Social sciences or education student",
+      "Passion for community work",
+      "Adaptability to new environments",
+      "Strong interpersonal skills",
+      "Available for 8 weeks starting March 2025"
+    ]
+  },
+  {
+    "id": "opp-007",
+    "universityId": "uni-007",
+    "title": "Digital Marketing Intern",
+    "duration": "10 weeks",
+    "date": "2025-02-20",
+    "country": "Netherlands",
+    "product": "GTa",
+    "benefits": [
+      "Monthly stipend €1200",
+      "Work with tech startups",
+      "Digital marketing certification",
+      "Flexible working hours",
+      "Cultural activities"
+    ],
+    "requirements": [
+      "Marketing or business student",
+      "Social media expertise",
+      "Google Analytics knowledge",
+      "English proficiency",
+      "Creative mindset"
+    ]
+  },
+  {
+    "id": "opp-008",
+    "universityId": "uni-008",
+    "title": "IT Project Manager Intern",
+    "duration": "12 weeks",
+    "date": "2025-01-30",
+    "country": "United States",
+    "product": "GTa",
+    "benefits": [
+      "Competitive stipend $3000/month",
+      "Silicon Valley experience",
+      "Tech industry mentorship",
+      "Professional development",
+      "Housing assistance"
+    ],
+    "requirements": [
+      "Business or IT student",
+      "Project management coursework",
+      "Strong communication skills",
+      "Technical aptitude",
+      "Available for 12 weeks starting January 2025"
+    ]
+  },
+  {
+    "id": "opp-009",
+    "universityId": "uni-009",
+    "title": "Financial Analyst Intern",
+    "duration": "14 weeks",
+    "date": "2025-02-10",
+    "country": "Singapore",
+    "product": "GV",
+    "benefits": [
+      "Monthly stipend SGD 2500",
+      "Asian financial hub experience",
+      "Professional certification",
+      "Corporate housing",
+      "Cultural excursions"
+    ],
+    "requirements": [
+      "Finance or economics student",
+      "Strong analytical skills",
+      "Excel proficiency",
+      "English fluency",
+      "Interest in Asian markets"
+    ]
+  },
+  {
+    "id": "opp-010",
+    "universityId": "uni-010",
+    "title": "UI/UX Designer Intern",
+    "duration": "10 weeks",
+    "date": "2025-03-15",
+    "country": "Sweden",
+    "product": "GTa",
+    "benefits": [
+      "Monthly stipend €1500",
+      "Design industry exposure",
+      "Portfolio development",
+      "Swedish design methodology",
+      "Creative workshops"
+    ],
+    "requirements": [
+      "Design or multimedia student",
+      "Figma or Adobe Creative Suite skills",
+      "Strong visual sense",
+      "English proficiency",
+      "Portfolio submission required"
+    ]
+  },
+  {
+    "id": "opp-011",
+    "universityId": "uni-011",
+    "title": "International Business Intern",
+    "duration": "12 weeks",
+    "date": "2025-02-25",
+    "country": "United Arab Emirates",
+    "product": "GV",
+    "benefits": [
+      "Tax-free stipend AED 8000/month",
+      "Dubai accommodation",
+      "Middle East business exposure",
+      "Networking events",
+      "Cultural experiences"
+    ],
+    "requirements": [
+      "Business or international relations student",
+      "Strong intercultural skills",
+      "Business English proficiency",
+      "Adaptability to diverse environments",
+      "Available for 12 weeks starting February 2025"
+    ]
+  },
+  {
+    "id": "opp-012",
+    "universityId": "uni-012",
+    "title": "Electrical Engineer Intern",
+    "duration": "16 weeks",
+    "date": "2025-01-10",
+    "country": "Germany",
+    "product": "GTa",
+    "benefits": [
+      "Monthly stipend €1200",
+      "German engineering experience",
+      "Industry-standard tools training",
+      "German language course",
+      "Research opportunities"
+    ],
+    "requirements": [
+      "Electrical engineering student",
+      "Circuit design knowledge",
+      "MATLAB proficiency",
+      "Basic German (A1 level)",
+      "Available for 16 weeks starting January 2025"
+    ]
+  },
+  {
+    "id": "opp-013",
+    "universityId": "uni-013",
+    "title": "Industrial Technician Intern",
+    "duration": "10 weeks",
+    "date": "2025-03-05",
+    "country": "Italy",
+    "product": "GTa",
+    "benefits": [
+      "Monthly stipend €900",
+      "Manufacturing industry experience",
+      "Technical certification",
+      "Italian language course",
+      "Hands-on training"
+    ],
+    "requirements": [
+      "Engineering or technology student",
+      "Technical aptitude",
+      "Practical skills preferred",
+      "Willingness to work in industrial settings",
+      "Available for 10 weeks starting March 2025"
+    ]
+  },
+  {
+    "id": "opp-014",
+    "universityId": "uni-014",
+    "title": "Trade Specialist Intern",
+    "duration": "8 weeks",
+    "date": "2025-02-28",
+    "country": "Belgium",
+    "product": "GV",
+    "benefits": [
+      "Monthly stipend €1100",
+      "European trade hub experience",
+      "International commerce training",
+      "French/Dutch language support",
+      "EU market insights"
+    ],
+    "requirements": [
+      "Business or commerce student",
+      "Interest in international trade",
+      "Strong communication skills",
+      "English proficiency",
+      "Knowledge of trade regulations preferred"
+    ]
+  }
+]

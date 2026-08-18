@@ -1,5 +1,7 @@
 import DigitalLeadsRaw from '@/data/digitalLeads.json';
 import physicalAttractionRaw from '@/data/physicalAttraction.json';
+import universitiesRaw from '@/data/universities.json';
+import opportunitiesRaw from '@/data/opportunities.json';
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -38,11 +40,61 @@ export interface PhysicalAttractionLead {
   accountStatus: string;
 }
 
+export interface University {
+  id: string;
+  name: string;
+  logo: string;
+  country: string;
+  location: string;
+  generalInfo: string;
+  salesSpeech: string;
+}
+
+export interface Opportunity {
+  id: string;
+  universityId: string;
+  title: string;
+  duration: string;
+  date: string;
+  country: string;
+  benefits: string[];
+  requirements: string[];
+}
+
 // ─── Raw Data ──────────────────────────────────────────────────────────────────
 
 export const getDigitalLeads = (): Lead[] => DigitalLeadsRaw as Lead[];
 export const getPhysicalAttractionLeads = (): PhysicalAttractionLead[] =>
   physicalAttractionRaw as PhysicalAttractionLead[];
+
+// ─── Universities & Opportunities Data ──────────────────────────────────────────
+
+export const getUniversities = (): University[] => universitiesRaw as University[];
+export const getOpportunities = (): Opportunity[] => opportunitiesRaw as Opportunity[];
+
+export const getUniversityById = (id: string): University | undefined => {
+  const universities = getUniversities();
+  return universities.find((uni) => uni.id === id);
+};
+
+export const getOpportunitiesByUniversityId = (universityId: string): Opportunity[] => {
+  // First check localStorage for admin-updated opportunities
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("opportunities");
+    if (stored) {
+      const opportunities = JSON.parse(stored) as Opportunity[];
+      return opportunities.filter((opp) => opp.universityId === universityId);
+    }
+  }
+  // Fallback to static data
+  const opportunities = getOpportunities();
+  return opportunities.filter((opp) => opp.universityId === universityId);
+};
+
+export const getOpportunityById = (id: string): Opportunity | undefined => {
+  const opportunities = getOpportunities();
+  return opportunities.find((opp) => opp.id === id);
+};
 
 // ─── Date helpers ──────────────────────────────────────────────────────────────
 

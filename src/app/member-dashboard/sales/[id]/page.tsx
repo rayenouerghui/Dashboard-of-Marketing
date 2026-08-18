@@ -1,0 +1,298 @@
+"use client";
+
+import Link from "next/link";
+import { getUniversityById, getOpportunitiesByUniversityId } from "@/lib/dataUtils";
+import { useEffect, useState, use } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import Badge from "@/components/ui/badge/Badge";
+
+const PRODUCT_COLORS: Record<string, string> = {
+  GTa: "#0CB9C1",
+  GTe: "#F48924",
+  GV: "#F85A40",
+};
+
+// Same logo files already placed in /public/images/products/
+const PRODUCT_LOGOS: Record<string, string> = {
+  GTa: "/images/products/gta.png",
+  GTe: "/images/products/gte.png",
+  GV: "/images/products/gv.png",
+};
+
+function getProductColor(product?: string) {
+  return PRODUCT_COLORS[product ?? ""] ?? "#9CA3AF"; // gray-400 fallback
+}
+
+function getProductLogo(product?: string) {
+  return PRODUCT_LOGOS[product ?? ""];
+}
+
+export default function UniversityDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
+  const { id } = use(params);
+  const university = getUniversityById(id);
+  const opportunities = getOpportunitiesByUniversityId(id);
+  const [mounted, setMounted] = useState(false);
+  const [pressedId, setPressedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
+
+  if (!university) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-16 dark:border-gray-700 dark:bg-gray-800/50">
+        <div className="text-4xl mb-3">🔍</div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          University not found
+        </p>
+        <Link
+          href="/member-dashboard/sales"
+          className="text-sm font-medium text-brand-500 hover:text-brand-600"
+        >
+          ← Back to Sales
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Back Button */}
+      <Link
+        href="/member-dashboard/sales"
+        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 transition-colors"
+      >
+        <span>←</span>
+        <span>Back to Sales</span>
+      </Link>
+
+      {/* University Header */}
+      <div className={`transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
+        <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+          <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800 shadow-sm">
+            {university.logo ? (
+              <Image
+                src={university.logo}
+                alt={university.name}
+                fill
+                className="object-cover"
+                sizes="96px"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-4xl">
+                🎓
+              </div>
+            )}
+          </div>
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-800 dark:text-white/90">
+              {university.name}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <Badge size="sm" color="info">
+                {university.country}
+              </Badge>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {university.location}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* General Information */}
+      <div className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] transition-all duration-500 ease-out ${
+        mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      }`} style={{ transitionDelay: "100ms" }}>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
+          General Information
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+          {university.generalInfo}
+        </p>
+      </div>
+
+      {/* Sales Speech */}
+      <div className={`rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm dark:border-brand-800/50 dark:from-brand-900/20 dark:to-white/[0.03] transition-all duration-500 ease-out ${
+        mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      }`} style={{ transitionDelay: "200ms" }}>
+        <div className="flex items-start gap-3 mb-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
+            💬
+          </div>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Sales Speech
+          </h2>
+        </div>
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
+          {university.salesSpeech}
+        </p>
+      </div>
+
+      {/* Current Opportunities */}
+      <div className={`transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "300ms" }}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+            Current Opportunities
+          </h2>
+          {/* Legend — now with real logos */}
+          <div className="hidden sm:flex items-center gap-4">
+            {Object.entries(PRODUCT_COLORS).map(([label, color]) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <div className="relative h-4 w-4 shrink-0">
+                  <Image src={PRODUCT_LOGOS[label]} alt={label} fill className="object-contain" sizes="16px" />
+                </div>
+                <span className="text-xs font-medium" style={{ color }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {opportunities.length > 0 ? (
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+            {opportunities.map((opportunity, index) => {
+              const product = (opportunity as any).product as string | undefined;
+              const color = getProductColor(product);
+              const logo = getProductLogo(product);
+              const isExpanded = expandedId === opportunity.id;
+              const isPressed = pressedId === opportunity.id;
+
+              return (
+                <div
+                  key={opportunity.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setExpandedId(isExpanded ? null : opportunity.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setExpandedId(isExpanded ? null : opportunity.id);
+                    }
+                  }}
+                  onPointerDown={() => setPressedId(opportunity.id)}
+                  onPointerUp={() => setPressedId(null)}
+                  onPointerLeave={() => setPressedId(null)}
+                  className={`group relative col-span-1 cursor-pointer overflow-hidden rounded-2xl border bg-white p-3 sm:p-4 shadow-sm will-change-transform dark:bg-white/[0.03] ${
+                    isExpanded ? "col-span-3" : ""
+                  } ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"} ${
+                    isPressed ? "scale-95" : "scale-100"
+                  }`}
+                  style={{
+                    borderColor: isExpanded ? color : "rgb(229 231 235)",
+                    transitionProperty: "transform, box-shadow, border-color, opacity, grid-column",
+                    transitionDuration: isPressed ? "120ms" : "300ms",
+                    transitionTimingFunction: "ease-out",
+                    transitionDelay: mounted ? "0ms" : `${400 + index * 50}ms`,
+                    boxShadow: isExpanded ? `0 4px 20px -4px ${color}40` : undefined,
+                  }}
+                >
+                  {/* Top accent bar in product color */}
+                  <span
+                    className="absolute inset-x-0 top-0 h-1"
+                    style={{ backgroundColor: color }}
+                  />
+
+                  {/* Product badge — logo + label, colored */}
+                  <div
+                    className="mt-1 inline-flex items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2.5 text-[10px] sm:text-xs font-semibold text-white"
+                    style={{ backgroundColor: color }}
+                  >
+                    {logo && (
+                      <span className="relative h-4 w-4 sm:h-5 sm:w-5 shrink-0 rounded-full bg-white/90 overflow-hidden">
+                        <Image src={logo} alt={product ?? "product"} fill className="object-contain p-0.5" sizes="20px" />
+                      </span>
+                    )}
+                    <span>{product ?? "—"}</span>
+                  </div>
+
+                  {/* Title */}
+                  <h3 className="mt-2 line-clamp-2 text-[11px] sm:text-base font-semibold leading-tight text-gray-800 dark:text-white transition-colors">
+                    {opportunity.title}
+                  </h3>
+
+                  {/* Quick facts — compact icon row */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                    <span className="inline-flex items-center gap-1">
+                      ⏱️ {opportunity.duration}
+                    </span>
+                    <span className="hidden sm:inline-flex items-center gap-1">
+                      📅 {opportunity.date}
+                    </span>
+                  </div>
+
+                  {/* Expand toggle indicator */}
+                  <div className="mt-2 flex items-center justify-center sm:justify-start">
+                    <span
+                      className="text-gray-400 transition-transform duration-300 ease-out dark:text-gray-500"
+                      style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                    >
+                      ▾
+                    </span>
+                  </div>
+
+                  {/* Expanded details — smooth height animation */}
+                  <div
+                    className="grid transition-all duration-300 ease-out"
+                    style={{
+                      gridTemplateRows: isExpanded ? "1fr" : "0fr",
+                      opacity: isExpanded ? 1 : 0,
+                    }}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 sm:col-span-2">
+                          🌍 {opportunity.country}
+                        </div>
+
+                        {/* Benefits */}
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                            Benefits
+                          </p>
+                          <ul className="space-y-1">
+                            {opportunity.benefits.map((benefit, idx) => (
+                              <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                                <span className="text-green-500 mt-0.5">✓</span>
+                                <span>{benefit}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        {/* Requirements */}
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                            Requirements
+                          </p>
+                          <ul className="space-y-1">
+                            {opportunity.requirements.map((requirement, idx) => (
+                              <li key={idx} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-2">
+                                <span className="mt-0.5" style={{ color }}>•</span>
+                                <span>{requirement}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-800/50">
+            <div className="text-4xl mb-3">💼</div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No opportunities available for this university yet.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
