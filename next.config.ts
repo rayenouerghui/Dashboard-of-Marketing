@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   productionBrowserSourceMaps: true,
   webpack(config) {
     config.module.rules.push({
@@ -10,9 +9,14 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
-
-  turbopack: {},
-
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
+  },
   allowedDevOrigins: ["169.254.130.146"],
 };
 
