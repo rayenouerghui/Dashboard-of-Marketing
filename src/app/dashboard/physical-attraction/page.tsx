@@ -3,6 +3,8 @@ import React, { useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { getPhysicalUniversityStats, getPhysicalConversionStats, formatRate } from "@/data/stats";
+
+export const dynamic = 'force-dynamic';
 import { getPhysicalAttractionLeads, PhysicalAttractionLead } from "@/lib/dataUtils";
 
 const PAGE_SIZES = [25, 50, 100];

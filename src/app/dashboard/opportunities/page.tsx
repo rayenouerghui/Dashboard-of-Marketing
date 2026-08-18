@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { getUniversities, getOpportunities, getOpportunitiesByUniversityId, type University, type Opportunity } from "@/lib/dataUtils";
 import Button from "@/components/ui/button/Button";
+
+export const dynamic = 'force-dynamic';
 import Badge from "@/components/ui/badge/Badge";
 import { PlusIcon, PencilIcon, TrashBinIcon, CloseIcon } from "@/icons/index";
 

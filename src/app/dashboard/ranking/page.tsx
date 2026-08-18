@@ -4,6 +4,8 @@ import { getAllPhysicalMembers, formatRate } from "@/data/stats";
 import type { RankingEntry } from "@/data/stats";
 import Badge from "@/components/ui/badge/Badge";
 
+export const dynamic = 'force-dynamic';
+
 type SortKey = "totalSignups" | "applications" | "approvals" | "applicationRate" | "approvalRate" | "name";
 type SortDir = "asc" | "desc";
 

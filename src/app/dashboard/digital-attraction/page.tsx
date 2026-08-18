@@ -1,5 +1,8 @@
 "use client";
 import React, { useState, useMemo } from "react";
+
+export const dynamic = 'force-dynamic';
+
 import {
   Table,
   TableBody,

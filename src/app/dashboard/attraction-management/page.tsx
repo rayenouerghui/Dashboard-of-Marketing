@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 // Simple placeholder for Image to avoid SSR issues
 const SafeImage = ({ src, alt, width, height, className, style }: any) => {

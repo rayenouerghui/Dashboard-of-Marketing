@@ -3,6 +3,8 @@
 import { useAuth } from "@/context/AuthContext";
 import { EcommerceMetrics } from "@/components/ecommerce/EcommerceMetrics";
 import MonthlyTarget from "@/components/ecommerce/MonthlyTarget";
+
+export const dynamic = 'force-dynamic';
 import MonthlySalesChart from "@/components/ecommerce/MonthlySalesChart";
 import StatisticsChart from "@/components/ecommerce/StatisticsChart";
 import RecentOrders from "@/components/ecommerce/RecentOrders";

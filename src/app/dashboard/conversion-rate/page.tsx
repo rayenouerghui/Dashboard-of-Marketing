@@ -3,6 +3,8 @@
 import React from "react";
 import { DashboardConversionOverview } from "@/components/dashboard/DashboardConversionOverview";
 import { useAuth } from "@/context/AuthContext";
+
+export const dynamic = 'force-dynamic';
 import { 
   getGlobalConversionStats, 
   getDigitalConversionStats, 
