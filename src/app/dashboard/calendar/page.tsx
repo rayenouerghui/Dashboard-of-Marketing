@@ -9,6 +9,8 @@ import { getPhysicalAttractionLeads } from "@/lib/dataUtils";
 import { PhysicalAttractionLead } from "@/lib/dataUtils";
 import { useAuth } from "@/context/AuthContext";
 
+export const dynamic = 'force-dynamic';
+
 interface CalendarEvent {
   id?: string;
   title: string;
