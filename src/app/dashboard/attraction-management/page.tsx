@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 
+export const dynamic = 'force-dynamic';
+
 // Simple placeholder for Image to avoid SSR issues
 const SafeImage = ({ src, alt, width, height, className, style }: any) => {
   if (typeof window === "undefined") return <div className={className} style={style} />;
