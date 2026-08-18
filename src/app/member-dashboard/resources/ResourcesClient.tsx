@@ -1,8 +1,36 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+
+function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <div className="relative max-w-4xl max-h-full">
+        <Image
+          src={src}
+          alt={alt}
+          width={1200}
+          height={800}
+          className="max-w-full max-h-[90vh] object-contain"
+          onClick={(e) => e.stopPropagation()}
+        />
+        <button
+          onClick={onClose}
+          className="absolute -top-4 -right-4 h-10 w-10 rounded-full bg-white text-gray-900 flex items-center justify-center hover:bg-gray-100 transition-colors"
+        >
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function ProductSection({
   code,
@@ -17,62 +45,71 @@ function ProductSection({
   accent: "teal" | "red";
   images: { src: string; alt: string }[];
 }) {
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; alt: string } | null>(null);
+
   const badgeClasses =
     accent === "teal"
       ? "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
       : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300";
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div
-          className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center text-base font-bold ${badgeClasses}`}
-        >
-          {code}
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white leading-tight">
-            {title}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {images.map((img, i) => (
-          <a
-            key={img.src}
-            href={img.src}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group block rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/70 transition-transform active:scale-[0.97]"
+    <>
+      <section className="space-y-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={`h-11 w-11 shrink-0 rounded-xl flex items-center justify-center text-base font-bold ${badgeClasses}`}
           >
-            <div className="relative aspect-square">
-              <Image
-                src={img.src}
-                alt={img.alt}
-                fill
-                className="object-cover transition-transform group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              <div className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                  />
-                </svg>
+            {code}
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white leading-tight">
+              {title}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {images.map((img, i) => (
+            <button
+              key={img.src}
+              onClick={() => setLightboxImage(img)}
+              className="group block rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200/70 dark:border-gray-700/70 transition-transform active:scale-[0.97] cursor-pointer"
+            >
+              <div className="relative aspect-square">
+                <Image
+                  src={img.src}
+                  alt={img.alt}
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                <div className="absolute bottom-2 right-2 h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <svg className="h-3.5 w-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-5v4m0-4h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  </svg>
+                </div>
               </div>
-            </div>
-            <div className="px-2.5 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 text-center">
-              Page {i + 1}
-            </div>
-          </a>
-        ))}
-      </div>
-    </section>
+              <div className="px-2.5 py-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 text-center">
+                Page {i + 1}
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
+      {lightboxImage && (
+        <Lightbox
+          src={lightboxImage.src}
+          alt={lightboxImage.alt}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
+    </>
   );
 }
 

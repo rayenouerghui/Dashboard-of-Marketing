@@ -36,6 +36,24 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
   const [mounted, setMounted] = useState(false);
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
+  const [epName, setEpName] = useState("");
+  const [note, setNote] = useState("");
+
+  const handleFillForm = (opportunity: any) => {
+    setSelectedOpportunity(opportunity);
+    setShowFormModal(true);
+  };
+
+  const handleSubmitForm = () => {
+    // Handle form submission logic here
+    console.log("Form submitted:", { epName, note, opportunity: selectedOpportunity });
+    setShowFormModal(false);
+    setEpName("");
+    setNote("");
+    setSelectedOpportunity(null);
+  };
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
@@ -277,6 +295,19 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
                             ))}
                           </ul>
                         </div>
+
+                        {/* Fill Form Button */}
+                        <div className="sm:col-span-2 mt-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFillForm(opportunity);
+                            }}
+                            className="w-full rounded-xl bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 active:scale-[0.98]"
+                          >
+                            Fill Form
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -293,6 +324,57 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
           </div>
         )}
       </div>
+
+      {/* Form Modal */}
+      {showFormModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg dark:bg-gray-800">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Fill Form
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  EP Name
+                </label>
+                <input
+                  type="text"
+                  value={epName}
+                  onChange={(e) => setEpName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter EP name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Note
+                </label>
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  rows={3}
+                  placeholder="Enter a note"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowFormModal(false)}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitForm}
+                className="flex-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
