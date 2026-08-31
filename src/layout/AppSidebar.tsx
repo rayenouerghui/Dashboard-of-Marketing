@@ -34,7 +34,7 @@ const memberNavItems: NavItem[] = [
   { icon: <CalenderIcon />,   name: "Attraction Timeline", path: "/member-dashboard/timeline" },
   { icon: <PieChartIcon />,   name: "Ranking",             path: "/member-dashboard/ranking" },
   { icon: <TaskIcon />,       name: "Testimonials",        path: "/member-dashboard/testimonials" },
-  { icon: <DocsIcon />,       name: "Resources",           path: "/member-dashboard/resources", highlight: true },
+  { icon: <DocsIcon />,       name: "Resources",           path: "/member-dashboard/resources" },
 ];
 
 const navItems: NavItem[] = [
