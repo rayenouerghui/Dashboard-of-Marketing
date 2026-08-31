@@ -5,10 +5,17 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import { MoreDotIcon } from "@/icons";
 import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { getDashboardStats } from "@/lib/dataUtils";
 import { useAuth } from "@/context/AuthContext";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
+
+interface MonthlyTargetProps {
+  initialStats: {
+    leadsThisWeek: number;
+    leadsThisMonth: number;
+    totalLeads: number;
+  };
+}
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "aiesec_weekly_target";
@@ -24,8 +31,7 @@ function saveTarget(val: number) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function MonthlyTarget() {
-  const stats = getDashboardStats();
+export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
   const { role } = useAuth();
   const canEditGoal = role === "admin";
 
@@ -35,9 +41,9 @@ export default function MonthlyTarget() {
   const [inputVal, setInputVal] = useState<string>(String(weeklyTarget));
   const [isOpen, setIsOpen] = useState(false);
 
-  const leadsThisWeek = stats.leadsThisWeek;
-  const leadsThisMonth = stats.leadsThisMonth;
-  const totalLeads = stats.totalLeads;
+  const leadsThisWeek = initialStats.leadsThisWeek;
+  const leadsThisMonth = initialStats.leadsThisMonth;
+  const totalLeads = initialStats.totalLeads;
 
   // Progress = how many weekly leads vs target
   const progressPercent = Math.min(

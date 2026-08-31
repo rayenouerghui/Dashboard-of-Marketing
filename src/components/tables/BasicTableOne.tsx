@@ -9,12 +9,15 @@ import {
 } from "../ui/table";
 
 import Badge from "../ui/badge/Badge";
-import { getDigitalLeads } from "@/lib/dataUtils";
 import { Lead } from "@/lib/dataUtils";
 import { useState } from "react";
 
-export default function BasicTableOne() {
-  const allLeads = getDigitalLeads();
+interface BasicTableOneProps {
+  initialLeads: Lead[];
+}
+
+export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
+  const allLeads = initialLeads;
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
 

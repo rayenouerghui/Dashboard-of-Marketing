@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 
 import {
   Table,
@@ -10,9 +10,15 @@ import {
 } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { getDigitalUniversityStats, getDigitalConversionStats, formatRate } from "@/data/stats";
-import { getDigitalLeads, Lead } from "@/lib/dataUtils";
+import { Lead } from "@/lib/dataUtils";
 
 const PAGE_SIZES = [25, 50, 100];
+
+type View = "leads" | "universities";
+
+interface DigitalAttractionClientProps {
+  initialLeads: Lead[];
+}
 
 function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "green" }) {
   const bg = color === "green" ? "bg-green-500" : "bg-blue-500";
@@ -26,10 +32,8 @@ function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "g
   );
 }
 
-type View = "leads" | "universities";
-
-export default function DigitalAttractionClient() {
-  const allLeads = getDigitalLeads();
+export default function DigitalAttractionClient({ initialLeads }: DigitalAttractionClientProps) {
+  const allLeads = initialLeads;
   const universityStats = useMemo(() => getDigitalUniversityStats(), []);
 
   const [view, setView] = useState<View>("leads");

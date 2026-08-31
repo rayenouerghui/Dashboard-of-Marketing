@@ -10,19 +10,31 @@ import {
 } from "@/components/ui/table";
 
 import Badge from "@/components/ui/badge/Badge";
-import { getUniversityStats } from "@/lib/dataUtils";
 import { useState } from "react";
 
-export default function UniversitiesClient() {
-  const universityData = getUniversityStats();
+interface UniversityData {
+  name: string;
+  totalLeads: number;
+  volunteering: number;
+  professional: number;
+  teaching: number;
+  successfulAccounts: number;
+}
+
+interface UniversitiesClientProps {
+  initialStats: UniversityData[];
+}
+
+export default function UniversitiesClient({ initialStats }: UniversitiesClientProps) {
+  const universityData = initialStats;
   const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredUniversities = universityData.filter((uni: any) => {
+  const filteredUniversities = universityData.filter((uni: UniversityData) => {
     return uni.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const totalLeads = universityData.reduce((sum: number, uni: any) => sum + uni.totalLeads, 0);
-  const totalSuccessful = universityData.reduce((sum: number, uni: any) => sum + uni.successfulAccounts, 0);
+  const totalLeads = universityData.reduce((sum: number, uni: UniversityData) => sum + uni.totalLeads, 0);
+  const totalSuccessful = universityData.reduce((sum: number, uni: UniversityData) => sum + uni.successfulAccounts, 0);
 
   return (
     <div className="space-y-6">
@@ -91,7 +103,7 @@ export default function UniversitiesClient() {
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredUniversities.map((uni: any, index: number) => {
+              {filteredUniversities.map((uni: UniversityData, index: number) => {
                 const successRate = uni.totalLeads > 0 
                   ? ((uni.successfulAccounts / uni.totalLeads) * 100).toFixed(1)
                   : "0";

@@ -7,7 +7,7 @@ import Backdrop from "@/layout/Backdrop";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { getPhysicalAttractionLeads } from "@/lib/dataUtils";
+import { PhysicalAttractionLead } from "@/lib/dataUtils";
 
 interface TodayAttraction {
   university: string;
@@ -32,44 +32,50 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
   useEffect(() => {
     if (hasShownPopup) return;
 
-    const checkTodayAttractions = () => {
+    const checkTodayAttractions = async () => {
       const today = new Date().toISOString().slice(0, 10);
       
-      // Check physical leads
-      const leads = getPhysicalAttractionLeads();
-      const todayLeads = leads.filter((lead) => {
-        return new Date(lead.submittedAt).toISOString().slice(0, 10) === today;
-      });
-
-      // Check custom calendar events
-      const saved = localStorage.getItem("customCalendarEvents");
-      const customEvents = saved ? JSON.parse(saved) : [];
-      const todayCustomEvents = customEvents.filter((event: any) => event.start === today);
-
-      const attractions: TodayAttraction[] = [];
-
-      // Add physical leads
-      todayLeads.forEach((lead) => {
-        attractions.push({
-          university: lead.university,
-          type: "lead",
+      try {
+        // Fetch physical leads from API
+        const response = await fetch('/api/leads/physical');
+        const leads: PhysicalAttractionLead[] = await response.json();
+        
+        const todayLeads = leads.filter((lead) => {
+          return new Date(lead.submittedAt).toISOString().slice(0, 10) === today;
         });
-      });
 
-      // Add custom events
-      todayCustomEvents.forEach((event: any) => {
-        attractions.push({
-          university: event.extendedProps.university,
-          location: event.extendedProps.note,
-          type: "scheduled",
+        // Check custom calendar events
+        const saved = localStorage.getItem("customCalendarEvents");
+        const customEvents = saved ? JSON.parse(saved) : [];
+        const todayCustomEvents = customEvents.filter((event: any) => event.start === today);
+
+        const attractions: TodayAttraction[] = [];
+
+        // Add physical leads
+        todayLeads.forEach((lead) => {
+          attractions.push({
+            university: lead.university,
+            type: "lead",
+          });
         });
-      });
 
-      if (attractions.length > 0) {
-        setTodayAttractions(attractions);
-        setHasShownPopup(true);
-        // Show popup after 1.5 seconds
-        setTimeout(() => setShowPopup(true), 1500);
+        // Add custom events
+        todayCustomEvents.forEach((event: any) => {
+          attractions.push({
+            university: event.extendedProps.university,
+            location: event.extendedProps.note,
+            type: "scheduled",
+          });
+        });
+
+        if (attractions.length > 0) {
+          setTodayAttractions(attractions);
+          setHasShownPopup(true);
+          // Show popup after 1.5 seconds
+          setTimeout(() => setShowPopup(true), 1500);
+        }
+      } catch (error) {
+        console.error("Failed to fetch leads for popup:", error);
       }
     };
 

@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { getPhysicalAttractionLeads } from "@/lib/dataUtils";
+import { PhysicalAttractionLead } from "@/lib/dataUtils";
 import { useEffect, useMemo, useState } from "react";
 
 const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
 
-export default function MemberDashboardClient() {
-  const leads = useMemo(() => getPhysicalAttractionLeads(), []);
+export default function MemberDashboardClient({ initialLeads }: { initialLeads: PhysicalAttractionLead[] }) {
+  const leads = useMemo(() => initialLeads, [initialLeads]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {

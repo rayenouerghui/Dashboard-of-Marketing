@@ -7,12 +7,14 @@ import {
   TableRow,
 } from "../ui/table";
 import Badge from "../ui/badge/Badge";
-import { getDashboardStats } from "@/lib/dataUtils";
 import { Lead } from "@/lib/dataUtils";
 
-export default function RecentOrders() {
-  const stats = getDashboardStats();
-  const recentLeads = stats.recentLeads as Lead[];
+interface RecentOrdersProps {
+  initialStats: Awaited<ReturnType<typeof import('@/lib/dataUtilsServer').getDashboardStats>>;
+}
+
+export default function RecentOrders({ initialStats }: RecentOrdersProps) {
+  const recentLeads = initialStats.recentLeads as Lead[];
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-4 pb-3 pt-4 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6">

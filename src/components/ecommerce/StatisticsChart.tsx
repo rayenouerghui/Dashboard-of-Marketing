@@ -2,11 +2,17 @@
 import dynamic from "next/dynamic";
 import { ApexOptions } from "apexcharts";
 import { useState, useMemo } from "react";
-import { getLeadSeriesMonthly, getLeadSeriesWeekly, getLeadSeriesDaily } from "@/lib/dataUtils";
-
-const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 type Period = "monthly" | "weekly" | "daily";
+type SeriesResult = { categories: string[]; Digital: number[]; physical: number[] };
+
+interface StatisticsChartProps {
+  initialMonthly: SeriesResult;
+  initialWeekly: SeriesResult;
+  initialDaily: SeriesResult;
+}
+
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 // ── Period Tab Component ───────────────────────────────────────────────────────
 function PeriodTab({ period, setPeriod }: { period: Period; setPeriod: (p: Period) => void }) {
@@ -32,14 +38,14 @@ function PeriodTab({ period, setPeriod }: { period: Period; setPeriod: (p: Perio
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function StatisticsChart() {
+export default function StatisticsChart({ initialMonthly, initialWeekly, initialDaily }: StatisticsChartProps) {
   const [period, setPeriod] = useState<Period>("monthly");
 
   const data = useMemo(() => {
-    if (period === "monthly") return getLeadSeriesMonthly();
-    if (period === "weekly") return getLeadSeriesWeekly();
-    return getLeadSeriesDaily();
-  }, [period]);
+    if (period === "monthly") return initialMonthly;
+    if (period === "weekly") return initialWeekly;
+    return initialDaily;
+  }, [period, initialMonthly, initialWeekly, initialDaily]);
 
   const options: ApexOptions = {
     legend: {

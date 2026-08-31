@@ -3,10 +3,14 @@ import React, { useMemo, useState } from "react";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import { getPhysicalUniversityStats, getPhysicalConversionStats, formatRate } from "@/data/stats";
-import { getPhysicalAttractionLeads, PhysicalAttractionLead } from "@/lib/dataUtils";
+import { PhysicalAttractionLead } from "@/lib/dataUtils";
 
 const PAGE_SIZES = [25, 50, 100];
 type View = "leads" | "universities";
+
+interface PhysicalAttractionClientProps {
+  initialLeads: PhysicalAttractionLead[];
+}
 
 function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "green" }) {
   const bg = color === "green" ? "bg-green-500" : "bg-blue-500";
@@ -20,8 +24,8 @@ function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "g
   );
 }
 
-export default function PhysicalAttractionClient() {
-  const allLeads = getPhysicalAttractionLeads();
+export default function PhysicalAttractionClient({ initialLeads }: PhysicalAttractionClientProps) {
+  const allLeads = initialLeads;
   const universityStats = useMemo(() => getPhysicalUniversityStats(), []);
 
   const [view, setView] = useState<View>("leads");

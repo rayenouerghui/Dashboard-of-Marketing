@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
-import { getPhysicalAttractionLeads } from "@/lib/dataUtils";
 import { PhysicalAttractionLead } from "@/lib/dataUtils";
 
 interface CustomEvent {
@@ -27,7 +26,11 @@ interface DayAttraction {
   isPast: boolean;
 }
 
-export default function TimelineClient() {
+interface TimelineClientProps {
+  initialLeads: PhysicalAttractionLead[];
+}
+
+export default function TimelineClient({ initialLeads }: TimelineClientProps) {
   const [physicalLeads, setPhysicalLeads] = useState<PhysicalAttractionLead[]>([]);
   const [customEvents, setCustomEvents] = useState<CustomEvent[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -38,11 +41,11 @@ export default function TimelineClient() {
     try {
       const saved = localStorage.getItem("customCalendarEvents");
       setCustomEvents(saved ? JSON.parse(saved) : []);
-      setPhysicalLeads(getPhysicalAttractionLeads());
+      setPhysicalLeads(initialLeads);
     } catch (error) {
       console.error("Failed to load data:", error);
     }
-  }, []);
+  }, [initialLeads]);
 
   // Get current week Monday-Friday
   const weekDays = useMemo(() => {

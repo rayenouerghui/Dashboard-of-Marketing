@@ -3,17 +3,28 @@ import { useState } from "react";
 import { MoreDotIcon } from "@/icons";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { getTopUniversities } from "@/lib/dataUtils";
 import dynamic from "next/dynamic";
 import { ApexOptions } from "apexcharts";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-export default function DemographicCard() {
+type UniversityData = {
+  name: string;
+  shortName: string;
+  total: number;
+  Digital: number;
+  physical: number;
+};
+
+interface DemographicCardProps {
+  initialUniversities: UniversityData[];
+}
+
+export default function DemographicCard({ initialUniversities }: DemographicCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<"Digital" | "physical" | "total">("total");
 
-  const universities = getTopUniversities(10);
+  const universities = initialUniversities;
 
   const data =
     mode === "Digital"

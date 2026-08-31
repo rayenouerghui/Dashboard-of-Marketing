@@ -5,15 +5,18 @@ import { MoreDotIcon } from "@/icons";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useState } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { getDashboardStats } from "@/lib/dataUtils";
 
 // Dynamically import the ReactApexChart component
 const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
 });
 
-export default function MonthlySalesChart() {
-  const stats = getDashboardStats();
+interface MonthlySalesChartProps {
+  initialStats: Awaited<ReturnType<typeof import('@/lib/dataUtilsServer').getDashboardStats>>;
+}
+
+export default function MonthlySalesChart({ initialStats }: MonthlySalesChartProps) {
+  const stats = initialStats;
   
   const options: ApexOptions = {
     colors: ["#465fff"],

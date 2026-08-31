@@ -5,9 +5,12 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg } from "@fullcalendar/core";
-import { getPhysicalAttractionLeads } from "@/lib/dataUtils";
 import { PhysicalAttractionLead } from "@/lib/dataUtils";
 import { useAuth } from "@/context/AuthContext";
+
+interface CalendarPageClientProps {
+  initialLeads: PhysicalAttractionLead[];
+}
 
 interface CalendarEvent {
   id?: string;
@@ -203,9 +206,9 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
   );
 };
 
-export default function CalendarPageClient() {
+export default function CalendarPageClient({ initialLeads }: CalendarPageClientProps) {
   const { role } = useAuth();
-  const physicalLeads = getPhysicalAttractionLeads();
+  const physicalLeads = initialLeads;
   const [customEvents, setCustomEvents] = useState<CalendarEvent[]>(() => {
     if (typeof window === "undefined") return [];
 

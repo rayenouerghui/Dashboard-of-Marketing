@@ -2,10 +2,13 @@
 import React from "react";
 import Badge from "../ui/badge/Badge";
 import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, GroupIcon, UserCircleIcon, CheckCircleIcon } from "@/icons";
-import { getDashboardStats } from "@/lib/dataUtils";
 
-export const EcommerceMetrics = () => {
-  const stats = getDashboardStats();
+interface EcommerceMetricsProps {
+  initialStats: Awaited<ReturnType<typeof import('@/lib/dataUtilsServer').getDashboardStats>>;
+}
+
+export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
+  const stats = initialStats;
   
   const successRate = stats.totalLeads > 0 
     ? ((stats.successfulAccounts / stats.totalLeads) * 100).toFixed(1)

@@ -1,7 +1,15 @@
 export const dynamic = 'force-dynamic';
 
 import MemberDashboardClient from './MemberDashboardClient';
+import { getPhysicalAttractionLeads } from '@/lib/dataUtilsServer';
 
-export default function Page() {
-  return <MemberDashboardClient />;
+export default async function Page() {
+  let leads: Awaited<ReturnType<typeof getPhysicalAttractionLeads>> = [];
+  try {
+    leads = await getPhysicalAttractionLeads();
+  } catch (err) {
+    console.error('[member-dashboard/page] Failed to load leads:', err);
+    leads = [];
+  }
+  return <MemberDashboardClient initialLeads={leads} />;
 }
