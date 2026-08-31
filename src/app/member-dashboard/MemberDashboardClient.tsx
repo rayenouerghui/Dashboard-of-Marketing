@@ -1,35 +1,108 @@
 "use client";
 
 import Link from "next/link";
-import { PhysicalAttractionLead } from "@/lib/dataUtils";
+import type { PhysicalAttractionLead } from "@/lib/dataUtils";
 import { useEffect, useMemo, useState } from "react";
 
 const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
 
-export default function MemberDashboardClient({ initialLeads }: { initialLeads: PhysicalAttractionLead[] }) {
-  const leads = useMemo(() => initialLeads, [initialLeads]);
+// Format a Date as a local YYYY-MM-DD string (avoids UTC/local day-boundary
+// mismatches from toISOString(), which always uses UTC).
+function toLocalDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+// Must match the key used on the Admin Attraction Management page and the Timeline.
+const STORAGE_KEY = "customCalendarEvents";
+const DEFAULT_GOAL = 30;
+const TOP_MEMBERS_LIMIT = 6;
+
+interface CustomEvent {
+  id: string;
+  title: string;
+  start: string;
+  backgroundColor: string;
+  borderColor: string;
+  extendedProps: {
+    university: string;
+    universityLogo?: string;
+    note?: string;
+    goal?: number;
+  };
+}
+
+function readTodaysAttraction(): CustomEvent | null {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const events: CustomEvent[] = saved ? JSON.parse(saved) : [];
+    const todayStr = toLocalDateString(new Date());
+    return events.find((event) => event.start === todayStr) || null;
+  } catch {
+    return null;
+  }
+}
+
+export default function MemberDashboardClient({
+  initialLeads = [],
+}: {
+  initialLeads?: PhysicalAttractionLead[];
+}) {
+  const leads = initialLeads;
   const [mounted, setMounted] = useState(false);
+  const [todaysAttraction, setTodaysAttraction] = useState<CustomEvent | null>(null);
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(t);
   }, []);
 
-  const todaysLeads = leads.filter((lead) => {
-    const today = new Date().toISOString().slice(0, 10);
-    return new Date(lead.submittedAt).toISOString().slice(0, 10) === today;
-  }).length;
+  // Load today's scheduled attraction from localStorage, and keep it in sync
+  // with admin-side changes (same tab via a custom event, other tabs via "storage").
+  useEffect(() => {
+    const handleSync = () => setTodaysAttraction(readTodaysAttraction());
 
-  const todaysTopMembers = [
-    { name: "Yasmine Ben Ali", leadsToday: 12, rank: 1 },
-    { name: "Omar Hsaini", leadsToday: 10, rank: 2 },
-    { name: "Nour Bensaid", leadsToday: 8, rank: 3 },
-    { name: "Salma Trabelsi", leadsToday: 7, rank: 4 },
-    { name: "Imen Melki", leadsToday: 6, rank: 5 },
-    { name: "Karim Jaziri", leadsToday: 5, rank: 6 },
-  ];
+    handleSync();
 
-  const dailyGoal = 30;
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("attractionUpdated", handleSync);
+
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("attractionUpdated", handleSync);
+    };
+  }, []);
+
+  const hasAttractionToday = !!todaysAttraction;
+
+  const todaysLeadRecords = useMemo(() => {
+    const today = toLocalDateString(new Date());
+    return leads.filter((lead) => toLocalDateString(new Date(lead.submittedAt)) === today);
+  }, [leads]);
+
+  const todaysLeads = todaysLeadRecords.length;
+
+  // Group today's leads by memberName — members with 0 leads today are
+  // automatically excluded since we only iterate over today's actual leads.
+  const todaysTopMembers = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const lead of todaysLeadRecords) {
+      const name = lead.memberName?.trim();
+      if (!name) continue; // skip leads with no attributed member
+      counts.set(name, (counts.get(name) || 0) + 1);
+    }
+
+    return Array.from(counts.entries())
+      .map(([name, leadsToday]) => ({ name, leadsToday }))
+      .sort((a, b) => b.leadsToday - a.leadsToday)
+      .slice(0, TOP_MEMBERS_LIMIT)
+      .map((member, index) => ({ ...member, rank: index + 1 }));
+  }, [todaysLeadRecords]);
+
+  const dailyGoal = todaysAttraction?.extendedProps.goal ?? DEFAULT_GOAL;
   const goalPct = Math.min(100, Math.round((todaysLeads / dailyGoal) * 100));
 
   const avatarFor = (name: string) => {
@@ -56,50 +129,77 @@ export default function MemberDashboardClient({ initialLeads }: { initialLeads: 
         </p>
       </div>
 
-      {/* Progress overview */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Leads Today</p>
-            <p className="mt-1 text-3xl font-bold text-brand-500 tabular-nums">{todaysLeads}</p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Goal</p>
-            <p className="mt-1 text-lg font-semibold text-gray-700 dark:text-gray-300 tabular-nums">
-              {dailyGoal}
+      {!hasAttractionToday ? (
+        /* No attraction scheduled today — hide progress/leaderboard entirely */
+        <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-white/[0.03] sm:p-10">
+          <span className="text-4xl">🗓️</span>
+          <h2 className="mt-1 text-base font-semibold text-gray-700 dark:text-gray-200 sm:text-lg">
+            No Attraction Scheduled Today
+          </h2>
+          <p className="max-w-sm text-sm text-gray-500 dark:text-gray-400">
+            There&apos;s nothing on the calendar for today. Check back once an admin schedules an attraction,
+            or take a look at the upcoming schedule on the Timeline.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Progress overview */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Leads Today</p>
+                <p className="mt-1 text-3xl font-bold text-brand-500 tabular-nums">{todaysLeads}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Goal</p>
+                <p className="mt-1 text-lg font-semibold text-gray-700 dark:text-gray-300 tabular-nums">
+                  {dailyGoal}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-500 transition-all duration-700 ease-out"
+                style={{ width: mounted ? `${goalPct}%` : "0%" }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {goalPct >= 100
+                ? "Daily goal reached 🎉"
+                : `${goalPct}% of today's goal · ${Math.max(0, dailyGoal - todaysLeads)} to go`}
             </p>
+            {todaysAttraction && (
+              <p className="mt-2 truncate text-xs font-medium text-gray-400 dark:text-gray-500">
+                Today&apos;s attraction: {todaysAttraction.extendedProps.university}
+              </p>
+            )}
           </div>
-        </div>
-        <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-500 transition-all duration-700 ease-out"
-            style={{ width: mounted ? `${goalPct}%` : "0%" }}
-          />
-        </div>
-        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          {goalPct >= 100 ? "Daily goal reached 🎉" : `${goalPct}% of today's goal · ${Math.max(0, dailyGoal - todaysLeads)} to go`}
-        </p>
-      </div>
 
-      {/* Daily leaderboard — podium style */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#171233] via-[#120e28] to-[#0d0a1e] p-4 sm:p-6 shadow-2xl">
-        {/* ambient glow accents */}
-        <div className="pointer-events-none absolute -top-16 -left-10 h-44 w-44 rounded-full bg-violet-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-16 -right-10 h-44 w-44 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          {/* Daily leaderboard — podium style */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#171233] via-[#120e28] to-[#0d0a1e] p-4 sm:p-6 shadow-2xl">
+            {/* ambient glow accents */}
+            <div className="pointer-events-none absolute -top-16 -left-10 h-44 w-44 rounded-full bg-violet-500/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 -right-10 h-44 w-44 rounded-full bg-fuchsia-500/10 blur-3xl" />
 
-        <div className="relative mb-5 flex items-center justify-between">
-          <div>
-            <h2 className="text-base sm:text-lg font-semibold text-white">Daily leaderboard</h2>
-            <p className="text-xs text-violet-200/50 mt-0.5">Best performers today</p>
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur px-3 py-1.5 text-xs font-semibold text-violet-200">
-            <span>🏆</span>
-            <span className="tabular-nums">{todaysLeads}</span>
-          </div>
-        </div>
+            <div className="relative mb-5 flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-semibold text-white">Daily leaderboard</h2>
+                <p className="text-xs text-violet-200/50 mt-0.5">Best performers today</p>
+              </div>
+              <div className="flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur px-3 py-1.5 text-xs font-semibold text-violet-200">
+                <span>🏆</span>
+                <span className="tabular-nums">{todaysLeads}</span>
+              </div>
+            </div>
 
-        {/* Top 3 avatars with crowns/medals */}
-        {first && (
+            {todaysTopMembers.length === 0 ? (
+              <div className="relative rounded-xl border border-dashed border-white/15 py-8 text-center">
+                <p className="text-sm text-violet-200/60">No leads brought in yet today — be the first!</p>
+              </div>
+            ) : (
+              <>
+                {/* Top 3 avatars with crowns/medals */}
+                {first && (
           <div className="relative flex items-end justify-center gap-4 sm:gap-6 mb-3">
             {second && (
               <div
@@ -204,8 +304,12 @@ export default function MemberDashboardClient({ initialLeads }: { initialLeads: 
               </span>
             </div>
           ))}
-        </div>
-      </div>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Timeline link */}
       <Link

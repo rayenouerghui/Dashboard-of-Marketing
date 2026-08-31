@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
 // Simple placeholder for Image to avoid SSR issues
@@ -17,6 +18,8 @@ const MapPin = ({ className }: { className?: string } = {}) => "📍";
 const StickyNote = ({ className }: { className?: string } = {}) => "📝";
 const Building2 = ({ className }: { className?: string } = {}) => "🏢";
 const CalendarDays = ({ className }: { className?: string } = {}) => "📆";
+const Target = ({ className }: { className?: string } = {}) => "🎯";
+const ArrowLeft = ({ className }: { className?: string } = {}) => "←";
 
 interface CustomEvent {
   id: string;
@@ -28,6 +31,7 @@ interface CustomEvent {
     university: string;
     universityLogo?: string;
     note?: string;
+    goal?: number;
   };
 }
 
@@ -149,11 +153,14 @@ const UNIVERSITY_LOGOS = [
 // Must match the key used on the Timeline page so both stay in sync.
 const STORAGE_KEY = "customCalendarEvents";
 
+const DEFAULT_GOAL = 10;
+
 const EMPTY_FORM = {
   date: new Date().toISOString().split("T")[0],
   university: "",
   universityLogo: "",
   note: "",
+  goal: String(DEFAULT_GOAL),
 };
 
 export default function AttractionPageClient() {
@@ -242,6 +249,9 @@ export default function AttractionPageClient() {
     e.preventDefault();
     if (!formData.university.trim() || !formData.date) return;
 
+    const parsedGoal = parseInt(formData.goal, 10);
+    const goal = Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : DEFAULT_GOAL;
+
     const newEvent: CustomEvent = {
       id: `custom-${Date.now()}`,
       title: `${formData.university} - Physical Attraction`,
@@ -252,6 +262,7 @@ export default function AttractionPageClient() {
         university: formData.university.trim(),
         universityLogo: formData.universityLogo || undefined,
         note: formData.note.trim() || undefined,
+        goal,
       },
     };
 
@@ -329,6 +340,13 @@ export default function AttractionPageClient() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
+          <Link
+            href="/member-dashboard"
+            className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-300 dark:hover:text-brand-400"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Return to Member Dashboard
+          </Link>
           <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90 sm:text-2xl">
             Attraction Management
           </h1>
@@ -426,6 +444,22 @@ export default function AttractionPageClient() {
                   </div>
                 </Field>
 
+                <Field label="Daily Goal (leads)" icon={<Target className="h-3.5 w-3.5" />}>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    required
+                    placeholder="e.g., 10"
+                    value={formData.goal}
+                    onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    Target number of leads members should collect for this attraction.
+                  </p>
+                </Field>
+
                 <Field label="Note (optional)" icon={<StickyNote className="h-3.5 w-3.5" />}>
                   <textarea
                     value={formData.note}
@@ -502,15 +536,23 @@ export default function AttractionPageClient() {
                           )}
                         </div>
                       </div>
-                      {canCreateAttraction && (
-                        <button
-                          onClick={() => setPendingDelete(event)}
-                          className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                          aria-label="Delete attraction"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
+                      <div className="flex shrink-0 items-center gap-2">
+                        {typeof event.extendedProps.goal === "number" && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                            <Target className="h-3 w-3" />
+                            Goal: {event.extendedProps.goal}
+                          </span>
+                        )}
+                        {canCreateAttraction && (
+                          <button
+                            onClick={() => setPendingDelete(event)}
+                            className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                            aria-label="Delete attraction"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -604,6 +646,11 @@ export default function AttractionPageClient() {
                               {attraction.extendedProps.note && (
                                 <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">
                                   {attraction.extendedProps.note}
+                                </p>
+                              )}
+                              {typeof attraction.extendedProps.goal === "number" && (
+                                <p className="mt-0.5 truncate text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                                  🎯 Goal: {attraction.extendedProps.goal}
                                 </p>
                               )}
                             </div>
