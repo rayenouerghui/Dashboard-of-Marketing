@@ -1,0 +1,128 @@
+[
+  {
+    "id": "uni-001",
+    "name": "ENS Tunis",
+    "logo": "/images/university-logos/ENS_Logo_TL.jpg",
+    "country": "Tunisia",
+    "location": "Tunis, Tunisia",
+    "generalInfo": "The École Normale Supérieure de Tunis is a prestigious institution known for its strong programs in engineering, business, and sciences. It has a diverse student body and offers numerous international exchange opportunities.",
+    "salesSpeech": "The ENS Tunis is an excellent partner for AIESEC programs. With over 30,000 students and a strong international focus, our students are eager to gain global experience through internships and volunteer opportunities. The university has a proven track record of successful AIESEC placements and actively supports student mobility programs."
+  },
+  {
+    "id": "uni-002",
+    "name": "ISEAHT",
+    "logo": "/images/university-logos/iseaht-logo.jpg",
+    "country": "Tunisia",
+    "location": "Sfax, Tunisia",
+    "generalInfo": "The Institut Supérieur des Études Appliquées en Haute Technologie is a leading research institution in Tunisia, particularly renowned for its engineering and technology faculties. It maintains strong partnerships with institutions across Europe and the Middle East.",
+    "salesSpeech": "The ISEAHT represents a prime opportunity for AIESEC engagement. Our students are highly motivated and technically skilled, especially in engineering and technology fields. The institution administration is very supportive of international programs, making it an ideal partner for both professional internships and volunteer projects."
+  },
+  {
+    "id": "uni-003",
+    "name": "ESPRIT",
+    "logo": "/images/university-logos/ESPRIT.jpg",
+    "country": "Tunisia",
+    "location": "El Ghazala, Ariana",
+    "generalInfo": "Large private engineering school • IT, Telecom, Civil, Electromechanical + Business/Data",
+    "salesSpeech": "ESPRIT students are known for their practical skills and entrepreneurial mindset. Our curriculum emphasizes hands-on projects and industry partnerships, making our graduates ideal candidates for AIESEC's professional internship programs in technology and engineering sectors."
+  },
+  {
+    "id": "uni-004",
+    "name": "ESSECT",
+    "logo": "/images/university-logos/ESSECT.jpg",
+    "country": "Tunisia",
+    "location": "Tunis, Tunisia",
+    "generalInfo": "2,920 students • Economics, Management, Business, Finance",
+    "salesSpeech": "ESSECT represents an excellent opportunity for AIESEC's business-focused internships. Our students are trained in international business practices and are eager to apply their knowledge in global corporate environments. The school's strong alumni network provides valuable connections for international placements."
+  },
+  {
+    "id": "uni-005",
+    "name": "FMT",
+    "logo": "/images/university-logos/FMT.png",
+    "country": "Tunisia",
+    "location": "Bab Saadoun, Tunis",
+    "generalInfo": "4,284 students • Medicine, Medical sciences, Pharmacy/Dentistry pathways",
+    "salesSpeech": "FMT offers exceptional opportunities for medical and healthcare internships. Our students receive comprehensive training and are eager to gain international clinical experience. The faculty has established partnerships with medical institutions across Europe and the Middle East, facilitating smooth placement processes."
+  },
+  {
+    "id": "uni-006",
+    "name": "FSHST",
+    "logo": "/images/university-logos/FSHST.jpg",
+    "country": "Tunisia",
+    "location": "Bab El Khadra, Tunis",
+    "generalInfo": "~4,250 students • Humanities, Social Sciences, Languages",
+    "salesSpeech": "FSHST students are passionate about social sciences and community development. Our programs emphasize practical fieldwork and research, making our students excellent candidates for AIESEC's volunteer and social impact projects focused on education and community development."
+  },
+  {
+    "id": "uni-007",
+    "name": "HIDE",
+    "logo": "/images/university-logos/HIDE.png",
+    "country": "Tunisia",
+    "location": "Bab Saadoun, Tunis",
+    "generalInfo": "New public institute • Digital Engineering, AI, Data Science, Manufacturing Engineering • currently small/new cohort",
+    "salesSpeech": "HIDE is at the forefront of digital education in Tunisia. Our students are trained in cutting-edge technologies and digital business models, making them ideal candidates for AIESEC's technology and digital marketing internships. The institute's focus on innovation aligns perfectly with AIESEC's forward-thinking approach."
+  },
+  {
+    "id": "uni-008",
+    "name": "ISBAT",
+    "logo": "/images/university-logos/ISBAT.jpg",
+    "country": "Tunisia",
+    "location": "Tunis, Tunisia",
+    "generalInfo": "~1,473 students • Fine Arts, Design, Visual Arts",
+    "salesSpeech": "ISBAT students possess a unique blend of business acumen and technical expertise. This dual competency makes them highly valuable for AIESEC's cross-functional internship programs. Our graduates are well-prepared for roles that require both business understanding and technical knowledge."
+  },
+  {
+    "id": "uni-009",
+    "name": "ISG",
+    "logo": "/images/university-logos/ISG.jpg",
+    "country": "Tunisia",
+    "location": "Tunis, Tunisia",
+    "generalInfo": "3,242 students • Business, Management, Finance, Marketing, Economics",
+    "salesSpeech": "ISG has a long tradition of excellence in business education. Our students are trained in international management practices and are eager to gain global business experience. The school's extensive network of corporate partners provides excellent opportunities for AIESEC placements."
+  },
+  {
+    "id": "uni-010",
+    "name": "ISMT",
+    "logo": "/images/university-logos/ISMT.jpg",
+    "country": "Tunisia",
+    "location": "Tunis, Tunisia",
+    "generalInfo": "The Higher Institute of Multimedia Technologies specializes in digital media, animation, and interactive design programs.",
+    "salesSpeech": "ISMT students are creative and technically skilled in multimedia production. Our programs combine artistic creativity with technical expertise, making our students ideal for AIESEC's creative and digital media internships. The institute's focus on practical projects ensures students are industry-ready."
+  },
+  {
+    "id": "uni-011",
+    "name": "TBS",
+    "logo": "/images/university-logos/TBS.jpg",
+    "country": "Tunisia",
+    "location": "El Mourouj",
+    "generalInfo": "1,498 students • Business, Management, Finance, Marketing",
+    "salesSpeech": "TBS is committed to developing future business leaders with a global perspective. Our students receive comprehensive training in international business and are eager to apply their skills in diverse cultural contexts. The school's focus on practical learning makes our graduates excellent candidates for AIESEC internships."
+  },
+  {
+    "id": "uni-012",
+    "name": "ENSIT",
+    "logo": "/images/university-logos/ensit.jpg",
+    "country": "Tunisia",
+    "location": "Montfleury, Tunis",
+    "generalInfo": "~1,085 students • Engineering: ICT, Industrial, Mechanical, Civil, etc.",
+    "salesSpeech": "ENSIT produces top-tier engineers with strong technical foundations and practical experience. Our students are highly sought after for technical internships and research positions. The school's emphasis on innovation and research makes our graduates ideal for AIESEC's engineering and technology programs."
+  },
+  {
+    "id": "uni-013",
+    "name": "ISET Charguia",
+    "logo": "/images/university-logos/iset chargia.jpg",
+    "country": "Tunisia",
+    "location": "Charguia II",
+    "generalInfo": "Public ISET • IT, Business Management, Logistics, Industrial Management, Smart Data, Cloud, Software",
+    "salesSpeech": "ISET Charguia focuses on applied technical education with strong industry connections. Our students receive hands-on training and are well-prepared for technical internships. The institute's emphasis on practical skills makes our graduates valuable assets for AIESEC's technical and vocational programs."
+  },
+  {
+    "id": "uni-014",
+    "name": "ECB",
+    "logo": "/images/university-logos/ECB.png",
+    "country": "Tunisia",
+    "location": "Tunis, Tunisia",
+    "generalInfo": "The Ecole de Commerce et de Business is a specialized business school focusing on commerce, trade, and international business.",
+    "salesSpeech": "ECB specializes in preparing students for careers in international commerce and business. Our curriculum emphasizes global trade practices and cross-cultural business communication. This focus makes our students excellent candidates for AIESEC's business and trade-related internships."
+  }
+]
