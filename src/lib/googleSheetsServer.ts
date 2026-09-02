@@ -103,6 +103,9 @@ async function fetchSheetTab(tabName: string): Promise<Record<string, string>[]>
 
   const [headerRow, ...dataRows] = rows;
   const headers = headerRow.map(toCamelCase);
+  
+  // Debug: Log the actual headers from Google Sheets
+  console.log('[googleSheetsServer] Tab:', tabName, 'Headers:', headers.slice(0, 25));
 
   return dataRows
     .filter((row: any[]) => row.some((cell: any) => cell !== "" && cell != null))
