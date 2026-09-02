@@ -156,7 +156,7 @@ function mapDigitalRow(r: Record<string, string>): Lead {
 
 function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
   // Google Sheets column names from actual data
-  const internshipType = r['🌍 Type Of Abroad Internship'] || "";
+  const internshipType = r['🌍 Type Of Abroad Internship'] || r.internshipType || r.typeOfAbroadInternship || r.internship_type || "";
   
   // Handle account status - note the typo "Satus" in Google Sheets
   let accountStatus = r['Account Satus'] || r.accountStatus || r.accountSatus || r.account_status || "";

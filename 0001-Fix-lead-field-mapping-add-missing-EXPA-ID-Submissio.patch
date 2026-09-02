@@ -1,0 +1,57 @@
+From a5af901638016ae1f7917f43853dc88228d3ee0c Mon Sep 17 00:00:00 2001
+From: rayenouerghui <medrayenouerghui@gmail.com>
+Date: Wed, 2 Sep 2026 18:54:07 +0000
+Subject: [PATCH] Fix lead field mapping - add missing EXPA ID, Submission ID,
+ Submitted at, First Name column keys
+
+Sheet already had these columns ([FN] First Name, EXPA ID, Submission ID,
+Submitted at) but mapDigitalRow/mapPhysicalRow never checked for the exact
+literal header strings, so those fields silently fell through to empty
+values. submittedAt being empty was also breaking date-based chart bucketing
+(the 'Unknown' group). Physical leads were additionally missing lastName and
+phone bracket-key lookups entirely.
+---
+ src/lib/dataUtilsServer.ts | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+diff --git a/src/lib/dataUtilsServer.ts b/src/lib/dataUtilsServer.ts
+index 23841ce..7d0e679 100644
+--- a/src/lib/dataUtilsServer.ts
++++ b/src/lib/dataUtilsServer.ts
+@@ -137,10 +137,10 @@ function mapDigitalRow(r: Record<string, string>): Lead {
+   }
+   
+   return {
+-    expaId:         r.expaId || r.eXPAID || r.expa_id || r.epId || "",
+-    submissionId:   r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
+-    submittedAt:    r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
+-    firstName:      r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
++    expaId:         r['EXPA ID'] || r.expaId || r.eXPAID || r.expa_id || r.epId || "",
++    submissionId:   r['Submission ID'] || r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
++    submittedAt:    r['Submitted at'] || r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
++    firstName:      r['[FN] First Name'] || r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
+     lastName:       r['[LN] Last Name'] || r.lastName || r.lNLastName || r.last_name || "",
+     phone:          r['[PN] Phone Number'] || r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
+     email:          r['[E] Email'] || r.email || r.eEmail || "",
+@@ -165,12 +165,12 @@ function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
+   }
+   
+   return {
+-    expaId:            r.expaId || r.eXPAID || r.expa_id || r.epId || "",
+-    submissionId:      r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
+-    submittedAt:       r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
+-    firstName:         r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
+-    lastName:          r.lastName || r.lNLastName || r.last_name || "",
+-    phone:             r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
++    expaId:            r['EXPA ID'] || r.expaId || r.eXPAID || r.expa_id || r.epId || "",
++    submissionId:      r['Submission ID'] || r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
++    submittedAt:       r['Submitted at'] || r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
++    firstName:         r['[FN] First Name'] || r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
++    lastName:          r['[LN] Last Name'] || r.lastName || r.lNLastName || r.last_name || "",
++    phone:             r['[PN] Phone Number'] || r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
+     email:             r['[E] Email'] || r.email || r.eEmail || "",
+     university:        r['[UN] University Name'] || r.university || r.uNUniversityName || "",
+     universityLevel:   r['🎓 University Level'] || r.universityLevel || r.university_level || "",
+-- 
+2.43.0
+
