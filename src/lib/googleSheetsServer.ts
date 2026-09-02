@@ -92,7 +92,7 @@ async function fetchSheetTab(tabName: string): Promise<Record<string, string>[]>
   try {
     res = await sheets.spreadsheets.values.get({
       spreadsheetId: id,
-      range: `${tabName}!A:Z`,
+      range: `'${tabName}'!A:Z`,
     });
   } catch (err) {
     throw formatGoogleError(err);
