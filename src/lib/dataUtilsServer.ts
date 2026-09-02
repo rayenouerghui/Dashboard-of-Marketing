@@ -111,25 +111,19 @@ export interface DashboardData {
 // Row mapping (light, no dates parsed here)
 // ────────────────────────────────────────────────────────────────────────────
 function mapDigitalRow(r: Record<string, string>): Lead {
-  // Google Sheets column names with emoji prefix
-  const volunteeringCol = r['🌍 Type Of Abroad Internship (Volunteering Internship)'] || 
-                          r['typeOfAbroadInternshipVolunteeringInternship'] || 
-                          r.volunteering || "";
-  const professionalCol = r['🌍 Type Of Abroad Internship (Professional Internship)'] || 
-                          r['typeOfAbroadInternshipProfessionalInternship'] || 
-                          r.professional || "";
-  const teachingCol = r['🌍 Type Of Abroad Internship (Teaching Internship)'] || 
-                      r['typeOfAbroadInternshipTeachingInternship'] || 
-                      r.teaching || "";
+  // Google Sheets column names from actual data
+  const volunteeringCol = r['🌍 Type Of Abroad Internship (Volunteering Internship)'] || "";
+  const professionalCol = r['🌍 Type Of Abroad Internship (Professional Internship)'] || "";
+  const teachingCol = r['🌍 Type Of Abroad Internship (Teaching Internship)'] || "";
   
-  // Handle account status - use new field or derive from old approved field
-  let accountStatus = r.accountStatus || r.accountSatus || r.account_status || "";
+  // Handle account status - note the typo "Satus" in Google Sheets
+  let accountStatus = r['Account Satus'] || r.accountStatus || r.accountSatus || r.account_status || "";
   if (!accountStatus && r.approved) {
     accountStatus = r.approved === "Yes" ? "✅ Account created successfully" : "⚠️ Account already exists with this email";
   }
   
   // Handle internship type - use boolean columns or derive from internshipType field
-  const internshipType = r.internshipType || r.typeOfAbroadInternship || r.internship_type || r.programme || "";
+  const internshipType = r['🌍 Type Of Abroad Internship'] || r.internshipType || r.typeOfAbroadInternship || r.internship_type || r.programme || "";
   let volunteering = /^(true|yes|1)$/i.test(volunteeringCol);
   let professional = /^(true|yes|1)$/i.test(professionalCol);
   let teaching = /^(true|yes|1)$/i.test(teachingCol);
@@ -147,12 +141,12 @@ function mapDigitalRow(r: Record<string, string>): Lead {
     submissionId:   r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
     submittedAt:    r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
     firstName:      r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
-    lastName:       r.lastName || r.lNLastName || r.last_name || "",
-    phone:          r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
-    email:          r.email || r.eEmail || "",
-    university:     r.university || r.uNUniversityName || "",
+    lastName:       r['[LN] Last Name'] || r.lastName || r.lNLastName || r.last_name || "",
+    phone:          r['[PN] Phone Number'] || r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
+    email:          r['[E] Email'] || r.email || r.eEmail || "",
+    university:     r['[UN] University Name'] || r.university || r.uNUniversityName || "",
     internshipType: internshipType,
-    referral:       r.referral || "",
+    referral:       r['📢Referral'] || r.referral || "",
     volunteering,
     professional,
     teaching,
@@ -161,15 +155,11 @@ function mapDigitalRow(r: Record<string, string>): Lead {
 }
 
 function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
-  // Google Sheets column name with emoji prefix
-  const internshipType = r['🌍 Type Of Abroad Internship'] || 
-                          r.internshipType || 
-                          r.typeOfAbroadInternship || 
-                          r.internship_type || 
-                          r.programme || "";
+  // Google Sheets column names from actual data
+  const internshipType = r['🌍 Type Of Abroad Internship'] || "";
   
-  // Handle account status - use new field or derive from old approved field
-  let accountStatus = r.accountStatus || r.accountSatus || r.account_status || "";
+  // Handle account status - note the typo "Satus" in Google Sheets
+  let accountStatus = r['Account Satus'] || r.accountStatus || r.accountSatus || r.account_status || "";
   if (!accountStatus && r.approved) {
     accountStatus = r.approved === "Yes" ? "✅ Account created successfully" : "⚠️ Account already exists with this email";
   }
@@ -181,14 +171,14 @@ function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
     firstName:         r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
     lastName:          r.lastName || r.lNLastName || r.last_name || "",
     phone:             r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
-    email:             r.email || r.eEmail || "",
-    university:        r.university || r.uNUniversityName || "",
-    universityLevel:   r.universityLevel || r.university_level || "",
-    fieldOfStudy:      r.fieldOfStudy || r.field_of_study || "",
+    email:             r['[E] Email'] || r.email || r.eEmail || "",
+    university:        r['[UN] University Name'] || r.university || r.uNUniversityName || "",
+    universityLevel:   r['🎓 University Level'] || r.universityLevel || r.university_level || "",
+    fieldOfStudy:      r['📚 Field of study'] || r.fieldOfStudy || r.field_of_study || "",
     internshipType:    internshipType,
-    referral:          r.referral || "",
-    memberName:        r.memberName || r.member_name || "",
-    hackathonInterest: r.hackathonInterest || r.areYouInterestedToAttendAHackathon || r.hackathon_interest || "",
+    referral:          r['📢Referral'] || r.referral || "",
+    memberName:        r['🙋Member Name'] || r.memberName || r.member_name || "",
+    hackathonInterest: r['💻Are you interested to attend a hackathon ?'] || r.hackathonInterest || r.areYouInterestedToAttendAHackathon || r.hackathon_interest || "",
     accountStatus,
   };
 }
