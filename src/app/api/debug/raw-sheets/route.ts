@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from 'next/server';
-import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw } from '@/lib/googleSheetsServer';
+import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw, getGoogleSheetsDebugInfo } from '@/lib/googleSheetsServer';
 
 // TEMPORARY DEBUG ROUTE — delete after diagnosing the blank-fields issue.
 export const dynamic = 'force-dynamic';
@@ -8,17 +8,14 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
+    const diagnostics = await getGoogleSheetsDebugInfo();
     const [digital, physical] = await Promise.all([
       fetchDigitalLeadsRaw(),
       fetchPhysicalLeadsRaw(),
     ]);
 
     return NextResponse.json({
-      envVarsSet: {
-        GOOGLE_SHEET_ID: !!process.env.GOOGLE_SHEET_ID,
-        GOOGLE_SHEETS_CLIENT_EMAIL: !!process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
-        GOOGLE_SHEETS_PRIVATE_KEY: !!process.env.GOOGLE_SHEETS_PRIVATE_KEY,
-      },
+      diagnostics,
       digital: {
         count: digital.length,
         firstRowKeys: digital[0] ? Object.keys(digital[0]) : [],
@@ -32,7 +29,10 @@ export async function GET() {
     });
   } catch (err: any) {
     return NextResponse.json(
-      { error: String(err?.message ?? err) },
+      {
+        error: String(err?.message ?? err),
+        diagnostics: await getGoogleSheetsDebugInfo().catch(() => null),
+      },
       { status: 500 }
     );
   }

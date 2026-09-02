@@ -21,6 +21,39 @@ async function getGoogleApis() {
   return mod.google;
 }
 
+function escapeA1SheetName(tabName: string) {
+  return tabName.replace(/'/g, "''");
+}
+
+function normalizeSheetTitle(tabName: string) {
+  return tabName.trim().toLowerCase();
+}
+
+async function listSpreadsheetSheetTitles(
+  sheets: Awaited<ReturnType<Awaited<ReturnType<typeof getGoogleApis>>["sheets"]>>, 
+  spreadsheetId: string,
+) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets(properties(title,hidden))",
+  });
+
+  return (meta.data.sheets ?? [])
+    .map((sheet: any) => sheet?.properties?.title)
+    .filter((title: unknown): title is string => typeof title === "string" && title.length > 0);
+}
+
+function resolveSheetTitle(requestedTabName: string, availableTitles: string[]) {
+  const exact = availableTitles.find((title) => title === requestedTabName);
+  if (exact) return exact;
+
+  const trimmed = availableTitles.find((title) => title.trim() === requestedTabName.trim());
+  if (trimmed) return trimmed;
+
+  const normalized = availableTitles.find((title) => normalizeSheetTitle(title) === normalizeSheetTitle(requestedTabName));
+  return normalized ?? requestedTabName;
+}
+
 function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
   const sheetId = process.env.GOOGLE_SHEET_ID;
   const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
@@ -88,14 +121,39 @@ async function fetchSheetTab(tabName: string): Promise<Record<string, string>[]>
   const { sheetId: id, auth } = getAuthClient(google);
   const sheets = google.sheets({ version: "v4", auth });
 
+  const requestedRange = `'${escapeA1SheetName(tabName)}'!A:Z`;
+
   let res: any;
   try {
     res = await sheets.spreadsheets.values.get({
       spreadsheetId: id,
-      range: `'${tabName}'!A:Z`,
+      range: requestedRange,
     });
   } catch (err) {
-    throw formatGoogleError(err);
+    const anyErr = err as any;
+    const message = String(anyErr?.message ?? err);
+
+    if (message.includes("Unable to parse range")) {
+      try {
+        const availableTitles = await listSpreadsheetSheetTitles(sheets as any, id);
+        const resolvedTabName = resolveSheetTitle(tabName, availableTitles);
+
+        if (resolvedTabName !== tabName) {
+          res = await sheets.spreadsheets.values.get({
+            spreadsheetId: id,
+            range: `'${escapeA1SheetName(resolvedTabName)}'!A:Z`,
+          });
+        } else {
+          throw new Error(
+            `Google Sheets API could not resolve tab "${tabName}". Available tabs: ${availableTitles.join(", ")}`,
+          );
+        }
+      } catch (retryErr) {
+        throw formatGoogleError(retryErr);
+      }
+    } else {
+      throw formatGoogleError(err);
+    }
   }
 
   const rows = res.data.values ?? [];
@@ -151,4 +209,37 @@ export async function fetchDigitalLeadsRaw() {
 
 export async function fetchPhysicalLeadsRaw() {
   return fetchSheetTab("Physical Data");
+}
+
+export async function getGoogleSheetsDebugInfo() {
+  const sheetId = process.env.GOOGLE_SHEET_ID;
+  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
+  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+
+  const base = {
+    envVarsSet: {
+      GOOGLE_SHEET_ID: !!sheetId,
+      GOOGLE_SHEETS_CLIENT_EMAIL: !!clientEmail,
+      GOOGLE_SHEETS_PRIVATE_KEY: !!privateKey,
+    },
+  };
+
+  if (!sheetId || !clientEmail || !privateKey) {
+    return {
+      ...base,
+      spreadsheetIdSuffix: sheetId ? sheetId.slice(-6) : null,
+      availableTabs: null,
+    };
+  }
+
+  const google = await getGoogleApis();
+  const { sheetId: id, auth } = getAuthClient(google);
+  const sheets = google.sheets({ version: "v4", auth });
+  const availableTabs = await listSpreadsheetSheetTitles(sheets as any, id);
+
+  return {
+    ...base,
+    spreadsheetIdSuffix: id.slice(-6),
+    availableTabs,
+  };
 }
