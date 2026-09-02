@@ -56,7 +56,7 @@ export interface PhysicalAttractionLead {
   accountStatus:     string;
 }
 
-export type SeriesResult = { categories: string[]; Digital: number[]; physical: number[] };
+export type SeriesResult = { categories: string[]; Digital: number[]; physical: number[]; total: number[] };
 
 export interface DashboardStats {
   totalLeads:         number;
@@ -72,6 +72,11 @@ export interface DashboardStats {
   recentLeads:        Lead[];
   leadsByMonth:       Record<string, number>;
   referralSources:    Record<string, number>;
+  // New fields for better metrics
+  totalEPs:           number; // Total digital + physical leads
+  digitalAttractions: number; // Attraction rate for digital
+  physicalAttractions: number; // Attraction rate for physical
+  leadsToday:         number; // Leads collected today (digital + physical)
 }
 
 export interface TopUniversityRow {
@@ -106,6 +111,37 @@ export interface DashboardData {
 // Row mapping (light, no dates parsed here)
 // ────────────────────────────────────────────────────────────────────────────
 function mapDigitalRow(r: Record<string, string>): Lead {
+  // Google Sheets column names with emoji prefix
+  const volunteeringCol = r['🌍 Type Of Abroad Internship (Volunteering Internship)'] || 
+                          r['typeOfAbroadInternshipVolunteeringInternship'] || 
+                          r.volunteering || "";
+  const professionalCol = r['🌍 Type Of Abroad Internship (Professional Internship)'] || 
+                          r['typeOfAbroadInternshipProfessionalInternship'] || 
+                          r.professional || "";
+  const teachingCol = r['🌍 Type Of Abroad Internship (Teaching Internship)'] || 
+                      r['typeOfAbroadInternshipTeachingInternship'] || 
+                      r.teaching || "";
+  
+  // Handle account status - use new field or derive from old approved field
+  let accountStatus = r.accountStatus || r.accountSatus || r.account_status || "";
+  if (!accountStatus && r.approved) {
+    accountStatus = r.approved === "Yes" ? "✅ Account created successfully" : "⚠️ Account already exists with this email";
+  }
+  
+  // Handle internship type - use boolean columns or derive from internshipType field
+  const internshipType = r.internshipType || r.typeOfAbroadInternship || r.internship_type || r.programme || "";
+  let volunteering = /^(true|yes|1)$/i.test(volunteeringCol);
+  let professional = /^(true|yes|1)$/i.test(professionalCol);
+  let teaching = /^(true|yes|1)$/i.test(teachingCol);
+  
+  // If boolean columns are missing, derive from internshipType
+  if (!volunteeringCol && !professionalCol && !teachingCol && internshipType) {
+    const typeLower = internshipType.toLowerCase();
+    volunteering = typeLower.includes("volunteering");
+    professional = typeLower.includes("professional");
+    teaching = typeLower.includes("teaching");
+  }
+  
   return {
     expaId:         r.expaId || r.eXPAID || r.expa_id || r.epId || "",
     submissionId:   r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
@@ -115,16 +151,29 @@ function mapDigitalRow(r: Record<string, string>): Lead {
     phone:          r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
     email:          r.email || r.eEmail || "",
     university:     r.university || r.uNUniversityName || "",
-    internshipType: r.internshipType || r.typeOfAbroadInternship || r.internship_type || r.programme || "",
+    internshipType: internshipType,
     referral:       r.referral || "",
-    volunteering:   /^(true|yes|1)$/i.test(r.volunteering || r['typeOfAbroadInternshipVolunteeringInternship)'] || ""),
-    professional:   /^(true|yes|1)$/i.test(r.professional || r['typeOfAbroadInternshipProfessionalInternship)'] || ""),
-    teaching:       /^(true|yes|1)$/i.test(r.teaching || r['typeOfAbroadInternshipTeachingInternship)'] || ""),
-    accountStatus:  r.accountStatus || r.accountSatus || r.account_status || "",
+    volunteering,
+    professional,
+    teaching,
+    accountStatus,
   };
 }
 
 function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
+  // Google Sheets column name with emoji prefix
+  const internshipType = r['🌍 Type Of Abroad Internship'] || 
+                          r.internshipType || 
+                          r.typeOfAbroadInternship || 
+                          r.internship_type || 
+                          r.programme || "";
+  
+  // Handle account status - use new field or derive from old approved field
+  let accountStatus = r.accountStatus || r.accountSatus || r.account_status || "";
+  if (!accountStatus && r.approved) {
+    accountStatus = r.approved === "Yes" ? "✅ Account created successfully" : "⚠️ Account already exists with this email";
+  }
+  
   return {
     expaId:            r.expaId || r.eXPAID || r.expa_id || r.epId || "",
     submissionId:      r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
@@ -136,11 +185,11 @@ function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
     university:        r.university || r.uNUniversityName || "",
     universityLevel:   r.universityLevel || r.university_level || "",
     fieldOfStudy:      r.fieldOfStudy || r.field_of_study || "",
-    internshipType:    r.internshipType || r.typeOfAbroadInternship || r.internship_type || r.programme || "",
+    internshipType:    internshipType,
     referral:          r.referral || "",
     memberName:        r.memberName || r.member_name || "",
     hackathonInterest: r.hackathonInterest || r.areYouInterestedToAttendAHackathon || r.hackathon_interest || "",
-    accountStatus:     r.accountStatus || r.accountSatus || r.account_status || "",
+    accountStatus,
   };
 }
 
@@ -186,10 +235,14 @@ function makeSeries(
   dCounts: Record<string, number>,
   pCounts: Record<string, number>
 ): SeriesResult {
+  const digital = orderedKeys.map(k => dCounts[k] ?? 0);
+  const physical = orderedKeys.map(k => pCounts[k] ?? 0);
+  const total = orderedKeys.map((k, i) => digital[i] + physical[i]);
   return {
     categories: orderedKeys,
-    Digital:    orderedKeys.map(k => dCounts[k] ?? 0),
-    physical:   orderedKeys.map(k => pCounts[k] ?? 0),
+    Digital:    digital,
+    physical:   physical,
+    total:      total,
   };
 }
 
@@ -220,7 +273,7 @@ function buildDashboardData(digitalRows: Lead[], physicalRows: PhysicalAttractio
 
   // Counters
   const stats: DashboardStats = {
-    totalLeads: digitalRows.length,
+    totalLeads: digitalRows.length + physicalRows.length,
     successfulAccounts: 0, existingAccounts: 0,
     totalUniversities: 0,
     volunteeringCount: 0, professionalCount: 0, teachingCount: 0,
@@ -229,7 +282,19 @@ function buildDashboardData(digitalRows: Lead[], physicalRows: PhysicalAttractio
     recentLeads: [],
     leadsByMonth: {},
     referralSources: {},
+    // New fields
+    totalEPs: digitalRows.length + physicalRows.length,
+    digitalAttractions: 0,
+    physicalAttractions: 0,
+    leadsToday: 0,
   };
+
+  // Get today's date for daily calculation
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  // Track successful physical accounts separately
+  let successfulPhysicalAccounts = 0;
 
   const monthSet  = new Set<string>();
   const weekSet   = new Set<string>();
@@ -258,9 +323,9 @@ function buildDashboardData(digitalRows: Lead[], physicalRows: PhysicalAttractio
   // ── Scan digital ────────────────────────────────────────────────────────
   for (const l of digitalRows) {
     // KPI flags
-    const status = l.accountStatus;
-    if (status.includes("✅")) stats.successfulAccounts++;
-    if (status.includes("⚠️")) stats.existingAccounts++;
+    const status = l.accountStatus.toLowerCase();
+    if (status.includes("created") || status.includes("✅")) stats.successfulAccounts++;
+    if (status.includes("exists") || status.includes("⚠️")) stats.existingAccounts++;
     if (l.volunteering) stats.volunteeringCount++;
     if (l.professional) stats.professionalCount++;
     if (l.teaching)     stats.teachingCount++;
@@ -273,7 +338,7 @@ function buildDashboardData(digitalRows: Lead[], physicalRows: PhysicalAttractio
     if (l.volunteering) us.volunteering++;
     if (l.professional) us.professional++;
     if (l.teaching)     us.teaching++;
-    if (status.includes("✅")) us.successfulAccounts++;
+    if (status.includes("created") || status.includes("✅")) us.successfulAccounts++;
 
     // Date keying — regex based, one pass.
     const k = dateKeys(l.submittedAt);
@@ -292,6 +357,8 @@ function buildDashboardData(digitalRows: Lead[], physicalRows: PhysicalAttractio
       stats.leadsByMonth[k.shortMonth] = (stats.leadsByMonth[k.shortMonth] ?? 0) + 1;
       if (gte(dt, startOfWeek))  stats.leadsThisWeek++;
       if (gte(dt, startOfMonth)) stats.leadsThisMonth++;
+      // Check if lead is from today
+      if (k.day === todayStr) stats.leadsToday++;
     }
   }
 
@@ -301,17 +368,60 @@ function buildDashboardData(digitalRows: Lead[], physicalRows: PhysicalAttractio
     const ut = univTotals.get(l.university || "Unknown")!; ut.physical++;
     const us = univStats.get(l.university || "Unknown")!;
     us.totalLeads++;
-    if (l.accountStatus.includes("✅")) us.successfulAccounts++;
+    
+    // Parse internship type from physical data (single column with values like "Volunteering Internship")
+    const internshipLower = l.internshipType.toLowerCase();
+    if (internshipLower.includes("volunteering")) {
+      us.volunteering++;
+      stats.volunteeringCount++;
+    }
+    if (internshipLower.includes("professional")) {
+      us.professional++;
+      stats.professionalCount++;
+    }
+    if (internshipLower.includes("teaching")) {
+      us.teaching++;
+      stats.teachingCount++;
+    }
+    
+    // Check account status for physical data (text patterns like "Account created successfully")
+    const statusLower = l.accountStatus.toLowerCase();
+    if (statusLower.includes("created") || l.accountStatus.includes("✅")) {
+      us.successfulAccounts++;
+      successfulPhysicalAccounts++;
+    }
 
     const k = dateKeys(l.submittedAt);
     monthSet.add(k.month); weekSet.add(k.week); daySet.add(k.day);
     pMonth[k.month] = (pMonth[k.month] ?? 0) + 1;
     pWeek [k.week]  = (pWeek [k.week]  ?? 0) + 1;
     pDay  [k.day]   = (pDay  [k.day]   ?? 0) + 1;
+
+    if (k.year) {
+      const dt = { year: k.year, month: k.monthNum, day: k.dayNum };
+      // leadsByMonth uses the short label (e.g. "Feb 26"), original contract
+      if (!shortMonthSeen.has(k.month)) {
+        shortMonthSeen.add(k.month);
+        shortMonthOrder.push({ key: k.month, label: k.shortMonth, y: k.year, mo: k.monthNum });
+      }
+      stats.leadsByMonth[k.shortMonth] = (stats.leadsByMonth[k.shortMonth] ?? 0) + 1;
+      if (gte(dt, startOfWeek))  stats.leadsThisWeek++;
+      if (gte(dt, startOfMonth)) stats.leadsThisMonth++;
+      // Check if lead is from today
+      if (k.day === todayStr) stats.leadsToday++;
+    }
   }
 
   stats.totalUniversities = universitySet.size;
   stats.recentLeads       = digitalRows.slice(-10).reverse();
+
+  // Calculate attraction rates
+  stats.digitalAttractions = digitalRows.length > 0
+    ? Math.round((stats.successfulAccounts / digitalRows.length) * 100)
+    : 0;
+  stats.physicalAttractions = physicalRows.length > 0
+    ? Math.round((successfulPhysicalAccounts / physicalRows.length) * 100)
+    : 0;
 
   // Build ordered keys
   const months = [...monthSet].sort();
@@ -362,10 +472,11 @@ const EMPTY: DashboardData = {
     volunteeringCount: 0, professionalCount: 0, teachingCount: 0,
     leadsThisWeek: 0, leadsThisMonth: 0, totalPhysicalLeads: 0,
     recentLeads: [], leadsByMonth: {}, referralSources: {},
+    totalEPs: 0, digitalAttractions: 0, physicalAttractions: 0, leadsToday: 0,
   },
-  monthly: { categories: [], Digital: [], physical: [] },
-  weekly:  { categories: [], Digital: [], physical: [] },
-  daily:   { categories: [], Digital: [], physical: [] },
+  monthly: { categories: [], Digital: [], physical: [], total: [] },
+  weekly:  { categories: [], Digital: [], physical: [], total: [] },
+  daily:   { categories: [], Digital: [], physical: [], total: [] },
   topUniversities: [],
   universityStats: [],
 };

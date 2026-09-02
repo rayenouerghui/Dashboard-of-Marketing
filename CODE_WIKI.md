@@ -149,10 +149,8 @@ This is the shared layout for all `/dashboard/*` routes.
 | `/dashboard/universities` | `src/app/dashboard/universities/page.tsx` | University-level lead reporting |
 | `/dashboard/digital-attraction` | `src/app/dashboard/digital-attraction/page.tsx` | Digital lead table and university conversion view |
 | `/dashboard/physical-attraction` | `src/app/dashboard/physical-attraction/page.tsx` | Physical lead table and university conversion view |
-| `/dashboard/timeline` | `src/app/dashboard/timeline/page.tsx` | Weekly Monday-Friday attraction timeline |
 | `/dashboard/calendar` | `src/app/dashboard/calendar/page.tsx` | Interactive calendar with saved custom events |
 | `/dashboard/ranking` | `src/app/dashboard/ranking/page.tsx` | Ranking page for physical member performance |
-| `/dashboard/booking-post` | `src/app/dashboard/booking-post/page.tsx` | Social media post slot booking interface |
 | `/dashboard/leads` | `src/app/dashboard/leads/page.tsx` | Redirects to digital attraction |
 
 Notes:
@@ -539,30 +537,6 @@ Important internal units:
 - `handleDateClick()`: opens the modal for new events
 - `handleEventClick()`: edits custom events or shows lead details for imported events
 - `handleSaveEvent()`: persists custom events in local state
-
-### `src/app/dashboard/timeline/page.tsx`
-
-Responsibilities:
-
-- build a Monday-Friday visual schedule for the current week
-- merge physical leads with saved custom calendar events
-- render day cards that distinguish current, past, and future items
-
-### `src/app/dashboard/booking-post/page.tsx`
-
-Responsibilities:
-
-- manage simple calendar-based booking of post slots
-- persist bookings in `localStorage`
-- provide availability and cancellation logic
-
-Important internal functions:
-
-- `isSlotBooked()`
-- `handleBook()`
-- `handleCancel()`
-- `handleDateSelect()`
-- `renderCalendar()`
 
 ### `src/app/dashboard/digital-attraction/page.tsx`
 

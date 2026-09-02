@@ -7,9 +7,12 @@
     "lastName": "bouzaiene",
     "email": "bouzayenemaryem6@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
-    "referral": "Facebook"
+    "internshipType": "Volunteering Internship",
+    "accountStatus": "✅ Account created successfully",
+    "referral": "Facebook",
+    "volunteering": "TRUE",
+    "professional": "FALSE",
+    "teaching": "FALSE"
   },
   {
     "expaId": "380692",
@@ -19,9 +22,12 @@
     "lastName": "Test",
     "email": "test@gmail.com",
     "university": "ISEAHT: Institut Supérieur des Études Appliquées en Humanités de Tunis",
-    "applied": "No",
-    "approved": "No",
-    "referral": "Friend"
+    "internshipType": "Teaching Internship",
+    "accountStatus": "⚠️ Account already exists with this email",
+    "referral": "Friend",
+    "volunteering": "FALSE",
+    "professional": "FALSE",
+    "teaching": "TRUE"
   },
   {
     "expaId": "5996389",
@@ -31,9 +37,12 @@
     "lastName": "Azouzi",
     "email": "malekazouzi17@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
-    "referral": "Facebook"
+    "internshipType": "Professional Internship",
+    "accountStatus": "✅ Account created successfully",
+    "referral": "Facebook",
+    "volunteering": "FALSE",
+    "professional": "TRUE",
+    "teaching": "FALSE"
   },
   {
     "expaId": "5996390",
@@ -43,9 +52,12 @@
     "lastName": "Heni",
     "email": "heniahmed91@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
-    "referral": "Friend"
+    "internshipType": "Volunteering Internship",
+    "accountStatus": "✅ Account created successfully",
+    "referral": "Facebook",
+    "volunteering": "TRUE",
+    "professional": "FALSE",
+    "teaching": "FALSE"
   },
   {
     "expaId": "5996391",
@@ -55,9 +67,12 @@
     "lastName": "lahmar",
     "email": "ineslahmar405@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
-    "referral": "Facebook"
+    "internshipType": "Teaching Internship",
+    "accountStatus": "⚠️ Account already exists with this email",
+    "referral": "Facebook",
+    "volunteering": "FALSE",
+    "professional": "FALSE",
+    "teaching": "TRUE"
   },
   {
     "expaId": "5996843",

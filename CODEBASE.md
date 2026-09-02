@@ -123,14 +123,12 @@ aiesec-dashboard/
   - Lead table with status indicators
 
 - **Subdirectories** (each follows pattern: `page.tsx` + `*Client.tsx`):
-  - `booking-post/` - Booking post management
   - `digital-attraction/` - Digital attraction analytics
   - `calendar/` - Calendar view with FullCalendar
   - `conversion-rate/` - Conversion rate tracking
   - `opportunities/` - Opportunity management
   - `physical-attraction/` - Physical attraction analytics
   - `ranking/` - University rankings
-  - `timeline/` - Timeline view
   - `universities/` - University management
 
 #### `src/app/member-dashboard/` - Member Dashboard

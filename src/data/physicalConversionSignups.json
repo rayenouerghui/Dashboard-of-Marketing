@@ -5,12 +5,16 @@
     "submittedAt": "2026-02-02 11:34:31",
     "firstName": "omar",
     "lastName": "Trabelsi",
+    "phone": "25617106",
     "email": "omartrabelsi72@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "4th Year",
+    "fieldOfStudy": "Health Science, Medicine",
+    "internshipType": "Volunteering Internship",
     "memberName": "",
-    "referral": "Information booth on campus"
+    "referral": "Information booth on campus",
+    "hackathonInterest": "",
+    "accountStatus": "⚠️ Account already exists with this email"
   },
   {
     "expaId": "5991411",
@@ -18,12 +22,16 @@
     "submittedAt": "2026-02-02 11:44:28",
     "firstName": "Maram",
     "lastName": "Marghni",
+    "phone": "58040728",
     "email": "mmarammarghni@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "3rd Year",
+    "fieldOfStudy": "Medicine",
+    "internshipType": "Volunteering Internship",
     "memberName": "",
-    "referral": "Information booth on campus"
+    "referral": "Information booth on campus",
+    "hackathonInterest": "",
+    "accountStatus": "✅ Account created successfully"
   },
   {
     "expaId": "5991412",
@@ -31,12 +39,16 @@
     "submittedAt": "2026-02-02 11:53:45",
     "firstName": "Oumaima",
     "lastName": "Hfaidh",
+    "phone": "58040729",
     "email": "oumaimahfaidh@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "3rd Year",
+    "fieldOfStudy": "Medicine",
+    "internshipType": "Volunteering Internship",
     "memberName": "",
-    "referral": "Information booth on campus"
+    "referral": "Information booth on campus",
+    "hackathonInterest": "",
+    "accountStatus": "⚠️ Account already exists with this email"
   },
   {
     "expaId": "5991413",
@@ -44,12 +56,16 @@
     "submittedAt": "2026-02-02 11:53:49",
     "firstName": "Adam",
     "lastName": "Ayadi",
+    "phone": "58040730",
     "email": "adem.ayadi@etudiant.fmt.utm.tn",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "3rd Year",
+    "fieldOfStudy": "Medicine",
+    "internshipType": "Professional Internship",
     "memberName": "",
-    "referral": "Information booth on campus"
+    "referral": "Information booth on campus",
+    "hackathonInterest": "",
+    "accountStatus": "✅ Account created successfully"
   },
   {
     "expaId": "5926318",
@@ -57,12 +73,16 @@
     "submittedAt": "2026-02-02 12:12:17",
     "firstName": "maryam",
     "lastName": "khezami",
+    "phone": "58040731",
     "email": "khezamimiryama@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "3rd Year",
+    "fieldOfStudy": "Medicine",
+    "internshipType": "Teaching Internship",
     "memberName": "",
-    "referral": "Friend"
+    "referral": "Friend",
+    "hackathonInterest": "",
+    "accountStatus": "⚠️ Account already exists with this email"
   },
   {
     "expaId": "5991441",
@@ -70,12 +90,16 @@
     "submittedAt": "2026-02-02 13:04:44",
     "firstName": "Feryel",
     "lastName": "Belhadj",
+    "phone": "58040732",
     "email": "ferielbelhadj7@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "3rd Year",
+    "fieldOfStudy": "Medicine",
+    "internshipType": "Volunteering Internship",
     "memberName": "",
-    "referral": "Information booth on campus"
+    "referral": "Information booth on campus",
+    "hackathonInterest": "",
+    "accountStatus": "✅ Account created successfully"
   },
   {
     "expaId": "5352077",
@@ -83,12 +107,16 @@
     "submittedAt": "2026-02-02 13:05:39",
     "firstName": "Ala",
     "lastName": "hamrouni",
+    "phone": "58040733",
     "email": "alahamrouni70@gmail.com",
     "university": "FMT: Faculté de Médecine de Tunis",
-    "applied": "No",
-    "approved": "No",
+    "universityLevel": "4th Year",
+    "fieldOfStudy": "Medicine",
+    "internshipType": "Professional Internship",
     "memberName": "",
-    "referral": "Information booth on campus"
+    "referral": "Friend",
+    "hackathonInterest": "",
+    "accountStatus": "✅ Account created successfully"
   },
   {
     "expaId": "5991442",

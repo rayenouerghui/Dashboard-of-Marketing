@@ -4,7 +4,7 @@ import { ApexOptions } from "apexcharts";
 import { useState, useMemo } from "react";
 
 type Period = "monthly" | "weekly" | "daily";
-type SeriesResult = { categories: string[]; Digital: number[]; physical: number[] };
+type SeriesResult = { categories: string[]; Digital: number[]; physical: number[]; total: number[] };
 
 interface StatisticsChartProps {
   initialMonthly: SeriesResult;
@@ -54,7 +54,7 @@ export default function StatisticsChart({ initialMonthly, initialWeekly, initial
       horizontalAlign: "left",
       fontFamily: "Outfit, sans-serif",
     },
-    colors: ["#465FFF", "#34D399"],
+    colors: ["#465FFF", "#34D399", "#A78BFA"],
     chart: {
       fontFamily: "Outfit, sans-serif",
       height: 310,
@@ -64,7 +64,7 @@ export default function StatisticsChart({ initialMonthly, initialWeekly, initial
     },
     stroke: {
       curve: "smooth",
-      width: [2, 2],
+      width: [2, 2, 2],
     },
     fill: {
       type: "gradient",
@@ -120,10 +120,12 @@ export default function StatisticsChart({ initialMonthly, initialWeekly, initial
   const series = [
     { name: "Digital Leads", data: data.Digital },
     { name: "Physical Attraction", data: data.physical },
+    { name: "Total Leads", data: data.total },
   ];
 
   const totalDigital = data.Digital.reduce((a, b) => a + b, 0);
   const totalPhysical = data.physical.reduce((a, b) => a + b, 0);
+  const totalLeads = data.total.reduce((a, b) => a + b, 0);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
@@ -145,6 +147,10 @@ export default function StatisticsChart({ initialMonthly, initialWeekly, initial
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               Physical: {totalPhysical} leads
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 dark:bg-violet-500/10 dark:text-violet-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+              Total: {totalLeads} leads
             </span>
           </div>
         </div>

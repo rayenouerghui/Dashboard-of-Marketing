@@ -15,8 +15,9 @@ export interface ConversionSignup {
   email: string;
   university: string;
   referral: string;
-  applied: string;
-  approved: ApprovalStatus;
+  accountStatus: string;
+  applied?: string;
+  approved?: ApprovalStatus;
 }
 
 export interface PhysicalConversionSignup extends ConversionSignup {
@@ -52,25 +53,25 @@ export const digitalSignups: ConversionSignup[] = digitalRaw as ConversionSignup
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-export function isApproved(approved: ApprovalStatus): boolean {
-  return approved.trim().toLowerCase() === "yes";
+export function isApproved(accountStatus: string): boolean {
+  if (!accountStatus) return false;
+  const status = accountStatus.toLowerCase();
+  return status.includes("created") || status.includes("✅");
 }
 
 export function isApplied(applied: string): boolean {
-  return applied.trim().toLowerCase() === "yes";
+  return applied?.trim().toLowerCase() === "yes";
 }
 
-export function getConversionStats(signups: { approved: ApprovalStatus; applied?: string }[]): ConversionStats {
+export function getConversionStats(signups: { accountStatus: string; applied?: string }[]): ConversionStats {
   let approved = 0;
   let applied = 0;
   let rejected = 0;
   let noApplication = 0;
 
   for (const s of signups) {
-    const val = s.approved.trim();
-    if (val === "Yes") approved++;
-    else if (val === "No") rejected++;
-    else noApplication++;
+    if (isApproved(s.accountStatus)) approved++;
+    else rejected++;
     if (isApplied(s.applied ?? "")) applied++;
   }
 
@@ -101,7 +102,7 @@ export function getPhysicalMemberRankings(limit?: number): RankingEntry[] {
     const name = s.memberName?.trim() || "Unassigned";
     const entry = map.get(name) ?? { approvals: 0, total: 0, applications: 0 };
     entry.total++;
-    if (isApproved(s.approved)) entry.approvals++;
+    if (isApproved(s.accountStatus)) entry.approvals++;
     if (isApplied(s.applied ?? "")) entry.applications++;
     map.set(name, entry);
   }
@@ -128,7 +129,7 @@ export function getDigitalReferralRankings(limit?: number): RankingEntry[] {
     const name = s.referral.trim() || "Unknown";
     const entry = map.get(name) ?? { approvals: 0, total: 0, applications: 0 };
     entry.total++;
-    if (isApproved(s.approved)) entry.approvals++;
+    if (isApproved(s.accountStatus)) entry.approvals++;
     if (isApplied(s.applied ?? "")) entry.applications++;
     map.set(name, entry);
   }
@@ -156,7 +157,7 @@ export function getPhysicalUniversityStats() {
     const entry = map.get(u) ?? { total: 0, created: 0, applications: 0, approvals: 0 };
     entry.total++;
     if (isApplied(s.applied ?? "")) entry.applications++;
-    if (isApproved(s.approved)) entry.approvals++;
+    if (isApproved(s.accountStatus)) entry.approvals++;
     map.set(u, entry);
   }
 
@@ -182,7 +183,7 @@ export function getDigitalUniversityStats() {
     const entry = map.get(u) ?? { total: 0, applications: 0, approvals: 0 };
     entry.total++;
     if (isApplied(s.applied ?? "")) entry.applications++;
-    if (isApproved(s.approved)) entry.approvals++;
+    if (isApproved(s.accountStatus)) entry.approvals++;
     map.set(u, entry);
   }
 

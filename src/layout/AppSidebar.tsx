@@ -44,17 +44,11 @@ const navItems: NavItem[] = [
   { icon: <PieChartIcon />, name: "Conversion Rate", path: "/dashboard/conversion-rate" },
   { icon: <ListIcon />, name: "Digital Attraction", path: "/dashboard/digital-attraction" },
   { icon: <PieChartIcon />, name: "Physical Attractions", path: "/dashboard/physical-attraction" },
-  { icon: <CalenderIcon />, name: "Timeline Attraction", path: "/dashboard/timeline" },
   { icon: <CalenderIcon />, name: "Attraction Management", path: "/dashboard/attraction-management" },
   { icon: <PieChartIcon />, name: "Ranking Attraction", path: "/dashboard/ranking" },
-  { icon: <TaskIcon />, name: "Booking Post", path: "/dashboard/booking-post" },
 ];
 
-const othersItems: NavItem[] = [
-  { icon: <GroupIcon />, name: "Team", path: "/team" },
-  { icon: <DocsIcon />, name: "Resources", path: "/resources" },
-  { icon: <TaskIcon />, name: "Goals", path: "/goals" },
-];
+const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();

@@ -9,23 +9,21 @@ import { useAuth } from "@/context/AuthContext";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-interface MonthlyTargetProps {
+interface DailyTargetProps {
   initialStats: {
+    leadsToday: number;
     leadsThisWeek: number;
     leadsThisMonth: number;
-    totalLeads: number;
-    totalEPs: number;
-    leadsToday: number;
   };
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const STORAGE_KEY = "aiesec_weekly_target";
+const STORAGE_KEY = "aiesec_daily_target";
 
 function loadTarget(): number {
-  if (typeof window === "undefined") return 20;
+  if (typeof window === "undefined") return 5;
   const saved = localStorage.getItem(STORAGE_KEY);
-  return saved ? parseInt(saved, 10) : 20;
+  return saved ? parseInt(saved, 10) : 5;
 }
 
 function saveTarget(val: number) {
@@ -33,32 +31,32 @@ function saveTarget(val: number) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
+export default function DailyTarget({ initialStats }: DailyTargetProps) {
   const { role } = useAuth();
   const canEditGoal = role === "admin";
 
-  // Admin-configurable weekly target
-  const [weeklyTarget, setWeeklyTarget] = useState<number>(() => loadTarget());
+  // Admin-configurable daily target
+  const [dailyTarget, setDailyTarget] = useState<number>(() => loadTarget());
   const [editing, setEditing] = useState(false);
-  const [inputVal, setInputVal] = useState<string>(String(weeklyTarget));
+  const [inputVal, setInputVal] = useState<string>(String(dailyTarget));
   const [isOpen, setIsOpen] = useState(false);
 
+  const leadsToday = initialStats.leadsToday;
   const leadsThisWeek = initialStats.leadsThisWeek;
   const leadsThisMonth = initialStats.leadsThisMonth;
-  const totalEPs = initialStats.totalEPs;
 
-  // Progress = how many weekly leads vs target
+  // Progress = how many daily leads vs target
   const progressPercent = Math.min(
-    weeklyTarget > 0 ? Math.round((leadsThisWeek / weeklyTarget) * 100) : 0,
+    dailyTarget > 0 ? Math.round((leadsToday / dailyTarget) * 100) : 0,
     100
   );
 
   const options: ApexOptions = {
-    colors: ["#465FFF"],
+    colors: ["#10B981"],
     chart: {
       fontFamily: "Outfit, sans-serif",
       type: "radialBar",
-      height: 330,
+      height: 280,
       sparkline: { enabled: true },
     },
     plotOptions: {
@@ -74,16 +72,16 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
         dataLabels: {
           name: { show: false },
           value: {
-            fontSize: "36px",
+            fontSize: "32px",
             fontWeight: "600",
-            offsetY: -40,
+            offsetY: -35,
             color: "#1D2939",
             formatter: (val: number) => `${val}%`,
           },
         },
       },
     },
-    fill: { type: "solid", colors: ["#465FFF"] },
+    fill: { type: "solid", colors: ["#10B981"] },
     stroke: { lineCap: "round" },
     labels: ["Progress"],
   };
@@ -91,7 +89,7 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
   function handleSaveTarget() {
     const parsed = parseInt(inputVal, 10);
     if (!isNaN(parsed) && parsed > 0) {
-      setWeeklyTarget(parsed);
+      setDailyTarget(parsed);
       saveTarget(parsed);
     }
     setEditing(false);
@@ -99,14 +97,14 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
-      <div className="px-5 pt-5 bg-white shadow-default rounded-2xl pb-11 dark:bg-gray-900 sm:px-6 sm:pt-6">
+      <div className="px-5 pt-5 bg-white shadow-default rounded-2xl pb-9 dark:bg-gray-900 sm:px-6 sm:pt-6">
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              Weekly Lead Target
+              Daily Lead Target
             </h3>
             <p className="mt-1 font-normal text-gray-500 text-theme-sm dark:text-gray-400">
-              Leads collected this week vs target
+              Leads collected today vs target
             </p>
           </div>
           {canEditGoal && (
@@ -116,10 +114,10 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
               </button>
               <Dropdown isOpen={isOpen} onClose={() => setIsOpen(false)} className="w-48 p-2">
                 <DropdownItem
-                  onItemClick={() => { setEditing(true); setInputVal(String(weeklyTarget)); setIsOpen(false); }}
+                  onItemClick={() => { setEditing(true); setInputVal(String(dailyTarget)); setIsOpen(false); }}
                   className="flex w-full font-normal text-left text-gray-500 rounded-lg hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
                 >
-                  ✏️ Set Weekly Target
+                  ✏️ Set Daily Target
                 </DropdownItem>
               </Dropdown>
             </div>
@@ -130,7 +128,7 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
         {canEditGoal && editing && (
           <div className="mt-4 flex items-center gap-2">
             <label className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-              Target leads / week:
+              Target leads / day:
             </label>
             <input
               type="number"
@@ -164,16 +162,16 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
 
         {/* Gauge */}
         <div className="relative">
-          <div className="max-h-[330px]">
+          <div className="max-h-[280px]">
             <ReactApexChart
               options={options}
               series={[progressPercent]}
               type="radialBar"
-              height={330}
+              height={280}
             />
           </div>
           <span
-            className={`absolute left-1/2 top-full -translate-x-1/2 -translate-y-[95%] rounded-full px-3 py-1 text-xs font-medium
+            className={`absolute left-1/2 top-full -translate-x-1/2 -translate-y-[90%] rounded-full px-3 py-1 text-xs font-medium
               ${progressPercent >= 100
                 ? "bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500"
                 : progressPercent >= 50
@@ -181,16 +179,16 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
                 : "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500"
               }`}
           >
-            {leadsThisWeek} / {weeklyTarget} leads
+            {leadsToday} / {dailyTarget} leads
           </span>
         </div>
 
-        <p className="mx-auto mt-10 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
+        <p className="mx-auto mt-8 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
           {progressPercent >= 100
-            ? "🎉 Weekly target achieved! Great work, AIESEC LC Tunis!"
+            ? "🎉 Daily target achieved! Great work today!"
             : progressPercent >= 75
-            ? `Almost there! ${weeklyTarget - leadsThisWeek} more lead${weeklyTarget - leadsThisWeek !== 1 ? "s" : ""} to hit your weekly goal.`
-            : `You've reached ${progressPercent}% of this week's target. Keep pushing!`}
+            ? `Almost there! ${dailyTarget - leadsToday} more lead${dailyTarget - leadsToday !== 1 ? "s" : ""} to hit your daily goal.`
+            : `You've reached ${progressPercent}% of today's target. Keep pushing!`}
         </p>
       </div>
 
@@ -198,10 +196,22 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
       <div className="flex items-center justify-center gap-5 px-6 py-3.5 sm:gap-8 sm:py-5">
         <div>
           <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Weekly Target
+            Daily Target
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {weeklyTarget}
+            {dailyTarget}
+            <span className="text-xs font-normal text-gray-500"> leads</span>
+          </p>
+        </div>
+
+        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800" />
+
+        <div>
+          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
+            This Week
+          </p>
+          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
+            {leadsThisWeek}
             <span className="text-xs font-normal text-gray-500"> leads</span>
           </p>
         </div>
@@ -214,18 +224,6 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
             {leadsThisMonth}
-            <span className="text-xs font-normal text-gray-500"> leads</span>
-          </p>
-        </div>
-
-        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800" />
-
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Total EPs
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {totalEPs}
             <span className="text-xs font-normal text-gray-500"> leads</span>
           </p>
         </div>

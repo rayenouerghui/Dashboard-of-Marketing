@@ -32,6 +32,7 @@ export default function PhysicalAttractionClient({ initialLeads }: PhysicalAttra
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterLevel, setFilterLevel] = useState("all");
+  const [filterInternship, setFilterInternship] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [uniSearch, setUniSearch] = useState("");
@@ -52,9 +53,14 @@ export default function PhysicalAttractionClient({ initialLeads }: PhysicalAttra
           (filterStatus === "created" && lead.accountStatus.includes("check")) ||
           (filterStatus === "existing" && lead.accountStatus.includes("warning"));
         const matchesLevel = filterLevel === "all" || lead.universityLevel === filterLevel;
-        return matchesSearch && matchesStatus && matchesLevel;
+        const matchesInternship =
+          filterInternship === "all" ||
+          (filterInternship === "volunteering" && lead.internshipType.toLowerCase().includes("volunteering")) ||
+          (filterInternship === "professional" && lead.internshipType.toLowerCase().includes("professional")) ||
+          (filterInternship === "teaching" && lead.internshipType.toLowerCase().includes("teaching"));
+        return matchesSearch && matchesStatus && matchesLevel && matchesInternship;
       }),
-    [allLeads, searchTerm, filterStatus, filterLevel]
+    [allLeads, searchTerm, filterStatus, filterLevel, filterInternship]
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredLeads.length / pageSize));
@@ -220,6 +226,16 @@ export default function PhysicalAttractionClient({ initialLeads }: PhysicalAttra
               ))}
             </select>
             <select
+              value={filterInternship}
+              onChange={(e) => reset(setFilterInternship, e.target.value)}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
+            >
+              <option value="all">All Internships</option>
+              <option value="volunteering">Volunteering</option>
+              <option value="professional">Professional</option>
+              <option value="teaching">Teaching</option>
+            </select>
+            <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
@@ -229,8 +245,7 @@ export default function PhysicalAttractionClient({ initialLeads }: PhysicalAttra
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {filteredLeads.length} result{filteredLeads.length !== 1 ? "s" : ""} — conversion rate:{" "}
-            <strong className="text-gray-700 dark:text-gray-200">{successRate}%</strong>
+            {filteredLeads.length} result{filteredLeads.length !== 1 ? "s" : ""}
           </p>
 
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">

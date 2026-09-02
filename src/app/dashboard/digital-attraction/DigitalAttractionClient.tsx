@@ -40,6 +40,7 @@ export default function DigitalAttractionClient({ initialLeads }: DigitalAttract
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterType, setFilterType] = useState("all");
+  const [filterInternship, setFilterInternship] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [uniSearch, setUniSearch] = useState("");
@@ -66,9 +67,14 @@ export default function DigitalAttractionClient({ initialLeads }: DigitalAttract
         (filterStatus === "created" && lead.accountStatus.includes("✅")) ||
         (filterStatus === "existing" && lead.accountStatus.includes("⚠️"));
       const matchType = filterType === "all" || lead.internshipType.includes(filterType);
-      return matchSearch && matchStatus && matchType;
+      const matchInternship =
+        filterInternship === "all" ||
+        (filterInternship === "volunteering" && lead.volunteering) ||
+        (filterInternship === "professional" && lead.professional) ||
+        (filterInternship === "teaching" && lead.teaching);
+      return matchSearch && matchStatus && matchType && matchInternship;
     });
-  }, [allLeads, search, filterStatus, filterType]);
+  }, [allLeads, search, filterStatus, filterType, filterInternship]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -112,7 +118,7 @@ export default function DigitalAttractionClient({ initialLeads }: DigitalAttract
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Total Signups</p>
           <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{filtered.length}</p>
@@ -124,10 +130,6 @@ export default function DigitalAttractionClient({ initialLeads }: DigitalAttract
         <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Existing Accounts</p>
           <p className="mt-2 text-2xl font-bold text-orange-600 dark:text-orange-400">{existing}</p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">Success Rate</p>
-          <p className="mt-2 text-2xl font-bold text-brand-600 dark:text-brand-400">{successRate}%</p>
         </div>
       </div>
 
@@ -236,6 +238,16 @@ export default function DigitalAttractionClient({ initialLeads }: DigitalAttract
               ))}
             </select>
             <select
+              value={filterInternship}
+              onChange={(e) => handleFilterChange(setFilterInternship, e.target.value)}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
+            >
+              <option value="all">All Internships</option>
+              <option value="volunteering">Volunteering</option>
+              <option value="professional">Professional</option>
+              <option value="teaching">Teaching</option>
+            </select>
+            <select
               value={pageSize}
               onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
               className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700 focus:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:focus:border-brand-500 dark:focus:ring-brand-500/20"
@@ -247,8 +259,7 @@ export default function DigitalAttractionClient({ initialLeads }: DigitalAttract
           </div>
 
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {filtered.length} result{filtered.length !== 1 ? "s" : ""} — account creation rate: {" "}
-            <strong className="text-gray-700 dark:text-gray-200">{successRate}%</strong>
+            {filtered.length} result{filtered.length !== 1 ? "s" : ""}
           </p>
 
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
