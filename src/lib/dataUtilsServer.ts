@@ -137,10 +137,10 @@ function mapDigitalRow(r: Record<string, string>): Lead {
   }
   
   return {
-    expaId:         r.expaId || r.eXPAID || r.expa_id || r.epId || "",
-    submissionId:   r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
-    submittedAt:    r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
-    firstName:      r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
+    expaId:         r['EXPA ID'] || r.expaId || r.eXPAID || r.expa_id || r.epId || "",
+    submissionId:   r['Submission ID'] || r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
+    submittedAt:    r['Submitted at'] || r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
+    firstName:      r['[FN] First Name'] || r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
     lastName:       r['[LN] Last Name'] || r.lastName || r.lNLastName || r.last_name || "",
     phone:          r['[PN] Phone Number'] || r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
     email:          r['[E] Email'] || r.email || r.eEmail || "",
@@ -165,12 +165,12 @@ function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
   }
   
   return {
-    expaId:            r.expaId || r.eXPAID || r.expa_id || r.epId || "",
-    submissionId:      r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
-    submittedAt:       r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
-    firstName:         r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
-    lastName:          r.lastName || r.lNLastName || r.last_name || "",
-    phone:             r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
+    expaId:            r['EXPA ID'] || r.expaId || r.eXPAID || r.expa_id || r.epId || "",
+    submissionId:      r['Submission ID'] || r.submissionId || r.submissionID || r.submission_id || r.applicationId || crypto.randomUUID(),
+    submittedAt:       r['Submitted at'] || r.submittedAt || r.submitted_at || r.signedUpAt || r.createdAt || "",
+    firstName:         r['[FN] First Name'] || r.firstName || r.fNFirstName || r.first_name || r.fullName || r.full_name || r.name || r.epName || "",
+    lastName:          r['[LN] Last Name'] || r.lastName || r.lNLastName || r.last_name || "",
+    phone:             r['[PN] Phone Number'] || r.phone || r.pNPhoneNumber || r.phoneNumber || r.phone_number || "",
     email:             r['[E] Email'] || r.email || r.eEmail || "",
     university:        r['[UN] University Name'] || r.university || r.uNUniversityName || "",
     universityLevel:   r['🎓 University Level'] || r.universityLevel || r.university_level || "",
