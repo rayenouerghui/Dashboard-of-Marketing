@@ -173,7 +173,7 @@ async function fetchSheetTab(tabName: string): Promise<Record<string, string>[]>
 
 async function fetchFromFallback(tabName: string): Promise<Record<string, string>[]> {
   try {
-    if (tabName === "Digital Attraction") {
+    if (tabName === "Digital Data") {
       const digitalData = await import("@/data/digitalConversionSignups.json");
       // Convert mixed data to Record<string, string> format
       return digitalData.default.map((item: any) => {
@@ -204,7 +204,7 @@ async function fetchFromFallback(tabName: string): Promise<Record<string, string
 }
 
 export async function fetchDigitalLeadsRaw() {
-  return fetchSheetTab("Digital Attraction");
+  return fetchSheetTab("Digital Data");
 }
 
 export async function fetchPhysicalLeadsRaw() {

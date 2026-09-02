@@ -476,6 +476,10 @@ async function computeAll(): Promise<DashboardData> {
   return buildDashboardData(dRaw.map(mapDigitalRow), pRaw.map(mapPhysicalRow));
 }
 
+export async function debugComputeAllDashboardData(): Promise<DashboardData> {
+  return computeAll();
+}
+
 const cachedAll = unstable_cache(
   computeAll,
   ["dashboard-all"],
