@@ -62,6 +62,7 @@ export interface Opportunity {
   duration:     string;
   date:         string;
   country:      string;
+  product?:     string;
   benefits:     string[];
   requirements: string[];
 }

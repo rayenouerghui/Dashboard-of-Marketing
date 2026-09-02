@@ -54,6 +54,161 @@ function resolveSheetTitle(requestedTabName: string, availableTitles: string[]) 
   return normalized ?? requestedTabName;
 }
 
+function normalizeHeaderName(header: string) {
+  return header.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function escapeA1ColumnRange(sheetTitle: string) {
+  return `'${escapeA1SheetName(sheetTitle)}'!A:Z`;
+}
+
+function getOpportunitySpreadsheetId(product: string) {
+  const normalized = product.trim().toUpperCase();
+
+  if (normalized === "GV" || normalized === "OGV") {
+    const spreadsheetId = process.env.OPPORTUNITY_OGV_SPREADSHEET_ID;
+    if (!spreadsheetId) {
+      throw new Error("OPPORTUNITY_OGV_SPREADSHEET_ID environment variable is not set");
+    }
+    return { spreadsheetId, sheetType: "OGV" };
+  }
+
+  if (normalized === "GTA" || normalized === "GTE" || normalized === "OGTA" || normalized === "OGTE") {
+    const spreadsheetId = process.env.OPPORTUNITY_OGT_SPREADSHEET_ID;
+    if (!spreadsheetId) {
+      throw new Error("OPPORTUNITY_OGT_SPREADSHEET_ID environment variable is not set");
+    }
+    return { spreadsheetId, sheetType: "OGT" };
+  }
+
+  throw new Error(`Unsupported opportunity product "${product}". Expected GV, GTa, or GTe.`);
+}
+
+function buildOpportunityValueMap(payload: OpportunitySubmissionPayload) {
+  const submittedAt = payload.submittedAt ?? new Date().toISOString();
+  const entries: Array<[string, string]> = [
+    ["submittedat", submittedAt],
+    ["timestamp", submittedAt],
+    ["createdat", submittedAt],
+    ["date", submittedAt],
+    ["sheet", payload.sheetType],
+    ["product", payload.product],
+    ["opportunitytype", payload.product],
+    ["opportunity", payload.opportunityTitle],
+    ["opportunitytitle", payload.opportunityTitle],
+    ["title", payload.opportunityTitle],
+    ["opportunityid", payload.opportunityId],
+    ["university", payload.universityName],
+    ["universityname", payload.universityName],
+    ["universityid", payload.universityId],
+    ["country", payload.country],
+    ["duration", payload.duration],
+    ["opportunitydate", payload.opportunityDate],
+    ["epname", payload.epName],
+    ["ep", payload.epName],
+    ["condition", payload.condition],
+    ["epcondition", payload.condition],
+    ["note", payload.note],
+    ["remarks", payload.note],
+    ["source", payload.source],
+  ].filter((entry): entry is [string, string] => entry[1].trim().length > 0);
+
+  return new Map<string, string>(entries);
+}
+
+function mapValuesToHeaders(headers: string[], valueMap: Map<string, string>) {
+  return headers.map((header) => {
+    const key = normalizeHeaderName(header);
+    return valueMap.get(key) ?? "";
+  });
+}
+
+function defaultOpportunityRow(payload: OpportunitySubmissionPayload) {
+  const submittedAt = payload.submittedAt ?? new Date().toISOString();
+  return [
+    submittedAt,
+    payload.sheetType,
+    payload.product,
+    payload.opportunityTitle,
+    payload.opportunityId,
+    payload.universityName,
+    payload.universityId,
+    payload.country,
+    payload.duration,
+    payload.opportunityDate,
+    payload.epName,
+    payload.condition,
+    payload.note,
+    payload.source,
+  ].filter((value) => value.trim().length > 0);
+}
+
+export interface OpportunitySubmissionPayload {
+  product: string;
+  opportunityId: string;
+  opportunityTitle: string;
+  universityId: string;
+  universityName: string;
+  country: string;
+  duration: string;
+  opportunityDate: string;
+  epName: string;
+  condition: string;
+  note: string;
+  source: string;
+  submittedAt?: string;
+  sheetType: string;
+}
+
+export async function appendOpportunitySubmission(payload: Omit<OpportunitySubmissionPayload, "sheetType">) {
+  const { spreadsheetId, sheetType } = getOpportunitySpreadsheetId(payload.product);
+  const google = await getGoogleApis();
+  const { auth } = getAuthClient(google);
+  const sheets = google.sheets({ version: "v4", auth });
+
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets(properties(title,index))",
+  });
+
+  const sheetTitle = (meta.data.sheets ?? [])
+    .map((sheet: any) => sheet?.properties?.title)
+    .find((title: unknown): title is string => typeof title === "string" && title.length > 0);
+
+  if (!sheetTitle) {
+    throw new Error(`Google Sheets API could not find a worksheet to append to for ${sheetType}`);
+  }
+
+  const submittedAt = payload.submittedAt ?? new Date().toISOString();
+  const rowPayload: OpportunitySubmissionPayload = { ...payload, submittedAt, sheetType };
+
+  const headerResponse = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: escapeA1ColumnRange(sheetTitle),
+  });
+
+  const headerRow = headerResponse.data.values?.[0] ?? [];
+  const valueMap = buildOpportunityValueMap(rowPayload);
+  const rowValues = headerRow.length > 0 ? mapValuesToHeaders(headerRow.map(String), valueMap) : defaultOpportunityRow(rowPayload);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: escapeA1ColumnRange(sheetTitle),
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: [rowValues],
+    },
+  });
+
+  return {
+    spreadsheetIdSuffix: spreadsheetId.slice(-6),
+    sheetTitle,
+    sheetType,
+    appendedAt: submittedAt,
+  };
+}
+
 function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
   const sheetId = process.env.GOOGLE_SHEET_ID;
   const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;

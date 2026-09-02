@@ -4,8 +4,8 @@ import Link from "next/link";
 import { getUniversityById, getOpportunitiesByUniversityId } from "@/lib/dataUtils";
 import { useEffect, useState, use } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import Badge from "@/components/ui/badge/Badge";
+import type { Opportunity } from "@/lib/dataUtils";
 
 const PRODUCT_COLORS: Record<string, string> = {
   GTa: "#0CB9C1",
@@ -29,7 +29,6 @@ function getProductLogo(product?: string) {
 }
 
 export default function UniversityDetailsClient({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
   const { id } = use(params);
   const university = getUniversityById(id);
   const opportunities = getOpportunitiesByUniversityId(id);
@@ -37,22 +36,69 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showFormModal, setShowFormModal] = useState(false);
-  const [selectedOpportunity, setSelectedOpportunity] = useState<any>(null);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [epName, setEpName] = useState("");
-  const [note, setNote] = useState("");
+  const [condition, setCondition] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-  const handleFillForm = (opportunity: any) => {
+  const handleFillForm = (opportunity: Opportunity) => {
     setSelectedOpportunity(opportunity);
     setShowFormModal(true);
+    setSubmissionMessage(null);
+    setSubmissionError(null);
   };
 
-  const handleSubmitForm = () => {
-    // Handle form submission logic here
-    console.log("Form submitted:", { epName, note, opportunity: selectedOpportunity });
-    setShowFormModal(false);
-    setEpName("");
-    setNote("");
-    setSelectedOpportunity(null);
+  const handleSubmitForm = async () => {
+    if (!selectedOpportunity) return;
+
+    const trimmedEpName = epName.trim();
+    if (!trimmedEpName) {
+      setSubmissionError("EP name is required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmissionError(null);
+
+    try {
+      const response = await fetch("/api/member-dashboard/opportunities/fill", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          product: selectedOpportunity.product,
+          opportunityId: selectedOpportunity.id,
+          opportunityTitle: selectedOpportunity.title,
+          universityId: university!.id,
+          universityName: university!.name,
+          country: selectedOpportunity.country,
+          duration: selectedOpportunity.duration,
+          opportunityDate: selectedOpportunity.date,
+          epName: trimmedEpName,
+          condition: condition.trim(),
+          note: condition.trim(),
+          source: "member-dashboard",
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error ?? "Failed to submit opportunity");
+      }
+
+      setShowFormModal(false);
+      setEpName("");
+      setCondition("");
+      setSelectedOpportunity(null);
+      setSubmissionMessage("Submitted to Google Sheets successfully.");
+    } catch (error) {
+      setSubmissionError(error instanceof Error ? error.message : "Failed to submit opportunity");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -170,10 +216,16 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
           </div>
         </div>
 
+        {submissionMessage && (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
+            {submissionMessage}
+          </div>
+        )}
+
         {opportunities.length > 0 ? (
           <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
             {opportunities.map((opportunity, index) => {
-              const product = (opportunity as any).product as string | undefined;
+              const product = opportunity.product;
               const color = getProductColor(product);
               const logo = getProductLogo(product);
               const isExpanded = expandedId === opportunity.id;
@@ -361,29 +413,37 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Note
+                  EP condition / note
                 </label>
                 <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  value={condition}
+                  onChange={(e) => setCondition(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   rows={3}
-                  placeholder="Enter a note"
+                  placeholder="Add the EP condition or any note"
                 />
               </div>
+              {submissionError && (
+                <p className="text-sm text-error-600 dark:text-error-400">{submissionError}</p>
+              )}
             </div>
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => setShowFormModal(false)}
+                onClick={() => {
+                  setShowFormModal(false);
+                  setSubmissionError(null);
+                }}
                 className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                disabled={isSubmitting}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmitForm}
-                className="flex-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+                className="flex-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
+                disabled={isSubmitting}
               >
-                Submit
+                {isSubmitting ? "Submitting..." : "Submit"}
               </button>
             </div>
           </div>
