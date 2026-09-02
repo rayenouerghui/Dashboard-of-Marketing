@@ -106,7 +106,7 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
               Weekly Lead Target
             </h3>
             <p className="mt-1 font-normal text-gray-500 text-theme-sm dark:text-gray-400">
-              Leads collected this week vs target
+              Leads achieved this week
             </p>
           </div>
           {canEditGoal && (
@@ -189,8 +189,8 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
           {progressPercent >= 100
             ? "🎉 Weekly target achieved! Great work, AIESEC LC Tunis!"
             : progressPercent >= 75
-            ? `Almost there! ${weeklyTarget - leadsThisWeek} more lead${weeklyTarget - leadsThisWeek !== 1 ? "s" : ""} to hit your weekly goal.`
-            : `You've reached ${progressPercent}% of this week's target. Keep pushing!`}
+            ? `You've achieved ${leadsThisWeek} leads this week and need ${weeklyTarget - leadsThisWeek} more lead${weeklyTarget - leadsThisWeek !== 1 ? "s" : ""} to hit your weekly goal.`
+            : `You've achieved ${leadsThisWeek} leads this week. ${weeklyTarget - leadsThisWeek} more to reach your weekly target.`}
         </p>
       </div>
 
@@ -198,22 +198,10 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
       <div className="flex items-center justify-center gap-5 px-6 py-3.5 sm:gap-8 sm:py-5">
         <div>
           <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Weekly Target
+            This Week
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {weeklyTarget}
-            <span className="text-xs font-normal text-gray-500"> leads</span>
-          </p>
-        </div>
-
-        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800" />
-
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            This Month
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {leadsThisMonth}
+            {leadsThisWeek}
             <span className="text-xs font-normal text-gray-500"> leads</span>
           </p>
         </div>
@@ -226,6 +214,18 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
           </p>
           <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
             {totalEPs}
+            <span className="text-xs font-normal text-gray-500"> leads</span>
+          </p>
+        </div>
+
+        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800" />
+
+        <div>
+          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
+            This Month
+          </p>
+          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
+            {leadsThisMonth}
             <span className="text-xs font-normal text-gray-500"> leads</span>
           </p>
         </div>

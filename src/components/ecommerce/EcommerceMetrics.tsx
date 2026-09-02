@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Badge from "../ui/badge/Badge";
-import { ArrowDownIcon, ArrowUpIcon, BoxIconLine, GroupIcon, UserCircleIcon, CheckCircleIcon } from "@/icons";
+import { ArrowUpIcon, BoxIconLine, GroupIcon, UserCircleIcon, CheckCircleIcon } from "@/icons";
 
 interface EcommerceMetricsProps {
   initialStats: Awaited<ReturnType<typeof import('@/lib/dataUtilsServer').getDashboardStats>>;
@@ -9,6 +9,7 @@ interface EcommerceMetricsProps {
 
 export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
   const stats = initialStats;
+  const digitalLeads = stats.totalLeads - stats.totalPhysicalLeads;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
@@ -50,7 +51,7 @@ export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
             </h4>
           </div>
           <Badge color="success">
-            {stats.totalLeads} leads
+            {digitalLeads} leads
           </Badge>
         </div>
       </div>
