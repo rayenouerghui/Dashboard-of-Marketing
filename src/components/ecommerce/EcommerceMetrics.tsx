@@ -10,6 +10,8 @@ interface EcommerceMetricsProps {
 export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
   const stats = initialStats;
   const digitalLeads = stats.totalLeads - stats.totalPhysicalLeads;
+  const digitalShare = stats.totalLeads > 0 ? Math.round((digitalLeads / stats.totalLeads) * 100) : 0;
+  const physicalShare = stats.totalLeads > 0 ? Math.round((stats.totalPhysicalLeads / stats.totalLeads) * 100) : 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
@@ -44,10 +46,10 @@ export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Digital Attractions
+              Digital Leads
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {stats.digitalAttractions}%
+              {digitalShare}%
             </h4>
           </div>
           <Badge color="success">
@@ -65,10 +67,10 @@ export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
         <div className="flex items-end justify-between mt-5">
           <div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              Physical Attractions
+              Physical Leads
             </span>
             <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {stats.physicalAttractions}%
+              {physicalShare}%
             </h4>
           </div>
           <Badge color="success">

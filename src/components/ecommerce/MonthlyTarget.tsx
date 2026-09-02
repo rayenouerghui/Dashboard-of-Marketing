@@ -1,13 +1,9 @@
 "use client";
-import { ApexOptions } from "apexcharts";
-import dynamic from "next/dynamic";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { MoreDotIcon } from "@/icons";
 import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { useAuth } from "@/context/AuthContext";
-
-const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 interface MonthlyTargetProps {
   initialStats: {
@@ -47,46 +43,10 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
   const leadsThisMonth = initialStats.leadsThisMonth;
   const totalEPs = initialStats.totalEPs;
 
-  // Progress = how many weekly leads vs target
   const progressPercent = Math.min(
     weeklyTarget > 0 ? Math.round((leadsThisWeek / weeklyTarget) * 100) : 0,
     100
   );
-
-  const options: ApexOptions = {
-    colors: ["#465FFF"],
-    chart: {
-      fontFamily: "Outfit, sans-serif",
-      type: "radialBar",
-      height: 330,
-      sparkline: { enabled: true },
-    },
-    plotOptions: {
-      radialBar: {
-        startAngle: -85,
-        endAngle: 85,
-        hollow: { size: "80%" },
-        track: {
-          background: "#E4E7EC",
-          strokeWidth: "100%",
-          margin: 5,
-        },
-        dataLabels: {
-          name: { show: false },
-          value: {
-            fontSize: "36px",
-            fontWeight: "600",
-            offsetY: -40,
-            color: "#1D2939",
-            formatter: (val: number) => `${val}%`,
-          },
-        },
-      },
-    },
-    fill: { type: "solid", colors: ["#465FFF"] },
-    stroke: { lineCap: "round" },
-    labels: ["Progress"],
-  };
 
   function handleSaveTarget() {
     const parsed = parseInt(inputVal, 10);
@@ -162,72 +122,32 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
           </div>
         )}
 
-        {/* Gauge */}
-        <div className="relative">
-          <div className="max-h-[330px]">
-            <ReactApexChart
-              options={options}
-              series={[progressPercent]}
-              type="radialBar"
-              height={330}
-            />
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-500/20 dark:bg-brand-500/10">
+            <p className="text-sm font-medium text-brand-700 dark:text-brand-300">Leads achieved this week</p>
+            <p className="mt-2 text-4xl font-bold text-brand-900 dark:text-brand-100">{leadsThisWeek}</p>
+            <p className="mt-2 text-sm text-brand-700/80 dark:text-brand-200/80">
+              {weeklyTarget > 0 ? `${progressPercent}% of weekly target (${weeklyTarget})` : "No target set"}
+            </p>
           </div>
-          <span
-            className={`absolute left-1/2 top-full -translate-x-1/2 -translate-y-[95%] rounded-full px-3 py-1 text-xs font-medium
-              ${progressPercent >= 100
-                ? "bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500"
-                : progressPercent >= 50
-                ? "bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-500"
-                : "bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500"
-              }`}
-          >
-            {leadsThisWeek} / {weeklyTarget} leads
-          </span>
-        </div>
 
-        <p className="mx-auto mt-10 w-full max-w-[380px] text-center text-sm text-gray-500 sm:text-base">
-          {progressPercent >= 100
-            ? "🎉 Weekly target achieved! Great work, AIESEC LC Tunis!"
-            : progressPercent >= 75
-            ? `You've achieved ${leadsThisWeek} leads this week and need ${weeklyTarget - leadsThisWeek} more lead${weeklyTarget - leadsThisWeek !== 1 ? "s" : ""} to hit your weekly goal.`
-            : `You've achieved ${leadsThisWeek} leads this week. ${weeklyTarget - leadsThisWeek} more to reach your weekly target.`}
-        </p>
-      </div>
-
-      {/* Footer stats */}
-      <div className="flex items-center justify-center gap-5 px-6 py-3.5 sm:gap-8 sm:py-5">
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            This Week
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {leadsThisWeek}
-            <span className="text-xs font-normal text-gray-500"> leads</span>
-          </p>
-        </div>
-
-        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800" />
-
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            Total EPs
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {totalEPs}
-            <span className="text-xs font-normal text-gray-500"> leads</span>
-          </p>
-        </div>
-
-        <div className="w-px bg-gray-200 h-7 dark:bg-gray-800" />
-
-        <div>
-          <p className="mb-1 text-center text-gray-500 text-theme-xs dark:text-gray-400 sm:text-sm">
-            This Month
-          </p>
-          <p className="flex items-center justify-center gap-1 text-base font-semibold text-gray-800 dark:text-white/90 sm:text-lg">
-            {leadsThisMonth}
-            <span className="text-xs font-normal text-gray-500"> leads</span>
-          </p>
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Context</p>
+            <div className="mt-3 space-y-3 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between">
+                <span>This Month</span>
+                <span className="font-semibold text-gray-800 dark:text-white/90">{leadsThisMonth} leads</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Total EPs</span>
+                <span className="font-semibold text-gray-800 dark:text-white/90">{totalEPs} leads</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Weekly Target</span>
+                <span className="font-semibold text-gray-800 dark:text-white/90">{weeklyTarget} leads</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
