@@ -5,12 +5,21 @@ const EXPA_GRAPHQL_URL = "https://gis-api.aiesec.org/graphql";
 export class ExpaClientError extends Error {
   status: number;
   code: string;
+  graphqlErrorMessage?: string;
+  graphqlErrorCode?: string;
 
-  constructor(message: string, status = 500, code = "EXPA_ERROR") {
+  constructor(
+    message: string,
+    status = 500,
+    code = "EXPA_ERROR",
+    options?: { graphqlErrorMessage?: string; graphqlErrorCode?: string }
+  ) {
     super(message);
     this.name = "ExpaClientError";
     this.status = status;
     this.code = code;
+    this.graphqlErrorMessage = options?.graphqlErrorMessage;
+    this.graphqlErrorCode = options?.graphqlErrorCode;
   }
 }
 
@@ -145,7 +154,11 @@ export async function fetchExpaOpportunityRaw(id: string): Promise<RawExpaOpport
     throw new ExpaClientError(
       payload.errors[0]?.message ?? "GraphQL error from EXPA.",
       getStatusCodeFromError(payload.errors),
-      payload.errors[0]?.extensions?.code ?? "GRAPHQL_ERROR"
+      payload.errors[0]?.extensions?.code ?? "GRAPHQL_ERROR",
+      {
+        graphqlErrorMessage: payload.errors[0]?.message,
+        graphqlErrorCode: payload.errors[0]?.extensions?.code,
+      }
     );
   }
 

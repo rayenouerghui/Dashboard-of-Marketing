@@ -17,6 +17,17 @@ function getTokenDiagnostics() {
   };
 }
 
+function buildDebugInfo(error?: ExpaClientError, expaHttpStatus?: number | null) {
+  return {
+    tokenConfigured: Boolean(process.env.EXPA_API_TOKEN),
+    tokenLength: process.env.EXPA_API_TOKEN ? process.env.EXPA_API_TOKEN.length : 0,
+    authMethod: "access_token_query",
+    expaHttpStatus: expaHttpStatus ?? error?.status ?? 200,
+    graphqlError: error?.graphqlErrorMessage ?? null,
+    graphqlErrorCode: error?.graphqlErrorCode ?? null,
+  };
+}
+
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -24,7 +35,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     if (!isValidOpportunityId(id)) {
       return NextResponse.json(
-        { success: false, error: "Invalid Opportunity ID.", ...diagnostics },
+        { success: false, error: "Invalid Opportunity ID.", debug: buildDebugInfo(undefined, null), ...diagnostics },
         { status: 400 }
       );
     }
@@ -32,20 +43,34 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const rawOpportunity = await fetchExpaOpportunityRaw(id);
     const opportunity = mapExpaOpportunityToOpportunity(rawOpportunity);
 
-    return NextResponse.json({ success: true, opportunity, ...diagnostics }, { status: 200 });
+    return NextResponse.json(
+      { success: true, opportunity, debug: buildDebugInfo(undefined, 200), ...diagnostics },
+      { status: 200 }
+    );
   } catch (error) {
     const diagnostics = getTokenDiagnostics();
 
     if (error instanceof ExpaClientError) {
       return NextResponse.json(
-        { success: false, error: error.message, code: error.code, ...diagnostics },
+        {
+          success: false,
+          error: error.message,
+          code: error.code,
+          debug: buildDebugInfo(error),
+          ...diagnostics,
+        },
         { status: error.status }
       );
     }
 
     console.error("[api/expa/opportunities/[id]] error:", error);
     return NextResponse.json(
-      { success: false, error: "Unable to fetch EXPA opportunity.", ...diagnostics },
+      {
+        success: false,
+        error: "Unable to fetch EXPA opportunity.",
+        debug: buildDebugInfo(undefined, 500),
+        ...diagnostics,
+      },
       { status: 500 }
     );
   }
