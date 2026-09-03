@@ -34,7 +34,9 @@ type RawExpaOpportunity = {
   title?: string | null;
   description?: string | null;
   organisation?: { name?: string | null } | null;
-  city?: { name?: string | null; country?: string | { name?: string | null } | null } | null;
+  city?: { name?: string | null; country?: string | null } | null;
+  // home_lc.country is a plain string (e.g. "Brazil") — reliable fallback when city is null
+  home_lc?: { name?: string | null; country?: string | null } | null;
   location?: string | null;
   work_hours?: string | number | null;
   programme?: { short_name_display?: string | null; id?: string | number | null } | null;
@@ -45,16 +47,17 @@ type RawExpaOpportunity = {
     salary_currency?: { name?: string | null } | null;
     expected_work_schedule?: string | null;
   } | null;
+  // EXPA returns these as strings: "provided" | "not_provided" | "covered" | "not_covered"
   logistics_info?: {
-    accommodation_provided?: boolean | null;
-    accommodation_covered?: boolean | null;
+    accommodation_provided?: string | null;
+    accommodation_covered?: string | null;
     accommodation_additional_info?: string | null;
-    food_provided?: boolean | null;
-    food_covered?: boolean | null;
-    transportation_provided?: boolean | null;
-    transportation_covered?: boolean | null;
+    food_provided?: string | null;
+    food_covered?: string | null;
+    transportation_provided?: string | null;
+    transportation_covered?: string | null;
     transportation_additional_info?: string | null;
-    computer_provided?: boolean | null;
+    computer_provided?: string | null;
   } | null;
 };
 
@@ -76,6 +79,10 @@ const OPPORTUNITY_QUERY = `
         name
       }
       city {
+        name
+        country
+      }
+      home_lc {
         name
         country
       }

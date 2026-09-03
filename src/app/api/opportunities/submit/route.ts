@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendOpportunitySubmission } from "@/lib/googleSheetsServer";
-import { getUniversityById } from "@/lib/dataUtils";
+import { appendOpportunitySubmission, saveOpportunityToSheet } from "@/lib/googleSheetsServer";
+import { getUniversityById, type Opportunity } from "@/lib/dataUtils";
 
 export const dynamic = "force-dynamic";
 
@@ -14,17 +14,16 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Required fields ────────────────────────────────────────────────────────
-  const product        = String(body.product        ?? "").trim();
-  const opportunityId  = String(body.opportunityId  ?? "").trim();
-  const title          = String(body.title          ?? "").trim();
-  const universityId   = String(body.universityId   ?? "").trim();
-  const country        = String(body.country        ?? "").trim();
+  const product       = String(body.product       ?? "").trim();
+  const opportunityId = String(body.opportunityId ?? "").trim();
+  const title         = String(body.title         ?? "").trim();
+  const universityId  = String(body.universityId  ?? "").trim();
+  const country       = String(body.country       ?? "").trim();
 
-  if (!product)       return NextResponse.json({ success: false, error: "product is required."       }, { status: 400 });
-  if (!title)         return NextResponse.json({ success: false, error: "title is required."         }, { status: 400 });
-  if (!universityId)  return NextResponse.json({ success: false, error: "universityId is required."  }, { status: 400 });
+  if (!product)      return NextResponse.json({ success: false, error: "product is required."      }, { status: 400 });
+  if (!title)        return NextResponse.json({ success: false, error: "title is required."        }, { status: 400 });
+  if (!universityId) return NextResponse.json({ success: false, error: "universityId is required." }, { status: 400 });
 
-  // ── Resolve university name from ID ────────────────────────────────────────
   const university = getUniversityById(universityId);
   const universityName = university?.name ?? universityId;
 
@@ -36,8 +35,15 @@ export async function POST(request: NextRequest) {
   const note            = String(body.note            ?? "").trim();
   const source          = String(body.source          ?? "Admin Dashboard").trim();
 
+  // Full opportunity object sent from the admin form (for cross-device persistence)
+  const fullOpportunity = body.opportunity as Opportunity | undefined;
+
+  const errors: string[] = [];
+
+  // 1. Write summary row to the tracking sheet (OGV / OGT)
+  let sheetResult: Awaited<ReturnType<typeof appendOpportunitySubmission>> | null = null;
   try {
-    const result = await appendOpportunitySubmission({
+    sheetResult = await appendOpportunitySubmission({
       product,
       opportunityId,
       opportunityTitle: title,
@@ -51,13 +57,37 @@ export async function POST(request: NextRequest) {
       note,
       source,
     });
-
-    return NextResponse.json({ success: true, ...result }, { status: 200 });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to write to Google Sheets.";
-    console.error("[api/opportunities/submit] error:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  } catch (err) {
+    errors.push(`Tracking sheet: ${err instanceof Error ? err.message : String(err)}`);
+    console.error("[api/opportunities/submit] tracking sheet error:", err);
   }
+
+  // 2. Persist full opportunity object to the Opportunities tab (for member reads)
+  if (fullOpportunity) {
+    try {
+      await saveOpportunityToSheet(fullOpportunity);
+    } catch (err) {
+      errors.push(`Opportunity store: ${err instanceof Error ? err.message : String(err)}`);
+      console.error("[api/opportunities/submit] opportunity store error:", err);
+    }
+  }
+
+  if (errors.length > 0 && !sheetResult) {
+    // Both writes failed
+    return NextResponse.json(
+      { success: false, error: errors.join(" | ") },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      success: true,
+      ...(sheetResult ?? {}),
+      warnings: errors.length > 0 ? errors : undefined,
+    },
+    { status: 200 }
+  );
 }
 
 export async function GET() {

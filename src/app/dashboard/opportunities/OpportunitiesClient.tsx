@@ -325,46 +325,46 @@ export default function OpportunitiesClient() {
       return [...current, nextOpportunity];
     });
 
-    // 2. Write to Google Sheets (only on create, not edit)
-    if (!editingOpportunity) {
-      try {
-        const university = universities.find((u) => u.id === selectedUniversity);
-        const response = await fetch("/api/opportunities/submit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            product:         formData.product.trim(),
-            opportunityId:   formData.expaOpportunityId.trim(),
-            title:           formData.title.trim(),
-            universityId:    selectedUniversity,
-            universityName:  university?.name ?? selectedUniversity,
-            country:         formData.country.trim(),
-            duration:        formData.duration.trim(),
-            opportunityDate: formData.date.trim(),
-            epName:          "",
-            condition:       "",
-            note:            "",
-            source:          "Admin Dashboard",
-          }),
-        });
+    // 2. Write to Google Sheets — always (create + edit both persist to the Opportunities tab)
+    try {
+      const university = universities.find((u) => u.id === selectedUniversity);
+      const response = await fetch("/api/opportunities/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          product:         formData.product.trim(),
+          opportunityId:   formData.expaOpportunityId.trim(),
+          title:           formData.title.trim(),
+          universityId:    selectedUniversity,
+          universityName:  university?.name ?? selectedUniversity,
+          country:         formData.country.trim(),
+          duration:        formData.duration.trim(),
+          opportunityDate: formData.date.trim(),
+          epName:          "",
+          condition:       "",
+          note:            "",
+          source:          "Admin Dashboard",
+          // Full object for cross-device member visibility
+          opportunity:     nextOpportunity,
+        }),
+      });
 
-        const result = await response.json();
+      const result = await response.json();
 
-        if (!response.ok || !result?.success) {
-          // Sheet write failed — show warning but don't block (opp is already saved locally)
-          setSubmitSuccess(
-            `Opportunity saved locally. Sheet write failed: ${result?.error ?? "unknown error"}`
-          );
-        } else {
-          setSubmitSuccess(
-            `Opportunity saved and written to the ${result.sheetType} sheet.`
-          );
-        }
-      } catch (err) {
+      if (!response.ok || !result?.success) {
         setSubmitSuccess(
-          `Opportunity saved locally. Could not reach the sheet: ${err instanceof Error ? err.message : "network error"}`
+          `Opportunity saved locally. Sheet write failed: ${result?.error ?? "unknown error"}`
+        );
+      } else {
+        const sheetLabel = result.sheetType ? ` to the ${result.sheetType} sheet` : "";
+        setSubmitSuccess(
+          `Opportunity saved${sheetLabel}. Members can now see it.`
         );
       }
+    } catch (err) {
+      setSubmitSuccess(
+        `Opportunity saved locally. Could not reach the sheet: ${err instanceof Error ? err.message : "network error"}`
+      );
     }
 
     setIsSubmitting(false);

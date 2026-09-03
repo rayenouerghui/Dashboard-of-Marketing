@@ -400,3 +400,147 @@ export async function getGoogleSheetsDebugInfo() {
     availableTabs,
   };
 }
+
+// ─── Opportunity persistence (cross-device store) ─────────────────────────────
+//
+// Uses a dedicated sheet tab called "Opportunities" in the OGV spreadsheet.
+// Schema: column A = universityId (for filtering), column B = full JSON blob.
+// Row 1 is a header: ["universityId", "data"]
+
+const OPPORTUNITIES_SPREADSHEET_ID = "1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM";
+const OPPORTUNITIES_TAB = "Opportunities";
+
+async function getSheetsClient() {
+  const google = await getGoogleApis();
+  const { auth } = getAuthClient(google);
+  return google.sheets({ version: "v4", auth });
+}
+
+async function ensureOpportunitiesTab(sheets: any) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+    fields: "sheets(properties(title))",
+  });
+  const titles: string[] = (meta.data.sheets ?? []).map(
+    (s: any) => s?.properties?.title ?? ""
+  );
+  if (!titles.includes(OPPORTUNITIES_TAB)) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: OPPORTUNITIES_TAB } } }],
+      },
+    });
+    // Write header row
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+      range: `'${OPPORTUNITIES_TAB}'!A1:B1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [["universityId", "data"]] },
+    });
+  }
+}
+
+export async function saveOpportunityToSheet(opportunity: import("@/lib/dataUtils").Opportunity) {
+  const sheets = await getSheetsClient();
+  await ensureOpportunitiesTab(sheets);
+
+  // Check if a row for this opportunity id already exists → update it
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+    range: `'${OPPORTUNITIES_TAB}'!A:B`,
+  });
+
+  const rows: string[][] = existing.data.values ?? [];
+  // rows[0] is the header; data starts at index 1
+  let targetRowIndex = -1;
+  for (let i = 1; i < rows.length; i++) {
+    try {
+      const parsed = JSON.parse(rows[i][1] ?? "{}");
+      if (parsed.id === opportunity.id) {
+        targetRowIndex = i + 1; // 1-indexed sheet row
+        break;
+      }
+    } catch {
+      // malformed row — skip
+    }
+  }
+
+  const rowValues = [[opportunity.universityId, JSON.stringify(opportunity)]];
+
+  if (targetRowIndex > 0) {
+    // Update existing row
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+      range: `'${OPPORTUNITIES_TAB}'!A${targetRowIndex}:B${targetRowIndex}`,
+      valueInputOption: "RAW",
+      requestBody: { values: rowValues },
+    });
+  } else {
+    // Append new row
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+      range: `'${OPPORTUNITIES_TAB}'!A:B`,
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values: rowValues },
+    });
+  }
+}
+
+export async function loadOpportunitiesFromSheet(
+  universityId?: string
+): Promise<import("@/lib/dataUtils").Opportunity[]> {
+  const sheets = await getSheetsClient();
+  await ensureOpportunitiesTab(sheets);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+    range: `'${OPPORTUNITIES_TAB}'!A:B`,
+  });
+
+  const rows: string[][] = response.data.values ?? [];
+  const results: import("@/lib/dataUtils").Opportunity[] = [];
+
+  // Skip header row (index 0)
+  for (let i = 1; i < rows.length; i++) {
+    const [rowUniversityId, jsonBlob] = rows[i] ?? [];
+    if (!jsonBlob) continue;
+    if (universityId && rowUniversityId !== universityId) continue;
+    try {
+      const opp = JSON.parse(jsonBlob) as import("@/lib/dataUtils").Opportunity;
+      results.push(opp);
+    } catch {
+      // malformed — skip
+    }
+  }
+
+  return results;
+}
+
+export async function deleteOpportunityFromSheet(opportunityId: string) {
+  const sheets = await getSheetsClient();
+  await ensureOpportunitiesTab(sheets);
+
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+    range: `'${OPPORTUNITIES_TAB}'!A:B`,
+  });
+
+  const rows: string[][] = existing.data.values ?? [];
+  for (let i = 1; i < rows.length; i++) {
+    try {
+      const parsed = JSON.parse(rows[i][1] ?? "{}");
+      if (parsed.id === opportunityId) {
+        // Clear the row content (leaves an empty row — harmless)
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
+          range: `'${OPPORTUNITIES_TAB}'!A${i + 1}:B${i + 1}`,
+        });
+        break;
+      }
+    } catch {
+      // skip
+    }
+  }
+}

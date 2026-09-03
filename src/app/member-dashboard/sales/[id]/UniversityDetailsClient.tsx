@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { getUniversityById, getOpportunitiesByUniversityId } from "@/lib/dataUtils";
+import { getUniversityById } from "@/lib/dataUtils";
 import { useEffect, useState, use } from "react";
 import Image from "next/image";
 import Badge from "@/components/ui/badge/Badge";
@@ -31,7 +31,8 @@ function getProductLogo(product?: string) {
 export default function UniversityDetailsClient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const university = getUniversityById(id);
-  const opportunities = getOpportunitiesByUniversityId(id);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [oppsLoading, setOppsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [pressedId, setPressedId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -105,6 +106,26 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
     const t = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(t);
   }, []);
+
+  // Fetch opportunities from the server (cross-device, written by admin)
+  useEffect(() => {
+    let cancelled = false;
+    setOppsLoading(true);
+    fetch(`/api/opportunities?universityId=${encodeURIComponent(id)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data?.success) {
+          setOpportunities(data.opportunities as Opportunity[]);
+        }
+      })
+      .catch(() => {
+        // silently fail — empty state shown
+      })
+      .finally(() => {
+        if (!cancelled) setOppsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [id]);
 
   if (!university) {
     return (
@@ -222,7 +243,11 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
           </div>
         )}
 
-        {opportunities.length > 0 ? (
+        {oppsLoading ? (
+          <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-800/50">
+            <p className="text-sm text-gray-400 dark:text-gray-500">Loading opportunities…</p>
+          </div>
+        ) : opportunities.length > 0 ? (
           <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
             {opportunities.map((opportunity, index) => {
               const product = opportunity.product;
@@ -324,43 +349,75 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
                           🌍 {opportunity.country}
                         </div>
 
-                        {/* Benefits */}
-                        <div>
-                          <p className={`font-medium text-gray-500 dark:text-gray-400 mb-2 transition-all duration-300 ease-out ${
-                            isExpanded ? "text-sm sm:text-base" : "text-xs"
-                          }`}>
-                            Benefits
-                          </p>
-                          <ul className="space-y-1">
-                            {opportunity.benefits.map((benefit, idx) => (
-                              <li key={idx} className={`text-gray-600 dark:text-gray-400 flex items-start gap-2 transition-all duration-300 ease-out ${
-                                isExpanded ? "text-sm sm:text-base" : "text-xs"
-                              }`}>
-                                <span className="text-green-500 mt-0.5">✓</span>
-                                <span>{benefit}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        {/* Organisation */}
+                        {opportunity.organisation && (
+                          <div className="sm:col-span-2">
+                            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">Organisation</p>
+                            <p className={`text-gray-700 dark:text-gray-300 transition-all duration-300 ease-out ${isExpanded ? "text-sm" : "text-xs"}`}>
+                              {opportunity.organisation}
+                            </p>
+                          </div>
+                        )}
 
-                        {/* Requirements */}
-                        <div>
-                          <p className={`font-medium text-gray-500 dark:text-gray-400 mb-2 transition-all duration-300 ease-out ${
-                            isExpanded ? "text-sm sm:text-base" : "text-xs"
-                          }`}>
-                            Requirements
-                          </p>
-                          <ul className="space-y-1">
-                            {opportunity.requirements.map((requirement, idx) => (
-                              <li key={idx} className={`text-gray-600 dark:text-gray-400 flex items-start gap-2 transition-all duration-300 ease-out ${
-                                isExpanded ? "text-sm sm:text-base" : "text-xs"
-                              }`}>
-                                <span className="mt-0.5" style={{ color }}>•</span>
-                                <span>{requirement}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        {/* Description */}
+                        {opportunity.description && (
+                          <div className="sm:col-span-2">
+                            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">About the role</p>
+                            <p className={`text-gray-600 dark:text-gray-400 line-clamp-4 transition-all duration-300 ease-out ${isExpanded ? "text-sm" : "text-xs"}`}>
+                              {opportunity.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Salary */}
+                        {opportunity.salary && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">💰 Salary</p>
+                            <p className={`text-gray-700 dark:text-gray-300 transition-all duration-300 ease-out ${isExpanded ? "text-sm" : "text-xs"}`}>
+                              {opportunity.salary}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Duration */}
+                        {opportunity.duration && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-0.5">⏱️ Duration</p>
+                            <p className={`text-gray-700 dark:text-gray-300 transition-all duration-300 ease-out ${isExpanded ? "text-sm" : "text-xs"}`}>
+                              {opportunity.duration}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Logistics */}
+                        {(opportunity.accommodation || opportunity.food || opportunity.transportation || opportunity.computer) && (
+                          <div className="sm:col-span-2">
+                            <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-1">Logistics</p>
+                            <ul className={`space-y-0.5 text-gray-600 dark:text-gray-400 transition-all duration-300 ease-out ${isExpanded ? "text-sm" : "text-xs"}`}>
+                              {opportunity.accommodation && <li>🏠 Accommodation: {opportunity.accommodation}</li>}
+                              {opportunity.food && <li>🍽️ Food: {opportunity.food}</li>}
+                              {opportunity.transportation && <li>🚌 Transport: {opportunity.transportation}</li>}
+                              {opportunity.computer && <li>💻 Computer: {opportunity.computer}</li>}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Benefits fallback for manually-created opps */}
+                        {opportunity.benefits?.length > 0 && (
+                          <div>
+                            <p className={`font-medium text-gray-500 dark:text-gray-400 mb-2 transition-all duration-300 ease-out ${isExpanded ? "text-sm sm:text-base" : "text-xs"}`}>
+                              Benefits
+                            </p>
+                            <ul className="space-y-1">
+                              {opportunity.benefits.map((benefit, idx) => (
+                                <li key={idx} className={`text-gray-600 dark:text-gray-400 flex items-start gap-2 transition-all duration-300 ease-out ${isExpanded ? "text-sm sm:text-base" : "text-xs"}`}>
+                                  <span className="text-green-500 mt-0.5">✓</span>
+                                  <span>{benefit}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                         {/* Fill Form Button */}
                         <div className="sm:col-span-2 mt-2">

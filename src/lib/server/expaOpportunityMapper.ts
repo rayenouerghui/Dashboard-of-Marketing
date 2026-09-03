@@ -6,7 +6,9 @@ type RawExpaOpportunity = {
   title?: string | null;
   description?: string | null;
   organisation?: { name?: string | null } | null;
-  city?: { name?: string | null; country?: string | { name?: string | null } | null } | null;
+  city?: { name?: string | null; country?: string | null } | null;
+  // home_lc.country is a plain string — most reliable country source
+  home_lc?: { name?: string | null; country?: string | null } | null;
   location?: string | null;
   work_hours?: string | number | null;
   programme?: { short_name_display?: string | null; id?: string | number | null } | null;
@@ -17,16 +19,17 @@ type RawExpaOpportunity = {
     salary_currency?: { name?: string | null } | null;
     expected_work_schedule?: string | null;
   } | null;
+  // EXPA returns strings: "provided" | "not_provided" | "covered" | "not_covered"
   logistics_info?: {
-    accommodation_provided?: boolean | null;
-    accommodation_covered?: boolean | null;
+    accommodation_provided?: string | null;
+    accommodation_covered?: string | null;
     accommodation_additional_info?: string | null;
-    food_provided?: boolean | null;
-    food_covered?: boolean | null;
-    transportation_provided?: boolean | null;
-    transportation_covered?: boolean | null;
+    food_provided?: string | null;
+    food_covered?: string | null;
+    transportation_provided?: string | null;
+    transportation_covered?: string | null;
     transportation_additional_info?: string | null;
-    computer_provided?: boolean | null;
+    computer_provided?: string | null;
   } | null;
 };
 
@@ -38,7 +41,6 @@ function normalizeList(value: string[] | string | null | undefined) {
   if (Array.isArray(value)) {
     return value.map((item) => toStringValue(item)).filter(Boolean);
   }
-
   return toStringValue(value)
     .split(/\r?\n|•|\u2022|-/)
     .map((item) => item.trim())
@@ -49,19 +51,31 @@ function bulletLinesFromDescription(description: string) {
   return description
     .split(/\r?\n/)
     .map((line) => line.replace(/^[-*•\d.)\s]+/, "").trim())
-    .filter((line) => line.length > 0)
     .filter((line) => line.length > 3);
 }
 
-function formatBooleanText(provided?: boolean | null, covered?: boolean | null, additionalInfo?: string | null) {
-  if (!provided) return "Not provided.";
-  const base = covered ? "Provided and paid for." : "Provided but not paid for.";
+// EXPA logistics fields are strings: "provided" / "not_provided" / "covered" / "not_covered"
+function isProvided(value?: string | null) {
+  return value === "provided";
+}
+
+function isCovered(value?: string | null) {
+  return value === "covered";
+}
+
+function formatLogisticsText(
+  provided?: string | null,
+  covered?: string | null,
+  additionalInfo?: string | null
+) {
+  if (!isProvided(provided)) return "Not provided.";
+  const base = isCovered(covered) ? "Provided and covered." : "Provided (not covered).";
   const extra = toStringValue(additionalInfo);
   return extra ? `${base} ${extra}` : base;
 }
 
-function formatComputerText(provided?: boolean | null) {
-  return provided ? "Provided." : "Not provided.";
+function formatComputerText(provided?: string | null) {
+  return isProvided(provided) ? "Provided." : "Not provided.";
 }
 
 function formatSalary(salary?: string | number | null, currency?: string | null) {
@@ -83,7 +97,9 @@ function normalizeProduct(shortName?: string | null): string | undefined {
 }
 
 // Derives opportunity type label + color key from programme
-function deriveOpportunityType(shortName?: string | null): "professional" | "teaching" | "volunteering" | undefined {
+function deriveOpportunityType(
+  shortName?: string | null
+): "professional" | "teaching" | "volunteering" | undefined {
   const s = (shortName ?? "").trim().toLowerCase();
   if (s === "gta" || s === "ogta") return "professional";
   if (s === "gte" || s === "ogte") return "teaching";
@@ -103,10 +119,11 @@ export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opport
     raw.specifics_info?.salary_currency?.name
   );
 
+  // Country: prefer city.country, fall back to home_lc.country (both are plain strings)
   const countryValue =
-    typeof raw.city?.country === "string"
-      ? raw.city.country
-      : toStringValue(raw.city?.country?.name);
+    toStringValue(raw.city?.country) ||
+    toStringValue(raw.home_lc?.country) ||
+    "";
 
   const skills = (raw.skills ?? [])
     .map((skill) => toStringValue(skill?.constant_name))
@@ -125,6 +142,7 @@ export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opport
     location: toStringValue(raw.location || raw.city?.name),
     country: countryValue,
     description,
+    // duration is not reliably provided by EXPA — left blank for admin to fill manually
     duration: "",
     date: "",
     product,
@@ -135,13 +153,16 @@ export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opport
     salary,
     workHours: toStringValue(raw.work_hours),
     expectedWorkSchedule: toStringValue(raw.specifics_info?.expected_work_schedule),
-    accommodation: formatBooleanText(
+    accommodation: formatLogisticsText(
       raw.logistics_info?.accommodation_provided,
       raw.logistics_info?.accommodation_covered,
       raw.logistics_info?.accommodation_additional_info
     ),
-    food: formatBooleanText(raw.logistics_info?.food_provided, raw.logistics_info?.food_covered),
-    transportation: formatBooleanText(
+    food: formatLogisticsText(
+      raw.logistics_info?.food_provided,
+      raw.logistics_info?.food_covered
+    ),
+    transportation: formatLogisticsText(
       raw.logistics_info?.transportation_provided,
       raw.logistics_info?.transportation_covered,
       raw.logistics_info?.transportation_additional_info
