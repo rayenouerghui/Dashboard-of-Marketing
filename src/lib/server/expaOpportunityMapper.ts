@@ -5,6 +5,7 @@ type RawExpaOpportunity = {
   id: string | number;
   title?: string | null;
   description?: string | null;
+  openings?: number | null;
   organisation?: { name?: string | null } | null;
   city?: { name?: string | null; country?: string | null } | null;
   // home_lc.country is a plain string — most reliable country source
@@ -87,6 +88,16 @@ function formatSalary(salary?: string | number | null, currency?: string | null)
   return `${salaryText} ${currencyText}`;
 }
 
+// Derive Short / Mid / Long from EXPA openings count as a proxy for duration
+// (EXPA's duration field is unreliable — openings gives a rough signal)
+// Short = 1–4 openings, Mid = 5–9, Long = 10+. Defaults to "Mid".
+function deriveDuration(openings?: number | null): string {
+  if (openings == null) return "Mid";
+  if (openings <= 4) return "Short";
+  if (openings <= 9) return "Mid";
+  return "Long";
+}
+
 // Maps programme short_name_display to our internal product key
 function normalizeProduct(shortName?: string | null): string | undefined {
   const s = (shortName ?? "").trim().toLowerCase();
@@ -142,8 +153,7 @@ export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opport
     location: toStringValue(raw.location || raw.city?.name),
     country: countryValue,
     description,
-    // duration is not reliably provided by EXPA — left blank for admin to fill manually
-    duration: "",
+    duration: deriveDuration(raw.openings),
     date: "",
     product,
     opportunityType,

@@ -33,6 +33,7 @@ type RawExpaOpportunity = {
   id: string | number;
   title?: string | null;
   description?: string | null;
+  openings?: number | null;
   organisation?: { name?: string | null } | null;
   city?: { name?: string | null; country?: string | null } | null;
   // home_lc.country is a plain string (e.g. "Brazil") — reliable fallback when city is null
@@ -71,6 +72,7 @@ const OPPORTUNITY_QUERY = `
       id
       title
       description
+      openings
       programme {
         short_name_display
         id

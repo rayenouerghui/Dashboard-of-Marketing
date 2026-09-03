@@ -34,8 +34,9 @@ function OpportunityTypeBadge({ type }: { type: OpportunityType | undefined }) {
   );
 }
 
+// ─── Stripped-down draft — only fields we actually use ────────────────────────
 type OpportunityDraft = {
-  expaOpportunityId: string;
+  expaOpportunityId: string; // internal only, not shown in form
   opportunityType: OpportunityType | "";
   product: string;
   title: string;
@@ -43,20 +44,12 @@ type OpportunityDraft = {
   location: string;
   country: string;
   description: string;
-  duration: string;
-  date: string;
+  duration: string; // "Short" | "Mid" | "Long"
   salary: string;
-  workHours: string;
-  expectedWorkSchedule: string;
   accommodation: string;
   food: string;
   transportation: string;
   computer: string;
-  benefitsText: string;
-  requirementsText: string;
-  skillsText: string;
-  responsibilitiesText: string;
-  learningPointsText: string;
 };
 
 const STORAGE_KEY = "opportunities";
@@ -67,16 +60,11 @@ const PRODUCT_OPTIONS = [
   { value: "GV", label: "GV" },
 ];
 
-function listToText(items?: string[]) {
-  return (items ?? []).join("\n");
-}
-
-function textToList(text: string) {
-  return text
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
+const DURATION_OPTIONS = [
+  { value: "Short", label: "Short" },
+  { value: "Mid",   label: "Mid"   },
+  { value: "Long",  label: "Long"  },
+];
 
 function emptyDraft(): OpportunityDraft {
   return {
@@ -88,20 +76,12 @@ function emptyDraft(): OpportunityDraft {
     location: "",
     country: "",
     description: "",
-    duration: "",
-    date: "",
+    duration: "Mid",
     salary: "",
-    workHours: "",
-    expectedWorkSchedule: "",
     accommodation: "",
     food: "",
     transportation: "",
     computer: "",
-    benefitsText: "",
-    requirementsText: "",
-    skillsText: "",
-    responsibilitiesText: "",
-    learningPointsText: "",
   };
 }
 
@@ -115,20 +95,12 @@ function opportunityToDraft(opportunity: Opportunity): OpportunityDraft {
     location: opportunity.location ?? "",
     country: opportunity.country ?? "",
     description: opportunity.description ?? "",
-    duration: opportunity.duration ?? "",
-    date: opportunity.date ?? "",
+    duration: opportunity.duration || "Mid",
     salary: opportunity.salary ?? "",
-    workHours: opportunity.workHours ?? "",
-    expectedWorkSchedule: opportunity.expectedWorkSchedule ?? "",
     accommodation: opportunity.accommodation ?? "",
     food: opportunity.food ?? "",
     transportation: opportunity.transportation ?? "",
     computer: opportunity.computer ?? "",
-    benefitsText: listToText(opportunity.benefits),
-    requirementsText: listToText(opportunity.requirements),
-    skillsText: listToText(opportunity.skills),
-    responsibilitiesText: listToText(opportunity.responsibilities),
-    learningPointsText: listToText(opportunity.learningPoints),
   };
 }
 
@@ -148,26 +120,20 @@ function draftToOpportunity(
     location: draft.location.trim() || undefined,
     country: draft.country.trim(),
     description: draft.description.trim() || undefined,
-    duration: draft.duration.trim(),
-    date: draft.date.trim(),
+    duration: draft.duration,
+    date: "",
     salary: draft.salary.trim() || undefined,
-    workHours: draft.workHours.trim() || undefined,
-    expectedWorkSchedule: draft.expectedWorkSchedule.trim() || undefined,
     accommodation: draft.accommodation.trim() || undefined,
     food: draft.food.trim() || undefined,
     transportation: draft.transportation.trim() || undefined,
     computer: draft.computer.trim() || undefined,
-    benefits: textToList(draft.benefitsText),
-    requirements: textToList(draft.requirementsText),
-    skills: textToList(draft.skillsText),
-    responsibilities: textToList(draft.responsibilitiesText),
-    learningPoints: textToList(draft.learningPointsText),
+    benefits: [],
+    requirements: [],
   };
 }
 
 function readStoredOpportunities() {
   if (typeof window === "undefined") return [] as Opportunity[];
-
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     try {
@@ -176,15 +142,7 @@ function readStoredOpportunities() {
       return getOpportunities();
     }
   }
-
   return getOpportunities();
-}
-
-function splitLines(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 export default function OpportunitiesClient() {
@@ -201,7 +159,6 @@ export default function OpportunitiesClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [expaOpportunityId, setExpaOpportunityId] = useState("");
-
   const [formData, setFormData] = useState<OpportunityDraft>(emptyDraft());
 
   useEffect(() => {
@@ -258,34 +215,22 @@ export default function OpportunitiesClient() {
       setFetchError("Enter an EXPA Opportunity ID first.");
       return;
     }
-
     setIsFetchingExpa(true);
     setFetchError(null);
     setFetchSuccess(null);
-
     try {
       const response = await fetch(`/api/expa/opportunities/${encodeURIComponent(id)}`);
       const result = await response.json();
-
       if (!response.ok || !result?.success) {
-        if (response.status === 400) {
-          throw new Error("Invalid Opportunity ID. Please check the ID and try again.");
-        }
-        if (response.status === 401 || response.status === 403) {
-          throw new Error("Could not fetch this EXPA opportunity. Please check the admin configuration and try again.");
-        }
-        if (response.status === 429) {
-          throw new Error("EXPA rate limit reached. Please wait a moment and try again.");
-        }
-        throw new Error(result?.error ?? "Could not fetch this EXPA opportunity. Please check the Opportunity ID and try again.");
+        if (response.status === 400) throw new Error("Invalid Opportunity ID. Please check the ID and try again.");
+        if (response.status === 401 || response.status === 403) throw new Error("Could not fetch this EXPA opportunity. Check admin configuration.");
+        if (response.status === 429) throw new Error("EXPA rate limit reached. Please wait a moment and try again.");
+        throw new Error(result?.error ?? "Could not fetch this EXPA opportunity.");
       }
-
       const opportunity = result.opportunity as Opportunity;
-
       setFormData({
         ...opportunityToDraft(opportunity),
         expaOpportunityId: id,
-        // product + opportunityType come from EXPA programme; admin can still override
       });
       setFetchSuccess("Opportunity loaded from EXPA. Review and edit the fields below before saving.");
     } catch (error) {
@@ -297,35 +242,19 @@ export default function OpportunitiesClient() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    if (!selectedUniversity) {
-      setFormError("Please select a university first.");
-      return;
-    }
-
-    if (!formData.product.trim()) {
-      setFormError("Please select a product for this opportunity.");
-      return;
-    }
-
-    if (!formData.title.trim()) {
-      setFormError("Opportunity title is required.");
-      return;
-    }
+    if (!selectedUniversity) { setFormError("Please select a university first."); return; }
+    if (!formData.product.trim()) { setFormError("Please select a product for this opportunity."); return; }
+    if (!formData.title.trim()) { setFormError("Opportunity title is required."); return; }
 
     setIsSubmitting(true);
     setFormError(null);
 
-    // 1. Save to localStorage as before
     const nextOpportunity = draftToOpportunity(formData, selectedUniversity, editingOpportunity?.id);
     setOpportunities((current) => {
-      if (editingOpportunity) {
-        return current.map((opp) => (opp.id === editingOpportunity.id ? nextOpportunity : opp));
-      }
+      if (editingOpportunity) return current.map((opp) => (opp.id === editingOpportunity.id ? nextOpportunity : opp));
       return [...current, nextOpportunity];
     });
 
-    // 2. Write to Google Sheets — always (create + edit both persist to the Opportunities tab)
     try {
       const university = universities.find((u) => u.id === selectedUniversity);
       const response = await fetch("/api/opportunities/submit", {
@@ -338,33 +267,24 @@ export default function OpportunitiesClient() {
           universityId:    selectedUniversity,
           universityName:  university?.name ?? selectedUniversity,
           country:         formData.country.trim(),
-          duration:        formData.duration.trim(),
-          opportunityDate: formData.date.trim(),
+          duration:        formData.duration,
+          opportunityDate: "",
           epName:          "",
           condition:       "",
           note:            "",
           source:          "Admin Dashboard",
-          // Full object for cross-device member visibility
           opportunity:     nextOpportunity,
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result?.success) {
-        setSubmitSuccess(
-          `Opportunity saved locally. Sheet write failed: ${result?.error ?? "unknown error"}`
-        );
+        setSubmitSuccess(`Opportunity saved locally. Sheet write failed: ${result?.error ?? "unknown error"}`);
       } else {
         const sheetLabel = result.sheetType ? ` to the ${result.sheetType} sheet` : "";
-        setSubmitSuccess(
-          `Opportunity saved${sheetLabel}. Members can now see it.`
-        );
+        setSubmitSuccess(`Opportunity saved${sheetLabel}. Members can now see it.`);
       }
     } catch (err) {
-      setSubmitSuccess(
-        `Opportunity saved locally. Could not reach the sheet: ${err instanceof Error ? err.message : "network error"}`
-      );
+      setSubmitSuccess(`Opportunity saved locally. Could not reach the sheet: ${err instanceof Error ? err.message : "network error"}`);
     }
 
     setIsSubmitting(false);
@@ -376,31 +296,27 @@ export default function OpportunitiesClient() {
     setOpportunities((current) => current.filter((opp) => opp.id !== opportunityId));
   }
 
+  const inputCls = "w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-          Create Opps for Universities
-        </h1>
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">Create Opps for Universities</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Manage opportunities for universities. Changes will reflect in the Member Dashboard Resources page.
+          Manage opportunities for universities. Changes will reflect in the Member Dashboard.
         </p>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-          Select University
-        </label>
+        <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Select University</label>
         <select
           value={selectedUniversity}
           onChange={(e) => setSelectedUniversity(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+          className={inputCls}
         >
           <option value="">-- Select a university --</option>
           {universities.map((uni) => (
-            <option key={uni.id} value={uni.id}>
-              {uni.name}
-            </option>
+            <option key={uni.id} value={uni.id}>{uni.name}</option>
           ))}
         </select>
       </div>
@@ -422,10 +338,7 @@ export default function OpportunitiesClient() {
                 : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
             }`}>
               {submitSuccess}
-              <button
-                onClick={() => setSubmitSuccess(null)}
-                className="ml-3 font-medium underline opacity-70 hover:opacity-100"
-              >
+              <button onClick={() => setSubmitSuccess(null)} className="ml-3 font-medium underline opacity-70 hover:opacity-100">
                 Dismiss
               </button>
             </div>
@@ -442,48 +355,17 @@ export default function OpportunitiesClient() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <h3 className="text-base font-semibold text-gray-800 dark:text-white">
-                          {opportunity.title}
-                        </h3>
+                        <h3 className="text-base font-semibold text-gray-800 dark:text-white">{opportunity.title}</h3>
                         <OpportunityTypeBadge type={opportunity.opportunityType as OpportunityType | undefined} />
-                        {opportunity.product && (
-                          <Badge size="sm" color="info">
-                            {opportunity.product}
-                          </Badge>
-                        )}
-                        {opportunity.expaOpportunityId && (
-                          <Badge size="sm" color="success">
-                            EXPA #{opportunity.expaOpportunityId}
-                          </Badge>
-                        )}
+                        {opportunity.product && <Badge size="sm" color="info">{opportunity.product}</Badge>}
+                        {opportunity.duration && <Badge size="sm" color="warning">{opportunity.duration}</Badge>}
                       </div>
-
-                      <div className="mb-3 flex flex-wrap gap-2">
-                        {opportunity.organisation && (
-                          <Badge size="sm" color="info">
-                            {opportunity.organisation}
-                          </Badge>
-                        )}
-                        {opportunity.country && (
-                          <Badge size="sm" color="success">
-                            {opportunity.country}
-                          </Badge>
-                        )}
-                        {opportunity.location && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            {opportunity.location}
-                          </span>
-                        )}
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {opportunity.organisation && <Badge size="sm" color="info">{opportunity.organisation}</Badge>}
+                        {opportunity.country && <Badge size="sm" color="success">{opportunity.country}</Badge>}
+                        {opportunity.location && <span className="text-xs text-gray-500 dark:text-gray-400">{opportunity.location}</span>}
                       </div>
-
-                      {opportunity.description && (
-                        <p className="mb-3 line-clamp-3 text-sm text-gray-600 dark:text-gray-400">
-                          {opportunity.description}
-                        </p>
-                      )}
-
-                      <div className="grid gap-2 text-sm text-gray-600 dark:text-gray-400 sm:grid-cols-2">
-                        <p><span className="font-medium">Working hours:</span> {opportunity.workHours || "—"}</p>
+                      <div className="grid gap-1 text-sm text-gray-600 dark:text-gray-400 sm:grid-cols-2">
                         <p><span className="font-medium">Salary:</span> {opportunity.salary || "—"}</p>
                         <p><span className="font-medium">Accommodation:</span> {opportunity.accommodation || "—"}</p>
                         <p><span className="font-medium">Food:</span> {opportunity.food || "—"}</p>
@@ -491,20 +373,11 @@ export default function OpportunitiesClient() {
                         <p><span className="font-medium">Computer:</span> {opportunity.computer || "—"}</p>
                       </div>
                     </div>
-
                     <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() => openModal(opportunity)}
-                        className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-                        title="Edit"
-                      >
+                      <button onClick={() => openModal(opportunity)} className="rounded-lg border border-gray-300 p-2 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" title="Edit">
                         <PencilIcon />
                       </button>
-                      <button
-                        onClick={() => handleDelete(opportunity.id)}
-                        className="rounded-lg border border-red-300 p-2 text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-                        title="Delete"
-                      >
+                      <button onClick={() => handleDelete(opportunity.id)} className="rounded-lg border border-red-300 p-2 text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20" title="Delete">
                         <TrashBinIcon />
                       </button>
                     </div>
@@ -515,13 +388,8 @@ export default function OpportunitiesClient() {
           ) : (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-800/50">
               <div className="mb-3 text-4xl">💼</div>
-              <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                No opportunities for this university yet.
-              </p>
-              <Button size="sm" onClick={() => openModal()}>
-                <PlusIcon />
-                Add First Opportunity
-              </Button>
+              <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">No opportunities for this university yet.</p>
+              <Button size="sm" onClick={() => openModal()}><PlusIcon />Add First Opportunity</Button>
             </div>
           )}
         </div>
@@ -529,30 +397,29 @@ export default function OpportunitiesClient() {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
                 {editingOpportunity ? "Edit Opportunity" : "Add New Opportunity"}
               </h2>
-              <button
-                onClick={resetModalState}
-                className="rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
-              >
+              <button onClick={resetModalState} className="rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800">
                 <CloseIcon />
               </button>
             </div>
 
+            {/* EXPA Fetch Widget */}
             <div className="mb-6 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                EXPA Opportunity ID
+                Fetch from EXPA by Opportunity ID
               </label>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
                   value={expaOpportunityId}
                   onChange={(e) => setExpaOpportunityId(e.target.value)}
-                  className="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  placeholder="1335616"
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleFetchFromExpa())}
+                  className={`flex-1 ${inputCls}`}
+                  placeholder="e.g. 1329526"
                 />
                 <button
                   type="button"
@@ -560,283 +427,102 @@ export default function OpportunitiesClient() {
                   disabled={isFetchingExpa}
                   className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isFetchingExpa ? "Fetching opportunity..." : "Fetch from EXPA"}
+                  {isFetchingExpa ? "Fetching…" : "Fetch from EXPA"}
                 </button>
               </div>
-              {fetchSuccess && (
-                <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
-                  {fetchSuccess}
-                </p>
-              )}
-              {fetchError && (
-                <p className="mt-3 text-sm text-error-600 dark:text-error-400">
-                  {fetchError}
-                </p>
-              )}
+              {fetchSuccess && <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">{fetchSuccess}</p>}
+              {fetchError && <p className="mt-3 text-sm text-red-600 dark:text-red-400">{fetchError}</p>}
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Title + Product */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Title *</label>
-                  <input
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    required
-                  />
+                  <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className={inputCls} required />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Product *
-                    {formData.opportunityType && (
-                      <span className="ml-2">
-                        <OpportunityTypeBadge type={formData.opportunityType as OpportunityType} />
-                      </span>
-                    )}
+                    {formData.opportunityType && <span className="ml-2"><OpportunityTypeBadge type={formData.opportunityType as OpportunityType} /></span>}
                   </label>
-                  <select
-                    value={formData.product}
-                    onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    required
-                  >
+                  <select value={formData.product} onChange={(e) => setFormData({ ...formData, product: e.target.value })} className={inputCls} required>
                     <option value="">-- Select product --</option>
-                    {PRODUCT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
+                    {PRODUCT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>
               </div>
 
+              {/* Organisation + Country */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisation</label>
-                  <input
-                    type="text"
-                    value={formData.organisation}
-                    onChange={(e) => setFormData({ ...formData, organisation: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
+                  <input type="text" value={formData.organisation} onChange={(e) => setFormData({ ...formData, organisation: e.target.value })} className={inputCls} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Country *</label>
-                  <input
-                    type="text"
-                    value={formData.country}
-                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    required
-                  />
+                  <input type="text" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} className={inputCls} required />
                 </div>
               </div>
 
+              {/* Location + Duration */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
+                  <input type="text" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className={inputCls} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Duration *</label>
-                  <input
-                    type="text"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                    placeholder="e.g., 12 weeks"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    required
-                  />
+                  <select value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className={inputCls} required>
+                    {DURATION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date *</label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">EXPA Opportunity ID</label>
-                  <input
-                    type="text"
-                    value={formData.expaOpportunityId}
-                    onChange={(e) => setFormData({ ...formData, expaOpportunityId: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-              </div>
-
+              {/* Description */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={5}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                />
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={4} className={inputCls} />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Salary</label>
-                  <input
-                    type="text"
-                    value={formData.salary}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Working Hours</label>
-                  <input
-                    type="text"
-                    value={formData.workHours}
-                    onChange={(e) => setFormData({ ...formData, workHours: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-              </div>
-
+              {/* Salary */}
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Expected Work Schedule</label>
-                <input
-                  type="text"
-                  value={formData.expectedWorkSchedule}
-                  onChange={(e) => setFormData({ ...formData, expectedWorkSchedule: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                />
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Salary</label>
+                <input type="text" value={formData.salary} onChange={(e) => setFormData({ ...formData, salary: e.target.value })} className={inputCls} />
               </div>
 
+              {/* Logistics */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Accommodation</label>
-                  <input
-                    type="text"
-                    value={formData.accommodation}
-                    onChange={(e) => setFormData({ ...formData, accommodation: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
+                  <input type="text" value={formData.accommodation} onChange={(e) => setFormData({ ...formData, accommodation: e.target.value })} className={inputCls} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Food</label>
-                  <input
-                    type="text"
-                    value={formData.food}
-                    onChange={(e) => setFormData({ ...formData, food: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
+                  <input type="text" value={formData.food} onChange={(e) => setFormData({ ...formData, food: e.target.value })} className={inputCls} />
                 </div>
               </div>
-
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Transportation</label>
-                  <input
-                    type="text"
-                    value={formData.transportation}
-                    onChange={(e) => setFormData({ ...formData, transportation: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
+                  <input type="text" value={formData.transportation} onChange={(e) => setFormData({ ...formData, transportation: e.target.value })} className={inputCls} />
                 </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Computer</label>
-                  <input
-                    type="text"
-                    value={formData.computer}
-                    onChange={(e) => setFormData({ ...formData, computer: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
+                  <input type="text" value={formData.computer} onChange={(e) => setFormData({ ...formData, computer: e.target.value })} className={inputCls} />
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Skills</label>
-                  <textarea
-                    value={formData.skillsText}
-                    onChange={(e) => setFormData({ ...formData, skillsText: e.target.value })}
-                    rows={4}
-                    placeholder="One skill per line"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Learning Points</label>
-                  <textarea
-                    value={formData.learningPointsText}
-                    onChange={(e) => setFormData({ ...formData, learningPointsText: e.target.value })}
-                    rows={4}
-                    placeholder="One learning point per line"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-              </div>
+              {formError && <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>}
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Responsibilities</label>
-                  <textarea
-                    value={formData.responsibilitiesText}
-                    onChange={(e) => setFormData({ ...formData, responsibilitiesText: e.target.value })}
-                    rows={4}
-                    placeholder="One responsibility per line"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Benefits</label>
-                  <textarea
-                    value={formData.benefitsText}
-                    onChange={(e) => setFormData({ ...formData, benefitsText: e.target.value })}
-                    rows={4}
-                    placeholder="One benefit per line"
-                    className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Requirements</label>
-                <textarea
-                  value={formData.requirementsText}
-                  onChange={(e) => setFormData({ ...formData, requirementsText: e.target.value })}
-                  rows={4}
-                  placeholder="One requirement per line"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                />
-              </div>
-
-              {formError && (
-                <p className="text-sm text-error-600 dark:text-error-400">{formError}</p>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-                <Button variant="outline" onClick={resetModalState}>
-                  Cancel
-                </Button>
+              <div className="flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+                <Button variant="outline" onClick={resetModalState}>Cancel</Button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-5 py-3.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
                 >
-                  {isSubmitting
-                    ? "Saving..."
-                    : editingOpportunity
-                      ? "Update Opportunity"
-                      : "Create Opportunity"}
+                  {isSubmitting ? "Saving…" : editingOpportunity ? "Update Opportunity" : "Create Opportunity"}
                 </button>
               </div>
             </form>
