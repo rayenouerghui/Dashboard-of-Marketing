@@ -109,11 +109,12 @@ export async function fetchExpaOpportunityRaw(id: string): Promise<RawExpaOpport
     throw new ExpaClientError("EXPA API token is not configured.", 500, "MISSING_TOKEN");
   }
 
-  const response = await fetch(EXPA_GRAPHQL_URL, {
+  const graphqlUrl = `${EXPA_GRAPHQL_URL}?access_token=${encodeURIComponent(token)}`;
+
+  const response = await fetch(graphqlUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ query: OPPORTUNITY_QUERY, variables: { id } }),
     cache: "no-store",
