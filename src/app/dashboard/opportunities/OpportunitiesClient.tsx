@@ -6,8 +6,37 @@ import Badge from "@/components/ui/badge/Badge";
 import { PlusIcon, PencilIcon, TrashBinIcon, CloseIcon } from "@/icons/index";
 import { getUniversities, getOpportunities, type Opportunity } from "@/lib/dataUtils";
 
+// ─── Opportunity type → color mapping ────────────────────────────────────────
+const OPPORTUNITY_TYPE_CONFIG = {
+  professional: {
+    label: "Professional",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
+  },
+  teaching: {
+    label: "Teaching",
+    className: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",
+  },
+  volunteering: {
+    label: "Volunteering",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  },
+} as const;
+
+type OpportunityType = keyof typeof OPPORTUNITY_TYPE_CONFIG;
+
+function OpportunityTypeBadge({ type }: { type: OpportunityType | undefined }) {
+  if (!type) return null;
+  const config = OPPORTUNITY_TYPE_CONFIG[type];
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${config.className}`}>
+      {config.label}
+    </span>
+  );
+}
+
 type OpportunityDraft = {
   expaOpportunityId: string;
+  opportunityType: OpportunityType | "";
   product: string;
   title: string;
   organisation: string;
@@ -52,6 +81,7 @@ function textToList(text: string) {
 function emptyDraft(): OpportunityDraft {
   return {
     expaOpportunityId: "",
+    opportunityType: "",
     product: "",
     title: "",
     organisation: "",
@@ -78,6 +108,7 @@ function emptyDraft(): OpportunityDraft {
 function opportunityToDraft(opportunity: Opportunity): OpportunityDraft {
   return {
     expaOpportunityId: opportunity.expaOpportunityId ?? "",
+    opportunityType: (opportunity.opportunityType as OpportunityType) ?? "",
     product: opportunity.product ?? "",
     title: opportunity.title ?? "",
     organisation: opportunity.organisation ?? "",
@@ -110,6 +141,7 @@ function draftToOpportunity(
     id: existingId ?? `opp-${Date.now()}`,
     universityId,
     expaOpportunityId: draft.expaOpportunityId.trim() || undefined,
+    opportunityType: draft.opportunityType || undefined,
     product: draft.product.trim() || undefined,
     title: draft.title.trim(),
     organisation: draft.organisation.trim() || undefined,
@@ -166,6 +198,8 @@ export default function OpportunitiesClient() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchSuccess, setFetchSuccess] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [expaOpportunityId, setExpaOpportunityId] = useState("");
 
   const [formData, setFormData] = useState<OpportunityDraft>(emptyDraft());
@@ -199,6 +233,7 @@ export default function OpportunitiesClient() {
     setFetchSuccess(null);
     setFormError(null);
     setIsFetchingExpa(false);
+    setIsSubmitting(false);
   }
 
   function openModal(opportunity?: Opportunity) {
@@ -246,12 +281,11 @@ export default function OpportunitiesClient() {
       }
 
       const opportunity = result.opportunity as Opportunity;
-      const existingProduct = formData.product || editingOpportunity?.product || "";
 
       setFormData({
         ...opportunityToDraft(opportunity),
-        product: existingProduct,
         expaOpportunityId: id,
+        // product + opportunityType come from EXPA programme; admin can still override
       });
       setFetchSuccess("Opportunity loaded from EXPA. Review and edit the fields below before saving.");
     } catch (error) {
@@ -261,7 +295,7 @@ export default function OpportunitiesClient() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (!selectedUniversity) {
@@ -279,16 +313,61 @@ export default function OpportunitiesClient() {
       return;
     }
 
-    const nextOpportunity = draftToOpportunity(formData, selectedUniversity, editingOpportunity?.id);
+    setIsSubmitting(true);
+    setFormError(null);
 
+    // 1. Save to localStorage as before
+    const nextOpportunity = draftToOpportunity(formData, selectedUniversity, editingOpportunity?.id);
     setOpportunities((current) => {
       if (editingOpportunity) {
         return current.map((opp) => (opp.id === editingOpportunity.id ? nextOpportunity : opp));
       }
-
       return [...current, nextOpportunity];
     });
 
+    // 2. Write to Google Sheets (only on create, not edit)
+    if (!editingOpportunity) {
+      try {
+        const university = universities.find((u) => u.id === selectedUniversity);
+        const response = await fetch("/api/opportunities/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product:         formData.product.trim(),
+            opportunityId:   formData.expaOpportunityId.trim(),
+            title:           formData.title.trim(),
+            universityId:    selectedUniversity,
+            universityName:  university?.name ?? selectedUniversity,
+            country:         formData.country.trim(),
+            duration:        formData.duration.trim(),
+            opportunityDate: formData.date.trim(),
+            epName:          "",
+            condition:       "",
+            note:            "",
+            source:          "Admin Dashboard",
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result?.success) {
+          // Sheet write failed — show warning but don't block (opp is already saved locally)
+          setSubmitSuccess(
+            `Opportunity saved locally. Sheet write failed: ${result?.error ?? "unknown error"}`
+          );
+        } else {
+          setSubmitSuccess(
+            `Opportunity saved and written to the ${result.sheetType} sheet.`
+          );
+        }
+      } catch (err) {
+        setSubmitSuccess(
+          `Opportunity saved locally. Could not reach the sheet: ${err instanceof Error ? err.message : "network error"}`
+        );
+      }
+    }
+
+    setIsSubmitting(false);
     resetModalState();
   }
 
@@ -336,6 +415,22 @@ export default function OpportunitiesClient() {
             </Button>
           </div>
 
+          {submitSuccess && (
+            <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+              submitSuccess.includes("failed") || submitSuccess.includes("Could not")
+                ? "border-yellow-300 bg-yellow-50 text-yellow-800 dark:border-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
+                : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+            }`}>
+              {submitSuccess}
+              <button
+                onClick={() => setSubmitSuccess(null)}
+                className="ml-3 font-medium underline opacity-70 hover:opacity-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {filteredOpportunities.length > 0 ? (
             <div className="space-y-3">
               {filteredOpportunities.map((opportunity, index) => (
@@ -350,6 +445,7 @@ export default function OpportunitiesClient() {
                         <h3 className="text-base font-semibold text-gray-800 dark:text-white">
                           {opportunity.title}
                         </h3>
+                        <OpportunityTypeBadge type={opportunity.opportunityType as OpportunityType | undefined} />
                         {opportunity.product && (
                           <Badge size="sm" color="info">
                             {opportunity.product}
@@ -492,7 +588,14 @@ export default function OpportunitiesClient() {
                   />
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Product *</label>
+                  <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Product *
+                    {formData.opportunityType && (
+                      <span className="ml-2">
+                        <OpportunityTypeBadge type={formData.opportunityType as OpportunityType} />
+                      </span>
+                    )}
+                  </label>
                   <select
                     value={formData.product}
                     onChange={(e) => setFormData({ ...formData, product: e.target.value })}
@@ -726,9 +829,14 @@ export default function OpportunitiesClient() {
                 </Button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-5 py-3.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:bg-brand-300"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-500 px-5 py-3.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300"
                 >
-                  {editingOpportunity ? "Update Opportunity" : "Create Opportunity"}
+                  {isSubmitting
+                    ? "Saving..."
+                    : editingOpportunity
+                      ? "Update Opportunity"
+                      : "Create Opportunity"}
                 </button>
               </div>
             </form>

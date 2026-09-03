@@ -67,6 +67,7 @@ export interface Opportunity {
   date:         string;
   country:      string;
   product?:     string;
+  opportunityType?: "professional" | "teaching" | "volunteering";
   skills?:      string[];
   responsibilities?: string[];
   learningPoints?: string[];

@@ -1,4 +1,5 @@
 import "server-only";
+import { getExpaToken } from "./expaTokenSource";
 
 const EXPA_GRAPHQL_URL = "https://gis-api.aiesec.org/graphql";
 
@@ -36,6 +37,7 @@ type RawExpaOpportunity = {
   city?: { name?: string | null; country?: string | { name?: string | null } | null } | null;
   location?: string | null;
   work_hours?: string | number | null;
+  programme?: { short_name_display?: string | null; id?: string | number | null } | null;
   skills?: Array<{ constant_name?: string | null } | null> | null;
   role_info?: { learning_points?: string[] | string | null } | null;
   specifics_info?: {
@@ -66,6 +68,10 @@ const OPPORTUNITY_QUERY = `
       id
       title
       description
+      programme {
+        short_name_display
+        id
+      }
       organisation {
         name
       }
@@ -113,7 +119,7 @@ function getStatusCodeFromError(errors: GraphQLResponse<unknown>["errors"]) {
 }
 
 export async function fetchExpaOpportunityRaw(id: string): Promise<RawExpaOpportunity> {
-  const token = process.env.EXPA_API_TOKEN;
+  const token = getExpaToken();
   if (!token) {
     throw new ExpaClientError("EXPA API token is not configured.", 500, "MISSING_TOKEN");
   }

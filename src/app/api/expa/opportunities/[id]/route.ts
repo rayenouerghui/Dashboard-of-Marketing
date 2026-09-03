@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ExpaClientError, fetchExpaOpportunityRaw } from "@/lib/server/expaClient";
 import { mapExpaOpportunityToOpportunity } from "@/lib/server/expaOpportunityMapper";
+import { getExpaToken } from "@/lib/server/expaTokenSource";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +10,7 @@ function isValidOpportunityId(id: string) {
 }
 
 function getTokenDiagnostics() {
-  const token = process.env.EXPA_API_TOKEN;
-
+  const token = getExpaToken();
   return {
     tokenConfigured: Boolean(token),
     tokenLength: token ? token.length : 0,
@@ -18,9 +18,10 @@ function getTokenDiagnostics() {
 }
 
 function buildDebugInfo(error?: ExpaClientError, expaHttpStatus?: number | null) {
+  const token = getExpaToken();
   return {
-    tokenConfigured: Boolean(process.env.EXPA_API_TOKEN),
-    tokenLength: process.env.EXPA_API_TOKEN ? process.env.EXPA_API_TOKEN.length : 0,
+    tokenConfigured: Boolean(token),
+    tokenLength: token ? token.length : 0,
     authMethod: "access_token_query",
     expaHttpStatus: expaHttpStatus ?? error?.status ?? 200,
     graphqlError: error?.graphqlErrorMessage ?? null,

@@ -9,6 +9,7 @@ type RawExpaOpportunity = {
   city?: { name?: string | null; country?: string | { name?: string | null } | null } | null;
   location?: string | null;
   work_hours?: string | number | null;
+  programme?: { short_name_display?: string | null; id?: string | number | null } | null;
   skills?: Array<{ constant_name?: string | null } | null> | null;
   role_info?: { learning_points?: string[] | string | null } | null;
   specifics_info?: {
@@ -72,6 +73,24 @@ function formatSalary(salary?: string | number | null, currency?: string | null)
   return `${salaryText} ${currencyText}`;
 }
 
+// Maps programme short_name_display to our internal product key
+function normalizeProduct(shortName?: string | null): string | undefined {
+  const s = (shortName ?? "").trim().toLowerCase();
+  if (s === "gta" || s === "ogta") return "GTa";
+  if (s === "gte" || s === "ogte") return "GTe";
+  if (s === "gv" || s === "ogv") return "GV";
+  return undefined;
+}
+
+// Derives opportunity type label + color key from programme
+function deriveOpportunityType(shortName?: string | null): "professional" | "teaching" | "volunteering" | undefined {
+  const s = (shortName ?? "").trim().toLowerCase();
+  if (s === "gta" || s === "ogta") return "professional";
+  if (s === "gte" || s === "ogte") return "teaching";
+  if (s === "gv" || s === "ogv") return "volunteering";
+  return undefined;
+}
+
 export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opportunity {
   const description = toStringValue(raw.description);
   const learningPoints = normalizeList(raw.role_info?.learning_points);
@@ -93,6 +112,10 @@ export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opport
     .map((skill) => toStringValue(skill?.constant_name))
     .filter(Boolean);
 
+  const programmeShortName = toStringValue(raw.programme?.short_name_display) || null;
+  const product = normalizeProduct(programmeShortName);
+  const opportunityType = deriveOpportunityType(programmeShortName);
+
   return {
     id: `expa-${String(raw.id)}`,
     expaOpportunityId: String(raw.id),
@@ -104,7 +127,8 @@ export function mapExpaOpportunityToOpportunity(raw: RawExpaOpportunity): Opport
     description,
     duration: "",
     date: "",
-    product: undefined,
+    product,
+    opportunityType,
     skills,
     responsibilities,
     learningPoints,

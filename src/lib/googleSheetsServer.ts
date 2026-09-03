@@ -62,22 +62,24 @@ function escapeA1ColumnRange(sheetTitle: string) {
   return `'${escapeA1SheetName(sheetTitle)}'!A:Z`;
 }
 
+// Hardcoded spreadsheet IDs — update here if sheets are ever moved.
+// OGV:      https://docs.google.com/spreadsheets/d/1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM
+// OGTa/GTe: https://docs.google.com/spreadsheets/d/17_sbgCyBpF7KMIxlTNR0xL-hM-ydhPdreMAh9Y_nXRo
+const HARDCODED_OGV_SPREADSHEET_ID = "1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM";
+const HARDCODED_OGT_SPREADSHEET_ID = "17_sbgCyBpF7KMIxlTNR0xL-hM-ydhPdreMAh9Y_nXRo";
+
 function getOpportunitySpreadsheetId(product: string) {
   const normalized = product.trim().toUpperCase();
 
   if (normalized === "GV" || normalized === "OGV") {
-    const spreadsheetId = process.env.OPPORTUNITY_OGV_SPREADSHEET_ID;
-    if (!spreadsheetId) {
-      throw new Error("OPPORTUNITY_OGV_SPREADSHEET_ID environment variable is not set");
-    }
+    const spreadsheetId =
+      process.env.OPPORTUNITY_OGV_SPREADSHEET_ID || HARDCODED_OGV_SPREADSHEET_ID;
     return { spreadsheetId, sheetType: "OGV" };
   }
 
   if (normalized === "GTA" || normalized === "GTE" || normalized === "OGTA" || normalized === "OGTE") {
-    const spreadsheetId = process.env.OPPORTUNITY_OGT_SPREADSHEET_ID;
-    if (!spreadsheetId) {
-      throw new Error("OPPORTUNITY_OGT_SPREADSHEET_ID environment variable is not set");
-    }
+    const spreadsheetId =
+      process.env.OPPORTUNITY_OGT_SPREADSHEET_ID || HARDCODED_OGT_SPREADSHEET_ID;
     return { spreadsheetId, sheetType: "OGT" };
   }
 
@@ -228,7 +230,7 @@ function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
     auth: new google.auth.JWT({
       email: clientEmail,
       key,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     }),
   };
 }
