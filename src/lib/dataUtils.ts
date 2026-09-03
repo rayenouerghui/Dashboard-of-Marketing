@@ -58,11 +58,25 @@ export interface University {
 export interface Opportunity {
   id:           string;
   universityId: string;
+  expaOpportunityId?: string;
   title:        string;
+  organisation?: string;
+  location?: string;
+  description?: string;
   duration:     string;
   date:         string;
   country:      string;
   product?:     string;
+  skills?:      string[];
+  responsibilities?: string[];
+  learningPoints?: string[];
+  salary?:      string;
+  workHours?:   string;
+  expectedWorkSchedule?: string;
+  accommodation?: string;
+  food?:        string;
+  transportation?: string;
+  computer?:    string;
   benefits:     string[];
   requirements: string[];
 }
