@@ -23,6 +23,7 @@
     "apexcharts": "^4.7.0",
     "autoprefixer": "^10.4.22",
     "flatpickr": "^4.6.13",
+    "framer-motion": "^13.2.0",
     "googleapis": "^176.0.0",
     "lucide-react": "^1.31.0",
     "next": "^16.1.6",

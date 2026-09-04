@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { PhysicalAttractionLead } from "@/lib/dataUtils";
+import PageTransition from "@/components/PageTransition";
 
 interface TodayAttraction {
   university: string;
@@ -99,7 +100,9 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
             </svg>
           </button>
         </div>
-        <div className="p-4 mx-auto max-w-[--breakpoint-2xl] md:p-6">{children}</div>
+        <div className="p-4 mx-auto max-w-[--breakpoint-2xl] md:p-6">
+          <PageTransition>{children}</PageTransition>
+        </div>
       </div>
 
       {/* Today's Attractions Popup */}
