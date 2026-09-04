@@ -70,7 +70,8 @@ export default function MemberDashboardClient({
   // Poll /api/ranking every 30s for real-time today's member lead counts
   const refreshLiveCounts = useCallback(async () => {
     try {
-      const res  = await fetch("/api/ranking");
+      // Use fast sheet-only endpoint for the today's leaderboard — no EXPA needed
+      const res  = await fetch("/api/ranking?expa=0");
       const data = await res.json();
       if (data.success) {
         const map: Record<string, number> = {};

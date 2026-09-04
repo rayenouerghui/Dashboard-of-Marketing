@@ -31,11 +31,21 @@ export default function MemberRankingClient() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res  = await fetch("/api/ranking");
+      // First fetch sheet-only data immediately (fast ~1s) — shows ranking right away
+      const res = await fetch("/api/ranking?expa=0");
       const data = await res.json();
       if (data.success) {
         setMembers(data.members ?? []);
         setLastUpdate(data.generatedAt);
+        setLoading(false);
+      }
+
+      // Then fetch with EXPA data in background (slow — cached 15 min on server)
+      const resExpa = await fetch("/api/ranking");
+      const dataExpa = await resExpa.json();
+      if (dataExpa.success) {
+        setMembers(dataExpa.members ?? []);
+        setLastUpdate(dataExpa.generatedAt);
       }
     } catch { /* silent */ }
     finally { setLoading(false); }

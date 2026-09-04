@@ -41,18 +41,23 @@ export default function RankingClient() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res  = await fetch("/api/ranking");
+      // Fast first load — sheet data only
+      const res = await fetch("/api/ranking?expa=0");
       const data = await res.json();
       if (data.success) {
         setMembers(data.members ?? []);
-        setTotals({
-          members:  data.totalMembers ?? 0,
-          leads:    data.totalLeads   ?? 0,
-          today:    data.todayLeads   ?? 0,
-          applied:  data.totalApplied ?? 0,
-          realized: data.totalRealized ?? 0,
-        });
+        setTotals({ members: data.totalMembers ?? 0, leads: data.totalLeads ?? 0, today: data.todayLeads ?? 0, applied: data.totalApplied ?? 0, realized: data.totalRealized ?? 0 });
         setLastUpdate(data.generatedAt);
+        setLoading(false);
+      }
+
+      // Background: full data with EXPA applied/realized (cached 15 min)
+      const resExpa = await fetch("/api/ranking");
+      const dataExpa = await resExpa.json();
+      if (dataExpa.success) {
+        setMembers(dataExpa.members ?? []);
+        setTotals({ members: dataExpa.totalMembers ?? 0, leads: dataExpa.totalLeads ?? 0, today: dataExpa.todayLeads ?? 0, applied: dataExpa.totalApplied ?? 0, realized: dataExpa.totalRealized ?? 0 });
+        setLastUpdate(dataExpa.generatedAt);
       }
     } catch { /* silent */ }
     finally { setLoading(false); }

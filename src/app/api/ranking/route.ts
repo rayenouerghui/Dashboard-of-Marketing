@@ -1,23 +1,23 @@
 import { NextResponse } from "next/server";
 import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
+import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
 
 export const dynamic = "force-dynamic";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface MemberStat {
-  name:           string;
-  totalLeads:     number;   // all physical leads attributed to this member
-  todayLeads:     number;   // leads today (UTC-aware local date)
-  applied:        number;   // EPs from this member who have an EXPA application
-  realized:       number;   // EPs from this member who reached realized/completed/finished
-  applicationRate: number;  // applied / totalLeads * 100
-  realizationRate: number;  // realized / totalLeads * 100
+  name:            string;
+  totalLeads:      number;
+  todayLeads:      number;
+  applied:         number;
+  realized:        number;
+  applicationRate: number;
+  realizationRate: number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function todayLocalStr(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -32,39 +32,40 @@ function dateStr(iso: string): string {
   return m ? m[1] : "";
 }
 
-// EXPA statuses that count as "applied"
-const APPLIED_STATUSES = new Set([
-  "open", "accepted", "approved", "approved_ep_manager",
-  "matched", "realized", "completed", "finished",
-]);
+const APPLIED_STATUSES  = new Set(["open","accepted","approved","approved_ep_manager","matched","realized","completed","finished"]);
+const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 
-// EXPA statuses that count as "realized"
-const REALIZED_STATUSES = new Set(["realized", "completed", "finished"]);
+// ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
+const getCachedExpaStatuses = unstable_cache(
+  async (expaIds: string[]): Promise<Record<string, string>> => {
+    if (expaIds.length === 0) return {};
+    const leadInputs: LeadInput[] = expaIds.map((id) => ({
+      expaId: id, firstName: "", lastName: "", email: "", university: "",
+      source: "physical" as const,
+    }));
+    const { applications } = await fetchApplicationsForLeads(leadInputs);
+    const map: Record<string, string> = {};
+    for (const a of applications) map[a.epId] = a.status;
+    return map;
+  },
+  ["ranking-expa-statuses"],
+  { revalidate: 900 } // 15 min
+);
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const today = todayLocalStr();
+    const { searchParams } = new URL(request.url);
+    // ?expa=0 skips EXPA lookup entirely — returns sheet data immediately
+    const skipExpa = searchParams.get("expa") === "0";
 
-    // 1. Fetch live physical leads from the sheet
+    const today   = todayLocalStr();
     const rawRows = await fetchPhysicalLeadsRaw();
 
-    // 2. Build member → leads mapping
-    // key: memberName (trimmed), value: array of expaIds for that member
-    const memberLeads = new Map<string, {
-      total:   number;
-      today:   number;
-      expaIds: Set<string>;
-    }>();
+    const memberLeads = new Map<string, { total: number; today: number; expaIds: Set<string> }>();
 
     for (const r of rawRows) {
-      const memberName = (
-        r["🙋Member Name"] ||
-        r.memberName      ||
-        r.member_name     ||
-        ""
-      ).trim();
-
+      const memberName = (r["🙋Member Name"] || r.memberName || r.member_name || "").trim();
       if (!memberName) continue;
 
       const submittedAt = r["Submitted at"] || r.submittedAt || r.submitted_at || "";
@@ -80,48 +81,33 @@ export async function GET() {
       if (expaId && /^\d+$/.test(expaId)) entry.expaIds.add(expaId);
     }
 
-    // 3. Fetch EXPA application statuses directly (no HTTP self-call)
-    let expaStatusByEpId: Map<string, string> = new Map();
-    try {
-      // Collect all unique expaIds across all members
-      const allExpaIds = new Set<string>();
-      for (const data of memberLeads.values()) {
-        for (const id of data.expaIds) allExpaIds.add(id);
+    // EXPA lookup — use cache, skip if ?expa=0
+    let expaStatusByEpId: Record<string, string> = {};
+    if (!skipExpa) {
+      try {
+        const allExpaIds = new Set<string>();
+        for (const data of memberLeads.values()) {
+          for (const id of data.expaIds) allExpaIds.add(id);
+        }
+        if (allExpaIds.size > 0) {
+          // Sort for stable cache key
+          const sortedIds = Array.from(allExpaIds).sort();
+          expaStatusByEpId = await getCachedExpaStatuses(sortedIds);
+        }
+      } catch (err) {
+        console.warn("[api/ranking] EXPA lookup failed (non-fatal):", err);
       }
-
-      if (allExpaIds.size > 0) {
-        // Build LeadInput array — one entry per unique expaId
-        const leadInputs: LeadInput[] = Array.from(allExpaIds).map((id) => ({
-          expaId:    id,
-          firstName: "",
-          lastName:  "",
-          email:     "",
-          university: "",
-          source:    "physical" as const,
-        }));
-
-        const { applications } = await fetchApplicationsForLeads(leadInputs);
-        expaStatusByEpId = new Map(applications.map((a) => [a.epId, a.status]));
-      }
-    } catch (err) {
-      // Non-fatal — conversion rates will show 0 if EXPA is unavailable
-      console.warn("[api/ranking] EXPA lookup failed (non-fatal):", err);
     }
 
-    // 4. Compute per-member stats
     const stats: MemberStat[] = [];
-
     for (const [name, data] of memberLeads.entries()) {
-      let applied  = 0;
-      let realized = 0;
-
+      let applied = 0, realized = 0;
       for (const epId of data.expaIds) {
-        const status = expaStatusByEpId.get(epId);
+        const status = expaStatusByEpId[epId];
         if (!status) continue;
         if (APPLIED_STATUSES.has(status))  applied++;
         if (REALIZED_STATUSES.has(status)) realized++;
       }
-
       stats.push({
         name,
         totalLeads:      data.total,
@@ -133,7 +119,6 @@ export async function GET() {
       });
     }
 
-    // Sort by totalLeads desc by default
     stats.sort((a, b) => b.totalLeads - a.totalLeads || a.name.localeCompare(b.name));
 
     return NextResponse.json({
@@ -145,6 +130,7 @@ export async function GET() {
       totalApplied:  stats.reduce((s, m) => s + m.applied,     0),
       totalRealized: stats.reduce((s, m) => s + m.realized,    0),
       generatedAt:   new Date().toISOString(),
+      cached:        !skipExpa,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Failed to compute rankings.";
