@@ -18,23 +18,17 @@ export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     const ok = login(username, password);
 
     if (!ok) {
-      setError("Incorrect credentials. Use pizza / pizza or crispy / crispy.");
+      setError("Incorrect credentials. Please try again.");
       return;
     }
 
     setError("");
-    const isTlBrand = username.trim().toLowerCase() === "pizza" && password.trim().toLowerCase() === "pizza";
-    const isAdmin = username.trim().toLowerCase() === "crispy" && password.trim().toLowerCase() === "crispy";
 
     setUsername("");
     setPassword("");
     onClose();
 
-    if (isTlBrand || isAdmin) {
-      router.push("/dashboard");
-    } else {
-      router.push("/member-dashboard");
-    }
+    router.push("/dashboard");
   };
 
   return (
@@ -61,7 +55,7 @@ export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              placeholder="pizza or crispy"
+              placeholder="Username"
             />
           </div>
 
@@ -72,7 +66,7 @@ export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              placeholder="password"
+              placeholder="Password"
             />
           </div>
 

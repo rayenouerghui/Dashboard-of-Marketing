@@ -50,9 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (username: string, password: string) => {
     const u = username.trim().toLowerCase();
-    const p = password.trim().toLowerCase();
+    const p = password.trim();
 
-    if (u === "crispy" && p === "crispy") {
+    // Credentials are read from environment variables at runtime.
+    // Set NEXT_PUBLIC_ADMIN_USER and NEXT_PUBLIC_ADMIN_PASS in your .env.local / Vercel settings.
+    // Fallback to the hardcoded values only if env vars are not configured.
+    const adminUser = (process.env.NEXT_PUBLIC_ADMIN_USER ?? "crispy").toLowerCase();
+    const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASS ?? "crispy";
+
+    if (u === adminUser && p === adminPass) {
       setRoleState("admin");
       return true;
     }
