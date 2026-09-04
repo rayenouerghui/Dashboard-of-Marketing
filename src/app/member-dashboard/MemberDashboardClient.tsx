@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { PhysicalAttractionLead } from "@/lib/dataUtils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 
 const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
 
@@ -60,10 +60,33 @@ export default function MemberDashboardClient({
 }: {
   initialLeads?: PhysicalAttractionLead[];
 }) {
-  const leads = initialLeads; // physical leads only (server-fetched)
+  const leads = initialLeads; // physical leads only (server-fetched, used as initial state)
   const [mounted, setMounted] = useState(false);
   const [todaysAttractions, setTodaysAttractions] = useState<CustomEvent[]>([]);
   const [activeTab, setActiveTab] = useState(0);
+  // Live member counts from the ranking API — polled every 30s
+  const [liveMemberCounts, setLiveMemberCounts] = useState<Record<string, number>>({});
+
+  // Poll /api/ranking every 30s for real-time today's member lead counts
+  const refreshLiveCounts = useCallback(async () => {
+    try {
+      const res  = await fetch("/api/ranking");
+      const data = await res.json();
+      if (data.success) {
+        const map: Record<string, number> = {};
+        for (const m of (data.members ?? [])) {
+          map[m.name] = m.todayLeads;
+        }
+        setLiveMemberCounts(map);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    refreshLiveCounts();
+    const id = setInterval(refreshLiveCounts, 30_000);
+    return () => clearInterval(id);
+  }, [refreshLiveCounts]);
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
@@ -95,36 +118,75 @@ export default function MemberDashboardClient({
     [leads, today]
   );
 
-  // Per-attraction computed data
+  // Per-attraction computed data — uses live API counts when available, falls back to initialLeads
   const attractionData = useMemo(() => {
+    const hasLive = Object.keys(liveMemberCounts).length > 0;
+
     return todaysAttractions.map((attraction) => {
       const uniName = attraction.extendedProps.university;
 
-      // Filter today's physical leads to only this university
+      // Filter today's physical leads to only this university (for lead count fallback)
       const uniLeads = todayAllLeads.filter((l) =>
         universityMatches(l.university, uniName)
       );
 
       const dailyGoal = attraction.extendedProps.goal ?? DEFAULT_GOAL;
-      const leadCount = uniLeads.length;
-      const goalPct = Math.min(100, Math.round((leadCount / dailyGoal) * 100));
 
-      // Leaderboard — grouped by member
-      const counts = new Map<string, number>();
-      for (const lead of uniLeads) {
-        const name = lead.memberName?.trim();
-        if (!name) continue;
-        counts.set(name, (counts.get(name) || 0) + 1);
+      // Lead count: prefer live API total for this university's members;
+      // fall back to static initialLeads count
+      const leadCount = hasLive
+        ? uniLeads.reduce((sum, l) => {
+            const name = l.memberName?.trim();
+            // If the member is in our live map, use live count (already summed globally);
+            // we still count per-university from the static data as a cross-check
+            return sum; // we compute below
+          }, 0) || uniLeads.length
+        : uniLeads.length;
+
+      // Leaderboard: if we have live data, build it from liveMemberCounts
+      // but only include members who had at least 1 lead at this university today
+      // (determined from the static snapshot — university attribution still comes from there)
+      let leaderboard: Array<{ name: string; leadsToday: number; rank: number }>;
+
+      if (hasLive) {
+        // Get unique member names from today's uni leads
+        const uniMemberNames = new Set(
+          uniLeads.map((l) => l.memberName?.trim()).filter(Boolean) as string[]
+        );
+        // For each member at this uni, use live count
+        const entries = Array.from(uniMemberNames)
+          .map((name) => ({ name, leadsToday: liveMemberCounts[name] ?? 0 }))
+          .filter((e) => e.leadsToday > 0)
+          .sort((a, b) => b.leadsToday - a.leadsToday)
+          .slice(0, TOP_MEMBERS_LIMIT)
+          .map((m, i) => ({ ...m, rank: i + 1 }));
+        leaderboard = entries;
+      } else {
+        // Fallback: count from static leads
+        const counts = new Map<string, number>();
+        for (const lead of uniLeads) {
+          const name = lead.memberName?.trim();
+          if (!name) continue;
+          counts.set(name, (counts.get(name) || 0) + 1);
+        }
+        leaderboard = Array.from(counts.entries())
+          .map(([name, leadsToday]) => ({ name, leadsToday }))
+          .sort((a, b) => b.leadsToday - a.leadsToday)
+          .slice(0, TOP_MEMBERS_LIMIT)
+          .map((m, i) => ({ ...m, rank: i + 1 }));
       }
-      const leaderboard = Array.from(counts.entries())
-        .map(([name, leadsToday]) => ({ name, leadsToday }))
-        .sort((a, b) => b.leadsToday - a.leadsToday)
-        .slice(0, TOP_MEMBERS_LIMIT)
-        .map((m, i) => ({ ...m, rank: i + 1 }));
 
-      return { attraction, uniLeads, leadCount, dailyGoal, goalPct, leaderboard };
+      // Live lead count: sum of all live member counts at this uni
+      const liveLeadCount = hasLive
+        ? leaderboard.reduce((s, m) => s + m.leadsToday, 0)
+        : leadCount;
+
+      const finalLeadCount = hasLive ? liveLeadCount : leadCount;
+      const goalPct = Math.min(100, Math.round((finalLeadCount / dailyGoal) * 100));
+
+      return { attraction, uniLeads, leadCount: finalLeadCount, dailyGoal, goalPct, leaderboard };
     });
-  }, [todaysAttractions, todayAllLeads]);
+  }, [todaysAttractions, todayAllLeads, liveMemberCounts]);
 
   const hasAttractionToday = todaysAttractions.length > 0;
   const multipleAttractions = todaysAttractions.length > 1;

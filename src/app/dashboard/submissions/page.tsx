@@ -1,7 +1,5 @@
-export const dynamic = "force-dynamic";
-
-import SubmissionsClient from "./SubmissionsClient";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <SubmissionsClient />;
+  redirect("/dashboard/submissions/ogv");
 }

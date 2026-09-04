@@ -26,6 +26,7 @@ type NavItem = {
   path?: string;
   subItems?: { name: string; path: string }[];
   highlight?: boolean;
+  color?: "red" | "blue"; // custom accent colour for nav items
 };
 
 const memberNavItems: NavItem[] = [
@@ -38,15 +39,17 @@ const memberNavItems: NavItem[] = [
 ];
 
 const navItems: NavItem[] = [
-  { icon: <GridIcon />, name: "Dashboard", path: "/dashboard" },
-  { icon: <UserCircleIcon />, name: "Universities", path: "/dashboard/universities" },
+  { icon: <GridIcon />,       name: "Dashboard",                    path: "/dashboard" },
+  { icon: <UserCircleIcon />, name: "Universities",                 path: "/dashboard/universities" },
   { icon: <DollarLineIcon />, name: "Create Opps for Universities", path: "/dashboard/opportunities" },
-  { icon: <PieChartIcon />, name: "Conversion Rate", path: "/dashboard/conversion-rate" },
-  { icon: <ListIcon />, name: "Digital Attraction", path: "/dashboard/digital-attraction" },
-  { icon: <PieChartIcon />, name: "Physical Attractions", path: "/dashboard/physical-attraction" },
-  { icon: <CalenderIcon />, name: "Attraction Management", path: "/dashboard/attraction-management" },
-  { icon: <PieChartIcon />, name: "Ranking Attraction", path: "/dashboard/ranking" },
-  { icon: <DocsIcon />, name: "Submissions", path: "/dashboard/submissions" },
+  { icon: <PieChartIcon />,   name: "Conversion Rate",              path: "/dashboard/conversion-rate" },
+  { icon: <ListIcon />,       name: "Digital Attraction",           path: "/dashboard/digital-attraction" },
+  { icon: <PieChartIcon />,   name: "Physical Attractions",         path: "/dashboard/physical-attraction" },
+  { icon: <CalenderIcon />,   name: "Attraction Management",        path: "/dashboard/attraction-management" },
+  { icon: <PieChartIcon />,   name: "Ranking Attraction",           path: "/dashboard/ranking" },
+  { icon: <DocsIcon />,       name: "Submissions OGV",              path: "/dashboard/submissions/ogv", color: "red"  },
+  { icon: <DocsIcon />,       name: "Submissions OGT",              path: "/dashboard/submissions/ogt", color: "blue" },
+  { icon: <GridIcon />,       name: "Member Dashboard",             path: "/member-dashboard", highlight: true },
 ];
 
 const othersItems: NavItem[] = [];
@@ -129,12 +132,21 @@ const AppSidebar: React.FC = () => {
             </button>
           ) : (
             nav.path && (
-              <Link href={nav.path} className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"} ${nav.highlight ? "relative" : ""}`}>
+              <Link href={nav.path} className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"} ${nav.highlight || nav.color ? "relative" : ""}`}>
                 {nav.highlight && (
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
                 )}
                 <span className={isActive(nav.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"}>{nav.icon}</span>
-                {(isExpanded || isHovered || isMobileOpen) && <span className={`menu-item-text ${nav.highlight ? "text-red-600 dark:text-red-400 font-semibold" : ""}`}>{nav.name}</span>}
+                {(isExpanded || isHovered || isMobileOpen) && (
+                  <span className={`menu-item-text ${
+                    nav.highlight ? "text-red-600 dark:text-red-400 font-semibold" :
+                    nav.color === "red"  ? "text-rose-600 dark:text-rose-400 font-semibold" :
+                    nav.color === "blue" ? "text-blue-600 dark:text-blue-400 font-semibold" :
+                    ""
+                  }`}>
+                    {nav.name}
+                  </span>
+                )}
               </Link>
             )
           )}

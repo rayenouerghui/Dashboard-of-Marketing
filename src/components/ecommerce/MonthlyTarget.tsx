@@ -1,5 +1,10 @@
 "use client";
 
+// Get current month name at render time
+function currentMonthName() {
+  return new Date().toLocaleString("en-GB", { month: "long" });
+}
+
 interface MonthlyTargetProps {
   initialStats: {
     leadsThisWeek: number;
@@ -11,9 +16,9 @@ interface MonthlyTargetProps {
 }
 
 export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
-  const leadsThisWeek = initialStats.leadsThisWeek;
+  const leadsThisWeek  = initialStats.leadsThisWeek;
   const leadsThisMonth = initialStats.leadsThisMonth;
-  const totalEPs = initialStats.totalEPs;
+  const monthName      = currentMonthName();
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -23,7 +28,7 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
             This Week's Leads
           </h3>
           <p className="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-            Leads achieved this week, month, and overall.
+            Leads achieved this week, with {monthName} total below.
           </p>
         </div>
 
@@ -39,25 +44,15 @@ export default function MonthlyTarget({ initialStats }: MonthlyTargetProps) {
           </p>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4">
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
-              This Month
+              {monthName}
             </p>
             <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
               {leadsThisMonth}
             </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">leads achieved</p>
-          </div>
-
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-gray-500 dark:text-gray-400">
-              Total EPs
-            </p>
-            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
-              {totalEPs}
-            </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">overall leads</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">leads this month</p>
           </div>
         </div>
       </div>
