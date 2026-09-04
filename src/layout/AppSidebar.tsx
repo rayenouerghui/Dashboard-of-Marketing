@@ -49,7 +49,6 @@ const navItems: NavItem[] = [
   { icon: <PieChartIcon />,   name: "Ranking Attraction",           path: "/dashboard/ranking" },
   { icon: <DocsIcon />,       name: "Submissions OGV",              path: "/dashboard/submissions/ogv", color: "red"  },
   { icon: <DocsIcon />,       name: "Submissions OGT",              path: "/dashboard/submissions/ogt", color: "blue" },
-  { icon: <GridIcon />,       name: "Member Dashboard",             path: "/member-dashboard", highlight: true },
 ];
 
 const othersItems: NavItem[] = [];
@@ -217,13 +216,28 @@ const AppSidebar: React.FC = () => {
         </nav>
 
         {(isExpanded || isHovered || isMobileOpen) && (
-          <div className="mx-auto mb-10 w-full max-w-60 rounded-2xl bg-blue-50 px-4 py-5 text-center dark:bg-white/[0.03]">
+          <div className="mx-auto mb-4 w-full max-w-60 rounded-2xl bg-blue-50 px-4 py-5 text-center dark:bg-white/[0.03]">
             <div className="mb-2 flex justify-center">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold">LC</span>
             </div>
             <h3 className="mb-1 text-sm font-semibold text-gray-900 dark:text-white">AIESEC LC Tunis</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">Operations Dashboard v1.0</p>
           </div>
+        )}
+
+        {/* Return to Member Dashboard button — admin only */}
+        {role === "admin" && (
+          <Link
+            href="/member-dashboard"
+            className={`mb-10 flex items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 transition-all hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20 ${
+              !isExpanded && !isHovered && !isMobileOpen ? "mx-auto w-10 justify-center px-0" : "mx-auto w-full max-w-60"
+            }`}
+          >
+            <span className="shrink-0 text-base">👥</span>
+            {(isExpanded || isHovered || isMobileOpen) && (
+              <span className="truncate">Member Dashboard</span>
+            )}
+          </Link>
         )}
       </div>
 

@@ -3,29 +3,30 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import type { MemberStat } from "@/app/api/ranking/route";
 
-const POLL_INTERVAL = 30_000; // 30 s real-time refresh
+const POLL_INTERVAL = 30_000;
 
 const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
-
 function avatarFor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % ANIMAL_AVATARS.length;
-  return ANIMAL_AVATARS[hash];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % ANIMAL_AVATARS.length;
+  return ANIMAL_AVATARS[h];
 }
 
-const RANK_GRADIENT: Record<number, string> = {
-  1: "from-amber-400 to-yellow-300",
-  2: "from-slate-300 to-slate-400",
-  3: "from-emerald-400 to-green-500",
+// Rank 1 = gold, 2 = silver, 3 = bronze, 4-5 = purple gradient
+const RANK_STYLES: Record<number, {
+  ring: string; glow: string; badge: string; crown: string; barColor: string;
+}> = {
+  1: { ring: "border-amber-300/80",   glow: "shadow-[0_0_32px_rgba(251,191,36,0.4)]",   badge: "from-amber-400 to-yellow-300",   crown: "👑", barColor: "from-amber-400 to-yellow-300" },
+  2: { ring: "border-slate-300/70",   glow: "shadow-[0_0_20px_rgba(148,163,184,0.3)]",  badge: "from-slate-300 to-slate-400",    crown: "🥈", barColor: "from-slate-300 to-slate-400" },
+  3: { ring: "border-amber-600/60",   glow: "shadow-[0_0_20px_rgba(180,83,9,0.25)]",    badge: "from-amber-600 to-orange-500",   crown: "🥉", barColor: "from-amber-500 to-orange-400" },
+  4: { ring: "border-violet-400/40",  glow: "",                                           badge: "from-violet-500 to-purple-600",  crown: "4",  barColor: "from-violet-400 to-purple-500" },
+  5: { ring: "border-violet-400/30",  glow: "",                                           badge: "from-violet-600 to-indigo-600",  crown: "5",  barColor: "from-indigo-400 to-violet-500" },
 };
-
-type Tab = "today" | "overall";
 
 export default function MemberRankingClient() {
   const [members, setMembers]       = useState<MemberStat[]>([]);
   const [loading, setLoading]       = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const [tab, setTab]               = useState<Tab>("today");
   const [mounted, setMounted]       = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -40,53 +41,37 @@ export default function MemberRankingClient() {
     finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    const t = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(t);
-  }, []);
-
+  useEffect(() => { const t = requestAnimationFrame(() => setMounted(true)); return () => cancelAnimationFrame(t); }, []);
   useEffect(() => {
     fetchData();
     const id = setInterval(fetchData, POLL_INTERVAL);
     return () => clearInterval(id);
   }, [fetchData]);
 
-  // Today's leaderboard — sorted by todayLeads, only those with ≥1 lead today
-  const todayRanked = useMemo(() =>
-    [...members]
-      .filter((m) => m.todayLeads > 0)
-      .sort((a, b) => b.todayLeads - a.todayLeads)
-      .map((m, i) => ({ ...m, rank: i + 1 })),
-    [members]
-  );
-
-  // Overall leaderboard — sorted by totalLeads, top 10
-  const overallRanked = useMemo(() =>
+  // Top 5 overall
+  const top5 = useMemo(() =>
     [...members]
       .sort((a, b) => b.totalLeads - a.totalLeads || a.name.localeCompare(b.name))
-      .slice(0, 10)
+      .slice(0, 5)
       .map((m, i) => ({ ...m, rank: i + 1 })),
     [members]
   );
 
-  const active = tab === "today" ? todayRanked : overallRanked;
-  const topThree = active.slice(0, 3);
-  const rest     = active.slice(3);
-  const valueKey: keyof MemberStat = tab === "today" ? "todayLeads" : "totalLeads";
+  const maxLeads = top5[0]?.totalLeads || 1;
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-semibold text-gray-800 dark:text-white/90">
-            Member Leaderboard
+            Overall Leaderboard
           </h1>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            Live from Physical sheet
+            Top 5 members · all-time physical leads
             {lastUpdate && (
               <span className="ml-2 inline-flex items-center gap-1 text-xs text-gray-400">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
                 {new Date(lastUpdate).toLocaleTimeString()}
               </span>
             )}
@@ -94,150 +79,153 @@ export default function MemberRankingClient() {
         </div>
       </div>
 
-      {/* Tab switcher */}
-      <div className="flex gap-2 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-        {(["today", "overall"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
-              tab === t
-                ? "bg-brand-500 text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-            }`}
-          >
-            {t === "today" ? "Today (24h)" : "Overall"}
-          </button>
-        ))}
-      </div>
-
       {loading && members.length === 0 ? (
-        <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-700 dark:bg-white/[0.03]">
+        <div className="flex items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-20 dark:border-gray-700 dark:bg-white/[0.02]">
           <div className="text-center">
-            <div className="mx-auto h-7 w-7 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-            <p className="mt-3 text-sm text-gray-400">Loading live rankings…</p>
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+            <p className="mt-3 text-sm text-gray-400">Loading rankings…</p>
           </div>
         </div>
-      ) : active.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-700 dark:bg-white/[0.03]">
-          <span className="text-4xl">🏆</span>
-          <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-            {tab === "today" ? "No leads recorded yet today." : "No data available."}
-          </p>
+      ) : top5.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-20 dark:border-gray-700 dark:bg-white/[0.02]">
+          <span className="text-5xl">🏆</span>
+          <p className="mt-3 text-sm text-gray-500">No data available yet.</p>
         </div>
       ) : (
         <>
-          {/* Podium — top 3 */}
-          {topThree.length > 0 && (
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#171233] via-[#120e28] to-[#0d0a1e] p-5 sm:p-6 shadow-2xl">
-              <div className="pointer-events-none absolute -top-16 -left-10 h-44 w-44 rounded-full bg-violet-500/20 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-16 -right-10 h-44 w-44 rounded-full bg-fuchsia-500/10 blur-3xl" />
+          {/* ── Dark podium card for #1, #2, #3 ──────────────────────────── */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f0c29] via-[#1a1040] to-[#24243e] p-6 shadow-2xl">
+            {/* ambient blobs */}
+            <div className="pointer-events-none absolute -top-20 -left-20 h-56 w-56 rounded-full bg-violet-600/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-fuchsia-600/15 blur-3xl" />
+            <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl" />
 
-              <p className="relative mb-5 text-xs font-semibold uppercase tracking-widest text-violet-200/40">
-                {tab === "today" ? "Today's top performers" : "All-time top performers"}
-              </p>
+            <p className="relative mb-6 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-white/30">
+              All-Time Top Members
+            </p>
 
-              <div className="relative flex items-end justify-center gap-4 sm:gap-6">
-                {/* 2nd */}
-                {topThree[1] && (
-                  <div className={`flex flex-col items-center transition-all duration-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "80ms" }}>
-                    <span className="text-xl mb-1">🥈</span>
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white/[0.06] border-2 border-slate-300/40 flex items-center justify-center text-2xl">
-                      {avatarFor(topThree[1].name)}
-                    </div>
-                    <p className="mt-1.5 max-w-[68px] truncate text-[11px] font-medium text-white text-center">{topThree[1].name.split(" ")[0]}</p>
-                    <p className="text-[10px] text-violet-200 font-semibold tabular-nums">{topThree[1][valueKey] as number}</p>
+            {/* Podium avatars — 2, 1, 3 order */}
+            <div className="relative flex items-end justify-center gap-3 sm:gap-5 mb-1">
+              {/* 2nd */}
+              {top5[1] && (
+                <div
+                  className={`flex flex-col items-center transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+                  style={{ transitionDelay: "100ms" }}
+                >
+                  <span className="text-xl mb-2">{RANK_STYLES[2].crown}</span>
+                  <div className={`relative h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white/[0.07] border-2 ${RANK_STYLES[2].ring} flex items-center justify-center text-2xl backdrop-blur ${RANK_STYLES[2].glow}`}>
+                    {avatarFor(top5[1].name)}
+                    <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${RANK_STYLES[2].badge} flex items-center justify-center text-[9px] font-black text-white shadow`}>2</span>
                   </div>
-                )}
-
-                {/* 1st */}
-                <div className={`flex flex-col items-center transition-all duration-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}>
-                  <span className="text-2xl mb-1">👑</span>
-                  <div className="h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 border-2 border-violet-300/70 flex items-center justify-center text-3xl shadow-[0_0_24px_rgba(167,139,250,0.35)]">
-                    {avatarFor(topThree[0].name)}
-                  </div>
-                  <p className="mt-1.5 max-w-[80px] truncate text-xs sm:text-sm font-semibold text-white text-center">{topThree[0].name.split(" ")[0]}</p>
-                  <p className="text-xs text-violet-200 font-bold tabular-nums">{topThree[0][valueKey] as number}</p>
+                  <p className="mt-2 max-w-[70px] truncate text-center text-xs font-semibold text-white/80">{top5[1].name.split(" ")[0]}</p>
+                  <p className="text-[11px] font-bold text-slate-300 tabular-nums">{top5[1].totalLeads}</p>
                 </div>
+              )}
 
-                {/* 3rd */}
-                {topThree[2] && (
-                  <div className={`flex flex-col items-center transition-all duration-500 ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`} style={{ transitionDelay: "80ms" }}>
-                    <span className="text-xl mb-1">🥉</span>
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white/[0.06] border-2 border-amber-300/40 flex items-center justify-center text-2xl">
-                      {avatarFor(topThree[2].name)}
-                    </div>
-                    <p className="mt-1.5 max-w-[68px] truncate text-[11px] font-medium text-white text-center">{topThree[2].name.split(" ")[0]}</p>
-                    <p className="text-[10px] text-violet-200 font-semibold tabular-nums">{topThree[2][valueKey] as number}</p>
-                  </div>
-                )}
+              {/* 1st — tallest */}
+              <div
+                className={`flex flex-col items-center -mt-4 transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+              >
+                <span className="text-3xl mb-2 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]">👑</span>
+                <div className={`relative h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-amber-500/20 to-yellow-400/20 border-2 ${RANK_STYLES[1].ring} flex items-center justify-center text-4xl backdrop-blur ${RANK_STYLES[1].glow}`}>
+                  {avatarFor(top5[0].name)}
+                  <span className={`absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-gradient-to-br ${RANK_STYLES[1].badge} flex items-center justify-center text-[10px] font-black text-white shadow-lg`}>1</span>
+                </div>
+                <p className="mt-2 max-w-[80px] truncate text-center text-sm font-bold text-white">{top5[0].name.split(" ")[0]}</p>
+                <p className="text-sm font-black text-amber-300 tabular-nums drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]">{top5[0].totalLeads}</p>
+                <p className="text-[10px] text-amber-400/70 mt-0.5">leads</p>
               </div>
 
-              {/* Podium bars */}
-              <div className="relative mt-4 flex items-end justify-center gap-1.5">
-                {topThree[1] && (
-                  <div className="w-20 sm:w-24 h-14 rounded-t-lg bg-white/[0.04] border border-white/10 border-b-0 flex items-start justify-center pt-2">
-                    <span className="text-xl font-bold text-white/15">2</span>
+              {/* 3rd */}
+              {top5[2] && (
+                <div
+                  className={`flex flex-col items-center transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+                  style={{ transitionDelay: "100ms" }}
+                >
+                  <span className="text-xl mb-2">{RANK_STYLES[3].crown}</span>
+                  <div className={`relative h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white/[0.07] border-2 ${RANK_STYLES[3].ring} flex items-center justify-center text-2xl backdrop-blur ${RANK_STYLES[3].glow}`}>
+                    {avatarFor(top5[2].name)}
+                    <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${RANK_STYLES[3].badge} flex items-center justify-center text-[9px] font-black text-white shadow`}>3</span>
                   </div>
-                )}
-                <div className="w-24 sm:w-28 h-20 rounded-t-lg bg-white/[0.06] border border-violet-300/20 border-b-0 flex items-start justify-center pt-2">
-                  <span className="text-2xl font-bold text-white/20">1</span>
+                  <p className="mt-2 max-w-[70px] truncate text-center text-xs font-semibold text-white/80">{top5[2].name.split(" ")[0]}</p>
+                  <p className="text-[11px] font-bold text-amber-600/90 tabular-nums">{top5[2].totalLeads}</p>
                 </div>
-                {topThree[2] && (
-                  <div className="w-20 sm:w-24 h-10 rounded-t-lg bg-white/[0.04] border border-white/10 border-b-0 flex items-start justify-center pt-2">
-                    <span className="text-xl font-bold text-white/15">3</span>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          )}
 
-          {/* Ranks 4+ */}
-          {rest.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="space-y-2">
-                {rest.map((m, i) => (
+            {/* Podium stage */}
+            <div className="relative flex items-end justify-center gap-1.5 mt-3">
+              {top5[1] && (
+                <div className="w-20 sm:w-24 h-10 rounded-t-xl bg-white/[0.04] border border-white/[0.07] border-b-0 flex items-center justify-center">
+                  <span className="text-lg font-black text-white/10">2</span>
+                </div>
+              )}
+              <div className="w-24 sm:w-28 h-16 rounded-t-xl bg-gradient-to-b from-amber-500/10 to-transparent border border-amber-300/20 border-b-0 flex items-center justify-center">
+                <span className="text-2xl font-black text-white/10">1</span>
+              </div>
+              {top5[2] && (
+                <div className="w-20 sm:w-24 h-7 rounded-t-xl bg-white/[0.04] border border-white/[0.07] border-b-0 flex items-center justify-center">
+                  <span className="text-base font-black text-white/10">3</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Ranks 4 & 5 — horizontal bar cards ──────────────────────── */}
+          {top5.slice(3).length > 0 && (
+            <div className="space-y-3">
+              {top5.slice(3).map((m, i) => {
+                const s = RANK_STYLES[m.rank];
+                const barPct = Math.round((m.totalLeads / maxLeads) * 100);
+                return (
                   <div
                     key={m.name}
-                    className={`flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-2.5 transition-all duration-500 hover:bg-gray-100 dark:bg-gray-800/50 dark:hover:bg-gray-800 ${mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"}`}
-                    style={{ transitionDelay: `${200 + i * 60}ms` }}
+                    className={`relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-4"}`}
+                    style={{ transitionDelay: `${300 + i * 80}ms` }}
                   >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="w-5 shrink-0 text-center text-xs font-semibold text-gray-500 tabular-nums">{m.rank}</span>
-                      <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-base">
+                    {/* background bar */}
+                    <div
+                      className={`absolute inset-y-0 left-0 bg-gradient-to-r ${s.barColor} opacity-[0.07] transition-all duration-700 ease-out rounded-2xl`}
+                      style={{ width: mounted ? `${barPct}%` : "0%" }}
+                    />
+                    <div className="relative flex items-center gap-4">
+                      {/* rank badge */}
+                      <div className={`h-8 w-8 shrink-0 rounded-full bg-gradient-to-br ${s.badge} flex items-center justify-center text-[11px] font-black text-white shadow`}>
+                        {m.rank}
+                      </div>
+                      {/* avatar */}
+                      <div className="h-10 w-10 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl">
                         {avatarFor(m.name)}
                       </div>
-                      <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-200">{m.name}</span>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className="text-sm font-bold text-orange-500 dark:text-orange-400 tabular-nums">
-                        {m[valueKey] as number}
-                      </span>
-                      {tab === "overall" && m.realized > 0 && (
-                        <p className="text-[10px] text-emerald-500">{m.realized} realized</p>
-                      )}
+                      {/* name */}
+                      <p className="flex-1 min-w-0 truncate text-sm font-semibold text-gray-800 dark:text-white">{m.name}</p>
+                      {/* score */}
+                      <div className="shrink-0 text-right">
+                        <p className="text-lg font-black tabular-nums text-gray-800 dark:text-white">{m.totalLeads}</p>
+                        <p className="text-[10px] text-gray-400">leads</p>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
 
-          {/* Summary row */}
-          {tab === "overall" && (
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Top member leads", value: overallRanked[0]?.totalLeads ?? 0 },
-                { label: "Top member applied", value: [...members].sort((a,b) => b.applied - a.applied)[0]?.applied ?? 0 },
-                { label: "Top member realized", value: [...members].sort((a,b) => b.realized - a.realized)[0]?.realized ?? 0 },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-                  <p className="mt-1 text-xl font-bold tabular-nums text-gray-800 dark:text-white">{value}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          {/* ── Stat chips ──────────────────────────────────────────────── */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { emoji: "🏅", label: "Most Leads",    value: top5[0]?.totalLeads ?? 0, name: top5[0]?.name.split(" ")[0] },
+              { emoji: "📩", label: "Most Applied",  value: [...members].sort((a,b)=>b.applied-a.applied)[0]?.applied ?? 0, name: [...members].sort((a,b)=>b.applied-a.applied)[0]?.name.split(" ")[0] },
+              { emoji: "✅", label: "Most Realized", value: [...members].sort((a,b)=>b.realized-a.realized)[0]?.realized ?? 0, name: [...members].sort((a,b)=>b.realized-a.realized)[0]?.name.split(" ")[0] },
+            ].map(({ emoji, label, value, name }) => (
+              <div key={label} className="rounded-2xl border border-gray-200 bg-white p-3 text-center shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
+                <span className="text-2xl">{emoji}</span>
+                <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">{label}</p>
+                <p className="text-xl font-black tabular-nums text-gray-800 dark:text-white">{value}</p>
+                {name && <p className="text-[10px] text-gray-400 truncate">{name}</p>}
+              </div>
+            ))}
+          </div>
         </>
       )}
     </div>
