@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
+import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
+import type { LeadInput } from "@/lib/server/expaApplicationsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -78,21 +80,32 @@ export async function GET() {
       if (expaId && /^\d+$/.test(expaId)) entry.expaIds.add(expaId);
     }
 
-    // 3. Fetch EXPA application statuses (already cached for 15 min)
-    // We call our own cached endpoint to avoid duplicating the heavy fetch logic
+    // 3. Fetch EXPA application statuses directly (no HTTP self-call)
     let expaStatusByEpId: Map<string, string> = new Map();
     try {
-      const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const expaRes = await fetch(`${origin}/api/expa/applications`, {
-        next: { revalidate: 900 }, // match the 15-min cache
-      });
-      if (expaRes.ok) {
-        const expaData = await expaRes.json();
-        const apps = (expaData.applications ?? []) as Array<{ epId: string; status: string }>;
-        expaStatusByEpId = new Map(apps.map((a) => [a.epId, a.status]));
+      // Collect all unique expaIds across all members
+      const allExpaIds = new Set<string>();
+      for (const data of memberLeads.values()) {
+        for (const id of data.expaIds) allExpaIds.add(id);
       }
-    } catch {
+
+      if (allExpaIds.size > 0) {
+        // Build LeadInput array — one entry per unique expaId
+        const leadInputs: LeadInput[] = Array.from(allExpaIds).map((id) => ({
+          expaId:    id,
+          firstName: "",
+          lastName:  "",
+          email:     "",
+          university: "",
+          source:    "physical" as const,
+        }));
+
+        const { applications } = await fetchApplicationsForLeads(leadInputs);
+        expaStatusByEpId = new Map(applications.map((a) => [a.epId, a.status]));
+      }
+    } catch (err) {
       // Non-fatal — conversion rates will show 0 if EXPA is unavailable
+      console.warn("[api/ranking] EXPA lookup failed (non-fatal):", err);
     }
 
     // 4. Compute per-member stats

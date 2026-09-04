@@ -211,21 +211,6 @@ export default function MemberRankingClient() {
             </div>
           )}
 
-          {/* ── Stat chips ──────────────────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { emoji: "🏅", label: "Most Leads",    value: top5[0]?.totalLeads ?? 0, name: top5[0]?.name.split(" ")[0] },
-              { emoji: "📩", label: "Most Applied",  value: [...members].sort((a,b)=>b.applied-a.applied)[0]?.applied ?? 0, name: [...members].sort((a,b)=>b.applied-a.applied)[0]?.name.split(" ")[0] },
-              { emoji: "✅", label: "Most Realized", value: [...members].sort((a,b)=>b.realized-a.realized)[0]?.realized ?? 0, name: [...members].sort((a,b)=>b.realized-a.realized)[0]?.name.split(" ")[0] },
-            ].map(({ emoji, label, value, name }) => (
-              <div key={label} className="rounded-2xl border border-gray-200 bg-white p-3 text-center shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-                <span className="text-2xl">{emoji}</span>
-                <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-gray-400">{label}</p>
-                <p className="text-xl font-black tabular-nums text-gray-800 dark:text-white">{value}</p>
-                {name && <p className="text-[10px] text-gray-400 truncate">{name}</p>}
-              </div>
-            ))}
-          </div>
         </>
       )}
     </div>
