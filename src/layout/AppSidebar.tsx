@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "../context/SidebarContext";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { useAuth } from "@/context/AuthContext";
@@ -56,7 +56,8 @@ const othersItems: NavItem[] = [];
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
-  const { role } = useAuth();
+  const router = useRouter();
+  const { role, switchToMember } = useAuth();
   const [openSubmenu, setOpenSubmenu] = useState<{ type: "main" | "others"; index: number } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -225,10 +226,10 @@ const AppSidebar: React.FC = () => {
           </div>
         )}
 
-        {/* Return to Member Dashboard button — admin only */}
+        {/* Return to Member Dashboard — admin only */}
         {role === "admin" && (
-          <Link
-            href="/member-dashboard"
+          <button
+            onClick={() => { switchToMember(); router.push("/member-dashboard"); }}
             className={`mb-10 flex items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 transition-all hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20 ${
               !isExpanded && !isHovered && !isMobileOpen ? "mx-auto w-10 justify-center px-0" : "mx-auto w-full max-w-60"
             }`}
@@ -237,7 +238,7 @@ const AppSidebar: React.FC = () => {
             {(isExpanded || isHovered || isMobileOpen) && (
               <span className="truncate">Member Dashboard</span>
             )}
-          </Link>
+          </button>
         )}
       </div>
 

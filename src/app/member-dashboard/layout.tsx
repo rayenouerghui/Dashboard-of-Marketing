@@ -16,71 +16,59 @@ interface TodayAttraction {
 }
 
 export default function MemberDashboardLayout({ children }: { children: React.ReactNode }) {
-  const { role } = useAuth();
+  const { role, hydrated } = useAuth();
   const router = useRouter();
   const { isExpanded, isHovered, isMobileOpen, toggleMobileSidebar } = useSidebar();
-  const [showPopup, setShowPopup] = useState(false);
+  const [showPopup, setShowPopup]             = useState(false);
   const [todayAttractions, setTodayAttractions] = useState<TodayAttraction[]>([]);
-  const [hasShownPopup, setHasShownPopup] = useState(false);
+  const [hasShownPopup, setHasShownPopup]     = useState(false);
 
+  // Redirect non-members away — wait for hydration so role is known
   useEffect(() => {
-    if (role !== "member") {
+    if (!hydrated) return;
+    if (role === "admin") {
       router.replace("/dashboard");
     }
-  }, [role, router]);
+  }, [role, hydrated, router]);
 
+  // Today's attractions popup
   useEffect(() => {
-    if (hasShownPopup) return;
+    if (hasShownPopup || role !== "member") return;
 
-    const checkTodayAttractions = async () => {
+    const check = async () => {
       const today = new Date().toISOString().slice(0, 10);
-      
       try {
-        // Fetch physical leads from API
-        const response = await fetch('/api/leads/physical');
-        const leads: PhysicalAttractionLead[] = await response.json();
-        
-        const todayLeads = leads.filter((lead) => {
-          return new Date(lead.submittedAt).toISOString().slice(0, 10) === today;
-        });
+        const res = await fetch("/api/leads/physical");
+        const leads: PhysicalAttractionLead[] = await res.json();
+        const todayLeads = leads.filter(
+          (l) => new Date(l.submittedAt).toISOString().slice(0, 10) === today
+        );
 
-        // Check custom calendar events
         const saved = localStorage.getItem("customCalendarEvents");
         const customEvents = saved ? JSON.parse(saved) : [];
-        const todayCustomEvents = customEvents.filter((event: any) => event.start === today);
+        const todayCustom = customEvents.filter((e: any) => e.start === today);
 
-        const attractions: TodayAttraction[] = [];
-
-        // Add physical leads
-        todayLeads.forEach((lead) => {
-          attractions.push({
-            university: lead.university,
-            type: "lead",
-          });
-        });
-
-        // Add custom events
-        todayCustomEvents.forEach((event: any) => {
-          attractions.push({
-            university: event.extendedProps.university,
-            location: event.extendedProps.note,
-            type: "scheduled",
-          });
-        });
+        const attractions: TodayAttraction[] = [
+          ...todayLeads.map((l) => ({ university: l.university, type: "lead" as const })),
+          ...todayCustom.map((e: any) => ({
+            university: e.extendedProps.university,
+            location:   e.extendedProps.note,
+            type:       "scheduled" as const,
+          })),
+        ];
 
         if (attractions.length > 0) {
           setTodayAttractions(attractions);
           setHasShownPopup(true);
-          // Show popup after 1.5 seconds
           setTimeout(() => setShowPopup(true), 1500);
         }
-      } catch (error) {
-        console.error("Failed to fetch leads for popup:", error);
+      } catch {
+        // non-fatal
       }
     };
 
-    checkTodayAttractions();
-  }, [hasShownPopup]);
+    check();
+  }, [hasShownPopup, role]);
 
   const mainContentMargin = isMobileOpen
     ? "ml-0"
@@ -88,12 +76,17 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
     ? "lg:ml-[290px]"
     : "lg:ml-[90px]";
 
+  // Block render until role is confirmed — prevents flash of member content for non-members
+  if (!hydrated || role === "admin") {
+    return null;
+  }
+
   return (
     <div className="min-h-screen xl:flex">
       <AppSidebar />
       <Backdrop />
       <div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}>
-        {/* Mobile Tab Toggle Header */}
+        {/* Mobile header */}
         <div className="lg:hidden sticky top-0 z-40 flex items-center justify-between bg-white border-b border-gray-200 px-4 py-3 dark:bg-gray-900 dark:border-gray-800">
           <h1 className="text-sm font-semibold text-gray-800 dark:text-white">Menu</h1>
           <button
@@ -111,42 +104,29 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
 
       {/* Today's Attractions Popup */}
       {showPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                 <span className="text-2xl">📍</span>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                  Today's Attractions
-                </h3>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Today's Attractions</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {todayAttractions.length} attraction{todayAttractions.length > 1 ? 's' : ''} scheduled today
+                  {todayAttractions.length} attraction{todayAttractions.length > 1 ? "s" : ""} today
                 </p>
               </div>
             </div>
 
             <div className="space-y-3 mb-6">
-              {todayAttractions.map((attraction, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50"
-                >
+              {todayAttractions.map((a, i) => (
+                <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
                   <div className="h-8 w-8 rounded-lg bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-bold text-brand-600 dark:text-brand-400">
-                      {attraction.type === "scheduled" ? "📅" : "🎯"}
-                    </span>
+                    <span className="text-sm">{a.type === "scheduled" ? "📅" : "🎯"}</span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">
-                      {attraction.university}
-                    </p>
-                    {attraction.location && (
-                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                        {attraction.location}
-                      </p>
-                    )}
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{a.university}</p>
+                    {a.location && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.location}</p>}
                   </div>
                 </div>
               ))}
@@ -155,8 +135,8 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
             <div className="flex gap-3">
               <Link
                 href="/member-dashboard/timeline"
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
                 onClick={() => setShowPopup(false)}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-600 transition-colors"
               >
                 View Timeline
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,7 +145,7 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
               </Link>
               <button
                 onClick={() => setShowPopup(false)}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-300 transition-colors hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Close
               </button>

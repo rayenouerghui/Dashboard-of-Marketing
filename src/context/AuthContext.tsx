@@ -5,87 +5,80 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 export type AppRole = "member" | "admin";
 
 interface AuthContextValue {
-  role: AppRole;
-  setRole: (role: AppRole) => void;
-  login: (username: string, password: string) => boolean;
-  logout: () => void;
+  role:           AppRole;
+  hydrated:       boolean; // true once sessionStorage has been read
+  login:          (username: string, password: string) => boolean;
+  logout:         () => void;
+  switchToMember: () => void; // drop to member without clearing session permanently
 }
 
-// Session-only key: elevated role lasts only for the current browser tab session.
-// On every fresh page load the user always starts as "member".
-const SESSION_KEY = "aiesec-session-role";
-
+const SESSION_KEY  = "aiesec-session-role";
 const defaultRole: AppRole = "member";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // SSR + first render always "member" — no flash of elevated content
   const [role, setRoleState] = useState<AppRole>(defaultRole);
+  const [hydrated, setHydrated] = useState(false);
 
+  // Read saved role from sessionStorage on first mount
   useEffect(() => {
-    // Restore from sessionStorage (cleared when tab/window is closed).
-    // This means after closing and reopening the browser the user is always
-    // back as "member", even if they were logged in before.
     const saved = sessionStorage.getItem(SESSION_KEY);
-    if (saved === "admin") {
-      setRoleState(saved);
-    }
-    // If nothing saved (or "member"), stay as member — no elevation on revisit.
+    if (saved === "admin") setRoleState("admin");
+    setHydrated(true);
   }, []);
 
+  // Persist role changes
   useEffect(() => {
+    if (!hydrated) return;
     if (role === "member") {
-      // Explicitly clear any saved session when the user is a member
       sessionStorage.removeItem(SESSION_KEY);
     } else {
       sessionStorage.setItem(SESSION_KEY, role);
     }
-  }, [role]);
+  }, [role, hydrated]);
 
-  const setRole = (nextRole: AppRole) => {
-    console.log("AuthContext setRole called:", nextRole);
-    setRoleState(nextRole);
-  };
-
-  const login = (username: string, password: string) => {
+  const login = (username: string, password: string): boolean => {
     const u = username.trim().toLowerCase();
     const p = password.trim();
-
-    // Credentials are read from environment variables at runtime.
-    // Set NEXT_PUBLIC_ADMIN_USER and NEXT_PUBLIC_ADMIN_PASS in your .env.local / Vercel settings.
-    // Fallback to the hardcoded values only if env vars are not configured.
     const adminUser = (process.env.NEXT_PUBLIC_ADMIN_USER ?? "crispy").toLowerCase();
-    const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASS ?? "crispy";
-
+    const adminPass =  process.env.NEXT_PUBLIC_ADMIN_PASS ?? "crispy";
     if (u === adminUser && p === adminPass) {
       setRoleState("admin");
       return true;
     }
-
     return false;
   };
 
-  // Logout always resets to member and clears session
+  /** Full logout — clears session, goes back to member */
   const logout = () => {
     sessionStorage.removeItem(SESSION_KEY);
-    setRoleState(defaultRole);
+    setRoleState("member");
+  };
+
+  /**
+   * Switch to member view WITHOUT clearing the admin session.
+   * This lets the admin browse the member side and click the logo
+   * 5× to get back — or just open a new tab for the admin dashboard.
+   * We intentionally clear the session here so the member layout
+   * guard doesn't immediately bounce them back to /dashboard.
+   */
+  const switchToMember = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    setRoleState("member");
   };
 
   const value = useMemo<AuthContextValue>(
-    () => ({ role, setRole, login, logout }),
-    [role],
+    () => ({ role, hydrated, login, logout, switchToMember }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [role, hydrated],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
-
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
+  return ctx;
 }
