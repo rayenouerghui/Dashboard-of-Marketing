@@ -483,7 +483,7 @@ export async function debugComputeAllDashboardData(): Promise<DashboardData> {
 const cachedAll = unstable_cache(
   computeAll,
   ["dashboard-all"],
-  { tags: ["google-sheets-data", "leads-digital", "leads-physical"], revalidate: 300 }
+  { tags: ["google-sheets-data", "leads-digital", "leads-physical"], revalidate: 15 }
 );
 
 /**
