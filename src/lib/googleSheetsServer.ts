@@ -544,3 +544,126 @@ export async function deleteOpportunityFromSheet(opportunityId: string) {
     }
   }
 }
+
+// ─── Scheduled Attractions persistence ─────────────────────────────────────────
+const ATTRACTIONS_SPREADSHEET_ID = "1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM"; // Using OGV sheet
+const ATTRACTIONS_TAB = "Scheduled Attractions";
+
+async function ensureAttractionsTab(sheets: any) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+    fields: "sheets(properties(title))",
+  });
+  const titles: string[] = (meta.data.sheets ?? []).map(
+    (s: any) => s?.properties?.title ?? ""
+  );
+  if (!titles.includes(ATTRACTIONS_TAB)) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: ATTRACTIONS_TAB } } }],
+      },
+    });
+    // Write header row
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+      range: `'${ATTRACTIONS_TAB}'!A1:B1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [["id", "data"]] },
+    });
+  }
+}
+
+export async function saveScheduledAttractionToSheet(attraction: any) {
+  const sheets = await getSheetsClient();
+  await ensureAttractionsTab(sheets);
+
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+    range: `'${ATTRACTIONS_TAB}'!A:B`,
+  });
+
+  const rows: string[][] = existing.data.values ?? [];
+  let targetRowIndex = -1;
+  for (let i = 1; i < rows.length; i++) {
+    try {
+      const parsed = JSON.parse(rows[i][1] ?? "{}");
+      if (parsed.id === attraction.id) {
+        targetRowIndex = i + 1; // 1-indexed sheet row
+        break;
+      }
+    } catch {
+      // malformed row — skip
+    }
+  }
+
+  const rowValues = [[attraction.id, JSON.stringify(attraction)]];
+
+  if (targetRowIndex > 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+      range: `'${ATTRACTIONS_TAB}'!A${targetRowIndex}:B${targetRowIndex}`,
+      valueInputOption: "RAW",
+      requestBody: { values: rowValues },
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+      range: `'${ATTRACTIONS_TAB}'!A:B`,
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values: rowValues },
+    });
+  }
+}
+
+export async function loadScheduledAttractionsFromSheet(): Promise<any[]> {
+  const sheets = await getSheetsClient();
+  await ensureAttractionsTab(sheets);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+    range: `'${ATTRACTIONS_TAB}'!A:B`,
+  });
+
+  const rows: string[][] = response.data.values ?? [];
+  const results: any[] = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const jsonBlob = rows[i]?.[1];
+    if (!jsonBlob) continue;
+    try {
+      results.push(JSON.parse(jsonBlob));
+    } catch {
+      // skip malformed
+    }
+  }
+
+  return results;
+}
+
+export async function deleteScheduledAttractionFromSheet(id: string) {
+  const sheets = await getSheetsClient();
+  await ensureAttractionsTab(sheets);
+
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+    range: `'${ATTRACTIONS_TAB}'!A:B`,
+  });
+
+  const rows: string[][] = existing.data.values ?? [];
+  for (let i = 1; i < rows.length; i++) {
+    try {
+      const parsed = JSON.parse(rows[i][1] ?? "{}");
+      if (parsed.id === id) {
+        await sheets.spreadsheets.values.clear({
+          spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+          range: `'${ATTRACTIONS_TAB}'!A${i + 1}:B${i + 1}`,
+        });
+        break;
+      }
+    } catch {
+      // skip
+    }
+  }
+}

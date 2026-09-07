@@ -133,55 +133,41 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 interface TimelineClientProps {
   initialLeads: PhysicalAttractionLead[];
+  initialAttractions: ScheduledEvent[];
 }
 
-export default function TimelineClient({ initialLeads }: TimelineClientProps) {
+export default function TimelineClient({ initialLeads, initialAttractions }: TimelineClientProps) {
   const [mounted, setMounted] = useState(false);
-  const [scheduledEvents, setScheduledEvents] = useState<ScheduledEvent[]>([]);
+  const [scheduledEvents, setScheduledEvents] = useState<ScheduledEvent[]>(initialAttractions || []);
   const [forceTick, setForceTick] = useState(0);
 
   useEffect(() => {
     setMounted(true);
-    loadScheduled();
   }, []);
 
-  useEffect(() => {
-    const handleSync = () => {
-      loadScheduled();
-      setForceTick((t) => t + 1);
-    };
-    window.addEventListener("storage", handleSync);
-    window.addEventListener("attractionUpdated", handleSync);
-    return () => {
-      window.removeEventListener("storage", handleSync);
-      window.removeEventListener("attractionUpdated", handleSync);
-    };
-  }, []);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const events = saved ? (JSON.parse(saved) as ScheduledEvent[]) : [];
-        if (events.length !== scheduledEvents.length) {
-          setScheduledEvents(events);
-          setForceTick((t) => t + 1);
-        }
-      } catch {
-        // ignore
-      }
-    }, 2000);
-    return () => clearInterval(t);
-  }, [scheduledEvents.length]);
-
-  function loadScheduled() {
+  const fetchAttractions = async () => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      setScheduledEvents(saved ? (JSON.parse(saved) as ScheduledEvent[]) : []);
+      const res = await fetch("/api/scheduled-attractions");
+      if (res.ok) {
+        const data = await res.json();
+        setScheduledEvents(data);
+        setForceTick((t) => t + 1);
+      }
     } catch {
-      setScheduledEvents([]);
+      // ignore
     }
-  }
+  };
+
+  useEffect(() => {
+    const handleSync = () => fetchAttractions();
+    window.addEventListener("attractionUpdated", handleSync);
+    return () => window.removeEventListener("attractionUpdated", handleSync);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(fetchAttractions, 15000);
+    return () => clearInterval(t);
+  }, []);
 
   const weekDays = useMemo<DayBucket[]>(() => {
     const today = new Date();

@@ -179,42 +179,26 @@ export default function AttractionPageClient() {
 
   useEffect(() => {
     setMounted(true);
-    readFromStorage();
+    fetchAttractions();
   }, []);
 
   useEffect(() => {
     const handleSync = () => {
-      readFromStorage();
+      fetchAttractions();
       setForceUpdate((prev) => prev + 1);
     };
 
-    window.addEventListener("storage", handleSync);
     window.addEventListener("attractionUpdated", handleSync);
-
-    return () => {
-      window.removeEventListener("storage", handleSync);
-      window.removeEventListener("attractionUpdated", handleSync);
-    };
+    return () => window.removeEventListener("attractionUpdated", handleSync);
   }, []);
 
-  // Fallback: poll localStorage every 2 seconds in case an update happens
-  // without dispatching an event.
+  // Optional polling
   useEffect(() => {
     const interval = setInterval(() => {
-      try {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        const events = saved ? JSON.parse(saved) : [];
-        if (events.length !== customEvents.length) {
-          setCustomEvents(events);
-          setForceUpdate((prev) => prev + 1);
-        }
-      } catch {
-        // ignore malformed storage
-      }
-    }, 2000);
-
+      fetchAttractions();
+    }, 15000);
     return () => clearInterval(interval);
-  }, [customEvents.length]);
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -222,30 +206,21 @@ export default function AttractionPageClient() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function readFromStorage() {
+  async function fetchAttractions() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      setCustomEvents(saved ? JSON.parse(saved) : []);
-    } catch {
-      setCustomEvents([]);
-    }
-  }
-
-  function writeToStorage(events: CustomEvent[]) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
-      // Notify this tab's other components (e.g. the Timeline page) immediately.
-      // The native "storage" event only fires in *other* tabs, so we also
-      // dispatch a custom event for same-tab listeners.
-      window.dispatchEvent(new CustomEvent("attractionUpdated", { detail: events }));
+      const res = await fetch("/api/scheduled-attractions");
+      if (res.ok) {
+        const data = await res.json();
+        setCustomEvents(data);
+      }
     } catch (error) {
-      console.error("Failed to save custom events to localStorage", error);
+      console.error("Failed to fetch custom events", error);
     }
   }
 
   // ---------- actions ----------
 
-  const handleSaveEvent = (e: React.FormEvent) => {
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.university.trim() || !formData.date) return;
 
@@ -268,17 +243,34 @@ export default function AttractionPageClient() {
 
     const updated = [...customEvents, newEvent];
     setCustomEvents(updated);
-    writeToStorage(updated);
+    
+    try {
+      await fetch("/api/scheduled-attractions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEvent),
+      });
+      window.dispatchEvent(new CustomEvent("attractionUpdated", { detail: updated }));
+    } catch (err) {
+      console.error(err);
+    }
 
     setFormData(EMPTY_FORM);
     setToast(`Attraction added for ${newEvent.extendedProps.university} — now visible on the timeline`);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!pendingDelete) return;
     const updated = customEvents.filter((e) => e.id !== pendingDelete.id);
     setCustomEvents(updated);
-    writeToStorage(updated);
+    
+    try {
+      await fetch(`/api/scheduled-attractions?id=${pendingDelete.id}`, { method: 'DELETE' });
+      window.dispatchEvent(new CustomEvent("attractionUpdated", { detail: updated }));
+    } catch (err) {
+      console.error(err);
+    }
+    
     setToast(`Removed ${pendingDelete.extendedProps.university}`);
     setPendingDelete(null);
   };

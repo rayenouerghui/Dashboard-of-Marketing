@@ -209,17 +209,7 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
 export default function CalendarPageClient({ initialLeads }: CalendarPageClientProps) {
   const { role } = useAuth();
   const physicalLeads = initialLeads;
-  const [customEvents, setCustomEvents] = useState<CalendarEvent[]>(() => {
-    if (typeof window === "undefined") return [];
-
-    try {
-      const saved = localStorage.getItem("customCalendarEvents");
-      return saved ? JSON.parse(saved) : [];
-    } catch (error) {
-      console.error("Failed to parse custom events from localStorage", error);
-      return [];
-    }
-  });
+  const [customEvents, setCustomEvents] = useState<CalendarEvent[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | undefined>();
@@ -228,12 +218,23 @@ export default function CalendarPageClient({ initialLeads }: CalendarPageClientP
   const canCreateAttraction = role === "admin";
 
   useEffect(() => {
-    try {
-      localStorage.setItem("customCalendarEvents", JSON.stringify(customEvents));
-    } catch (error) {
-      console.error("Failed to save custom events to localStorage", error);
-    }
-  }, [customEvents]);
+    const fetchAttractions = async () => {
+      try {
+        const res = await fetch("/api/scheduled-attractions");
+        if (res.ok) {
+          const data = await res.json();
+          setCustomEvents(data);
+        }
+      } catch (error) {
+        console.error("Failed to load attractions", error);
+      }
+    };
+    fetchAttractions();
+    
+    const handleSync = () => fetchAttractions();
+    window.addEventListener("attractionUpdated", handleSync);
+    return () => window.removeEventListener("attractionUpdated", handleSync);
+  }, []);
 
   const calendarEvents = useMemo(
     () =>
@@ -320,18 +321,44 @@ Status: ${props.accountStatus || "N/A"}
     }
   };
 
-  const handleSaveEvent = (event: CalendarEvent) => {
+  const handleSaveEvent = async (event: CalendarEvent) => {
     if (modalMode === "add") {
       const newEvent = { ...event, id: `custom-${Date.now()}` };
       setCustomEvents((previous) => [...previous, newEvent]);
+      try {
+        await fetch("/api/scheduled-attractions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newEvent),
+        });
+        window.dispatchEvent(new CustomEvent("attractionUpdated"));
+      } catch (err) {
+        console.error(err);
+      }
     } else {
       setCustomEvents((previous) => previous.map((e) => (e.id === event.id ? event : e)));
+      try {
+        await fetch("/api/scheduled-attractions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event),
+        });
+        window.dispatchEvent(new CustomEvent("attractionUpdated"));
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (selectedEvent?.id) {
       setCustomEvents((previous) => previous.filter((e) => e.id !== selectedEvent.id));
+      try {
+        await fetch(`/api/scheduled-attractions?id=${selectedEvent.id}`, { method: "DELETE" });
+        window.dispatchEvent(new CustomEvent("attractionUpdated"));
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 

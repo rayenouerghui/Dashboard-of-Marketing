@@ -509,3 +509,13 @@ export async function getLeadSeriesWeekly()             { return (await getAllDa
 export async function getLeadSeriesDaily()              { return (await getAllDashboardData()).daily; }
 export async function getTopUniversities(n = 10)        { return (await getAllDashboardData()).topUniversities.slice(0, n); }
 export async function getUniversityStats()              { return (await getAllDashboardData()).universityStats; }
+
+// Scheduled Attractions
+export const getScheduledAttractions = unstable_cache(
+  async () => {
+    const { loadScheduledAttractionsFromSheet } = await import("./googleSheetsServer");
+    return loadScheduledAttractionsFromSheet();
+  },
+  ["scheduled-attractions"],
+  { tags: ["scheduled-attractions"], revalidate: 15 }
+);
