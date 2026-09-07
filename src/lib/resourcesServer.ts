@@ -16,6 +16,10 @@ export interface Resource {
   type: "pdf" | "link" | "image" | "text";
   url?: string;
   content?: string;
+  category?: string;
+  tags?: string;
+  order?: number;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,10 +72,10 @@ async function ensureResourcesTab(sheets: any) {
     // Write header row
     await sheets.spreadsheets.values.update({
       spreadsheetId: RESOURCES_SPREADSHEET_ID,
-      range: `'${RESOURCES_TAB}'!A1:H1`,
+      range: `'${RESOURCES_TAB}'!A1:L1`,
       valueInputOption: "RAW",
       requestBody: { 
-        values: [["id", "title", "description", "type", "url", "content", "createdAt", "updatedAt"]] 
+        values: [["id", "title", "description", "type", "url", "content", "category", "tags", "order", "imageUrl", "createdAt", "updatedAt"]] 
       },
     });
   }
@@ -84,7 +88,7 @@ export async function saveResourceToSheet(resource: Resource) {
   // Check if a row for this resource id already exists → update it
   const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: RESOURCES_SPREADSHEET_ID,
-    range: `'${RESOURCES_TAB}'!A:H`,
+    range: `'${RESOURCES_TAB}'!A:L`,
   });
 
   const rows: string[][] = existing.data.values ?? [];
@@ -103,6 +107,10 @@ export async function saveResourceToSheet(resource: Resource) {
     resource.type,
     resource.url || "",
     resource.content || "",
+    resource.category || "",
+    resource.tags || "",
+    String(resource.order || 0),
+    resource.imageUrl || "",
     resource.createdAt,
     resource.updatedAt,
   ]];
@@ -111,7 +119,7 @@ export async function saveResourceToSheet(resource: Resource) {
     // Update existing row
     await sheets.spreadsheets.values.update({
       spreadsheetId: RESOURCES_SPREADSHEET_ID,
-      range: `'${RESOURCES_TAB}'!A${targetRowIndex}:H${targetRowIndex}`,
+      range: `'${RESOURCES_TAB}'!A${targetRowIndex}:L${targetRowIndex}`,
       valueInputOption: "RAW",
       requestBody: { values: rowValues },
     });
@@ -119,7 +127,7 @@ export async function saveResourceToSheet(resource: Resource) {
     // Append new row
     await sheets.spreadsheets.values.append({
       spreadsheetId: RESOURCES_SPREADSHEET_ID,
-      range: `'${RESOURCES_TAB}'!A:H`,
+      range: `'${RESOURCES_TAB}'!A:L`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: rowValues },
@@ -133,7 +141,7 @@ export async function loadResourcesFromSheet(): Promise<Resource[]> {
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: RESOURCES_SPREADSHEET_ID,
-    range: `'${RESOURCES_TAB}'!A:H`,
+    range: `'${RESOURCES_TAB}'!A:L`,
   });
 
   const rows: string[][] = response.data.values ?? [];
@@ -141,7 +149,7 @@ export async function loadResourcesFromSheet(): Promise<Resource[]> {
 
   // Skip header row (index 0)
   for (let i = 1; i < rows.length; i++) {
-    const [id, title, description, type, url, content, createdAt, updatedAt] = rows[i] ?? [];
+    const [id, title, description, type, url, content, category, tags, order, imageUrl, createdAt, updatedAt] = rows[i] ?? [];
     if (!id) continue;
     try {
       results.push({
@@ -151,6 +159,10 @@ export async function loadResourcesFromSheet(): Promise<Resource[]> {
         type: (type as Resource["type"]) || "text",
         url: url || undefined,
         content: content || undefined,
+        category: category || undefined,
+        tags: tags || undefined,
+        order: order ? parseInt(order) : 0,
+        imageUrl: imageUrl || undefined,
         createdAt: createdAt || new Date().toISOString(),
         updatedAt: updatedAt || new Date().toISOString(),
       });
@@ -159,7 +171,7 @@ export async function loadResourcesFromSheet(): Promise<Resource[]> {
     }
   }
 
-  return results;
+  return results.sort((a, b) => (a.order || 0) - (b.order || 0));
 }
 
 export async function deleteResourceFromSheet(resourceId: string) {
@@ -168,7 +180,7 @@ export async function deleteResourceFromSheet(resourceId: string) {
 
   const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: RESOURCES_SPREADSHEET_ID,
-    range: `'${RESOURCES_TAB}'!A:H`,
+    range: `'${RESOURCES_TAB}'!A:L`,
   });
 
   const rows: string[][] = existing.data.values ?? [];
@@ -177,7 +189,7 @@ export async function deleteResourceFromSheet(resourceId: string) {
       // Clear the row content
       await sheets.spreadsheets.values.clear({
         spreadsheetId: RESOURCES_SPREADSHEET_ID,
-        range: `'${RESOURCES_TAB}'!A${i + 1}:H${i + 1}`,
+        range: `'${RESOURCES_TAB}'!A${i + 1}:L${i + 1}`,
       });
       break;
     }

@@ -99,50 +99,40 @@ function StatPill({ label, tone }: { label: string; tone: string }) {
 // Pipeline KPI card
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ProgrammeRow({
-  programme,
-  data,
-  totalLeads,
+function ConversionFunnelRow({
+  label,
+  from,
+  to,
+  rate,
+  color,
 }: {
-  programme: string;
-  data: { total: number; applied: number; approved: number; realized: number };
-  totalLeads: number;
+  label: string;
+  from: number;
+  to: number;
+  rate: number;
+  color: string;
 }) {
-  const { total, applied, approved, realized } = data;
-
-  const pct = (count: number) => (total > 0 ? (count / total) * 100 : 0);
-  const approvedPct = pct(approved);
-  const realizedPct = pct(realized);
-
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-7 w-14 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
-            {programme}
+            {label}
           </span>
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {total.toLocaleString()} EPs
+            {from.toLocaleString()} → {to.toLocaleString()}
           </span>
         </div>
         <div className="flex flex-wrap gap-3 text-xs">
-          <span className="text-blue-600 dark:text-blue-400">
-            Applied: <strong>{applied}</strong> ({formatRate(pct(applied))})
-          </span>
-          <span className="text-emerald-600 dark:text-emerald-400">
-            Approved: <strong>{approved}</strong> ({formatRate(approvedPct)})
-          </span>
-          <span className="text-violet-600 dark:text-violet-400">
-            Realized: <strong>{realized}</strong> ({formatRate(realizedPct)})
+          <span className={color}>
+            <strong>{formatRate(rate)}</strong>
           </span>
         </div>
       </div>
 
-      {/* Mini progress bar */}
-      <div className="mt-2.5 flex gap-0.5 h-1.5 rounded-full overflow-hidden">
-        <div className="bg-blue-400 rounded-l-full" style={{ width: `${pct(applied)}%` }} />
-        <div className="bg-emerald-400" style={{ width: `${approvedPct}%` }} />
-        <div className="bg-violet-400 rounded-r-full" style={{ width: `${realizedPct}%` }} />
+      {/* Progress bar */}
+      <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div className={`h-full rounded-full ${color.replace('text-', 'bg-')}`} style={{ width: `${rate}%` }} />
       </div>
     </div>
   );
@@ -183,15 +173,33 @@ function PipelineCard({ stats }: { stats: ExpaLeadStats }) {
         ))}
       </div>
 
-      {/* Per-programme breakdown */}
+      {/* Conversion funnel */}
       <div className="mt-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          By Programme
+          Conversion Funnel
         </p>
         <div className="space-y-2">
-          {Object.entries(stats.byProgramme).map(([prog, data]) => (
-            <ProgrammeRow key={prog} programme={prog} data={data} totalLeads={stats.totalLeads} />
-          ))}
+          <ConversionFunnelRow
+            label="Sign-up → Applied"
+            from={stats.totalLeads}
+            to={stats.applied}
+            rate={stats.signupToApplied}
+            color="text-blue-600 dark:text-blue-400"
+          />
+          <ConversionFunnelRow
+            label="Sign-up → Approved"
+            from={stats.totalLeads}
+            to={stats.approved}
+            rate={stats.totalLeads > 0 ? (stats.approved / stats.totalLeads) * 100 : 0}
+            color="text-emerald-600 dark:text-emerald-400"
+          />
+          <ConversionFunnelRow
+            label="Sign-up → Realized"
+            from={stats.totalLeads}
+            to={stats.realized}
+            rate={stats.totalLeads > 0 ? (stats.realized / stats.totalLeads) * 100 : 0}
+            color="text-violet-600 dark:text-violet-400"
+          />
         </div>
       </div>
     </SectionCard>

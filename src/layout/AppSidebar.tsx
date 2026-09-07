@@ -222,8 +222,8 @@ const AppSidebar: React.FC = () => {
             <div className="mb-2 flex justify-center">
               <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-bold">LC</span>
             </div>
-            <h3 className="mb-1 text-sm font-semibold text-gray-900 dark:text-white">AIESEC LC Tunis</h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Operations Dashboard v1.0</p>
+            <h3 className="mb-1 text-sm font-semibold text-gray-900 dark:text-white">LC Bardo</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Marketing Dashboard</p>
           </div>
         )}
 
