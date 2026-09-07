@@ -17,8 +17,8 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
   const gv  = byProgramme["GV"]?.total  ?? 0;
 
   const gtaRate = gta > 0 ? ((byProgramme["GTa"]?.applied ?? 0) / gta) * 100 : 0;
-  const gteRate = gte > 0 ? ((byProgramme["GTe"]?.applied ?? 0) / gte) * 100 : 0;
-  const gvRate = gv > 0 ? ((byProgramme["GV"]?.applied ?? 0) / gv) * 100 : 0;
+  const gteRate = gte > 0 ? ((byProgramme["GTe"]?.approved ?? 0) / (byProgramme["GTe"]?.applied ?? 1)) * 100 : 0;
+  const gvRate = gv > 0 ? ((byProgramme["GV"]?.realized ?? 0) / (byProgramme["GV"]?.approved ?? 1)) * 100 : 0;
 
   const cards = [
     {
@@ -34,7 +34,7 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
       bg:    "bg-cyan-100 dark:bg-cyan-900/20",
       label: "GTa",
       value: gta,
-      badge: `${gtaRate.toFixed(1)}% applied`,
+      badge: `${gtaRate.toFixed(1)}% signup→applied`,
       bColor: "primary" as const,
     },
     {
@@ -42,7 +42,7 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
       bg:    "bg-orange-100 dark:bg-orange-900/20",
       label: "GTe",
       value: gte,
-      badge: `${gteRate.toFixed(1)}% applied`,
+      badge: `${gteRate.toFixed(1)}% applied→approved`,
       bColor: "warning" as const,
     },
     {
@@ -50,7 +50,7 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
       bg:    "bg-rose-100 dark:bg-rose-900/20",
       label: "GV",
       value: gv,
-      badge: `${gvRate.toFixed(1)}% applied`,
+      badge: `${gvRate.toFixed(1)}% approved→realized`,
       bColor: "error" as const,
     },
   ];
