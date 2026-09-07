@@ -5,76 +5,23 @@ import { getUniversities } from "@/lib/dataUtils";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-// ---- Product colors + logos (same palette used across Opportunities) ----
 const PRODUCT_COLORS: Record<string, string> = {
   GTa: "#0CB9C1",
   GTe: "#F48924",
   GV: "#F85A40",
 };
 
-// Place the uploaded logo files at these paths in /public
 const PRODUCT_LOGOS: Record<string, string> = {
   GTa: "/images/products/gta.png",
   GTe: "/images/products/gte.png",
   GV: "/images/products/gv.png",
 };
 
-// Sales speeches for each product
 const PRODUCT_SPEECHES: Record<string, string> = {
   GTa: "Global Talent (GTa) offers professional internships abroad for students and recent graduates. Participants gain international work experience, develop professional skills, and build a global network. Programs are available in various fields including IT, Marketing, Engineering, and Business. The duration typically ranges from 6 to 78 weeks, providing flexibility for different academic schedules.",
   GTe: "Global Teacher (GTe) focuses on teaching opportunities in educational institutions worldwide. Participants can teach languages, STEM subjects, or other disciplines while experiencing new cultures. This program is ideal for education students and those passionate about teaching. Programs usually last 6-12 weeks and include accommodation and sometimes meals.",
   GV: "Global Volunteer (GV) provides volunteer projects in social impact areas such as education, environment, health, and community development. Volunteers work on meaningful projects while developing leadership skills and cultural understanding. Projects are typically 6-8 weeks long and focus on creating sustainable impact in local communities.",
 };
-
-type Tag = { label: string; color: string; logo: string };
-
-interface UniversityGroup {
-  id: string;
-  title?: string;
-  tags: Tag[];
-  subtitle?: string;
-  keywords: string[];
-}
-
-const tag = (label: keyof typeof PRODUCT_COLORS): Tag => ({
-  label,
-  color: PRODUCT_COLORS[label],
-  logo: PRODUCT_LOGOS[label],
-});
-
-const GROUPS: UniversityGroup[] = [
-  {
-    id: "gte-teaching",
-    tags: [tag("GTe")],
-    subtitle: "Teaching",
-    keywords: ["FSHST", "Musique"],
-  },
-  {
-    id: "gta-mkt-gv",
-    tags: [tag("GTa"), tag("GV")],
-    subtitle: "Marketing profiles",
-    keywords: ["ISG", "ESSECT", "TBS", "ESB"],
-  },
-  {
-    id: "gta-it",
-    tags: [tag("GTa")],
-    subtitle: "IT profiles",
-    keywords: ["ESPRIT", "ENSIT", "ISET Charguia", "ISBAT", "HIDE", "FMT"],
-  },
-];
-
-function getShortName(name: string) {
-  return name.includes(":") ? name.split(":")[0].trim() : name;
-}
-
-function matchesGroup(universityName: string, group: UniversityGroup) {
-  const shortName = getShortName(universityName).toLowerCase();
-  const fullName = universityName.toLowerCase();
-  return group.keywords.some((k) => {
-    const kw = k.toLowerCase();
-    return shortName === kw || shortName.includes(kw) || fullName.includes(kw);
-  });
-}
 
 export default function SalesClient() {
   const universities = getUniversities();
@@ -87,20 +34,7 @@ export default function SalesClient() {
     return () => cancelAnimationFrame(t);
   }, []);
 
-  const categorized = GROUPS.map((group) => ({
-    group,
-    universities: universities.filter((u) => matchesGroup(u.name, group)),
-  }));
-
-  const matchedIds = new Set(
-    categorized.flatMap((c) => c.universities.map((u) => u.id))
-  );
-  const others = universities.filter((u) => !matchedIds.has(u.id));
-
-  let cardIndex = 0;
-
-  const renderCard = (university: (typeof universities)[number], accentColor?: string) => {
-    const index = cardIndex++;
+  const renderCard = (university: (typeof universities)[number], index: number) => {
     const isPressed = pressedId === university.id;
 
     return (
@@ -120,13 +54,6 @@ export default function SalesClient() {
           transitionTimingFunction: "ease-out",
         }}
       >
-        {accentColor && (
-          <span
-            className="absolute inset-x-0 top-0 h-1"
-            style={{ backgroundColor: accentColor }}
-          />
-        )}
-
         <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 mt-1">
           {university.logo ? (
             <Image
@@ -225,64 +152,17 @@ export default function SalesClient() {
         )}
       </div>
 
-      {/* Universities in Tabs */}
+      {/* All Universities */}
       <div className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Universities
         </h2>
         
-        {categorized.map(({ group, universities: groupUniversities }) => {
-          if (groupUniversities.length === 0) return null;
-          const primaryColor = group.tags[0]?.color;
-
-          return (
-            <div key={group.id} className="space-y-3">
-              <div className="flex flex-wrap items-center gap-4">
-                {group.tags.map((t) => (
-                  <div key={t.label} className="flex items-center gap-2">
-                    <div className="relative h-8 w-8 shrink-0">
-                      <Image
-                        src={t.logo}
-                        alt={t.label}
-                        fill
-                        className="object-contain"
-                        sizes="32px"
-                      />
-                    </div>
-                    <span
-                      className="text-lg font-extrabold tracking-wide"
-                      style={{ color: t.color }}
-                    >
-                      {t.label}
-                    </span>
-                  </div>
-                ))}
-                {group.subtitle && (
-                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {group.subtitle}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
-                {groupUniversities.map((university) => renderCard(university, primaryColor))}
-              </div>
-            </div>
-          );
-        })}
-
-        {others.length > 0 && (
-          <div className="space-y-3">
-            <span className="text-lg font-extrabold tracking-wide text-gray-500 dark:text-gray-400">
-              Other Universities
-            </span>
-            <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
-              {others.map((university) => renderCard(university))}
-            </div>
+        {hasAnyUniversities ? (
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+            {universities.map((university, index) => renderCard(university, index))}
           </div>
-        )}
-
-        {!hasAnyUniversities && (
+        ) : (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-800/50">
             <div className="text-4xl mb-3">🎓</div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
