@@ -68,7 +68,7 @@ export default function ConversionRateClient() {
     setError(null);
     try {
       const [leadsRes, appsRes] = await Promise.all([
-        fetch(`/api/expa/leads${nocache ? "?nocache=1" : ""}&full=1`),
+        fetch(`/api/expa/leads${nocache ? "?nocache=1" : ""}`),
         fetch(`/api/expa/applications${nocache ? "?nocache=1" : ""}`),
       ]);
       const [leadsData, appsData] = await Promise.all([leadsRes.json(), appsRes.json()]);
@@ -84,9 +84,9 @@ export default function ConversionRateClient() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh every 30 minutes (matches cache duration)
+  // Auto-refresh every 2 minutes
   useEffect(() => {
-    const interval = setInterval(() => load(), 1800000);
+    const interval = setInterval(() => load(), 120000);
     return () => clearInterval(interval);
   }, [load]);
 

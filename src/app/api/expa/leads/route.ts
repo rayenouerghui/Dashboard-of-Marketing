@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { fetchAllExpaLeads, fetchRecentExpaLeads, type ExpaLead } from "@/lib/server/expaLeadsClient";
+import { fetchAllExpaLeads, type ExpaLead } from "@/lib/server/expaLeadsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -140,53 +140,30 @@ function computeStats(leads: ExpaLead[]): ExpaLeadStats {
   };
 }
 
-// ─── Cached fetcher for recent leads (2 min - fast for dashboard) ─────────────
-const getCachedRecentLeads = unstable_cache(
-  async () => {
-    const { leads, totalItems } = await fetchRecentExpaLeads();
-    const stats = computeStats(leads);
-    return { stats, totalItems };
-  },
-  ["expa-leads-recent"],
-  { revalidate: 120 }
-);
-
-// ─── Cached fetcher for all leads (30 min - for conversion rate) ───────────────
-const getCachedAllLeads = unstable_cache(
+// ─── Cached fetcher (2 min for real-time updates) ──────────────────────────────
+const getCachedLeads = unstable_cache(
   async () => {
     const { leads, totalItems } = await fetchAllExpaLeads();
     const stats = computeStats(leads);
     return { stats, totalItems };
   },
-  ["expa-leads-all"],
-  { revalidate: 1800 }
+  ["expa-leads-stats"],
+  { revalidate: 120 }
 );
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
   const nocache = new URL(request.url).searchParams.get("nocache") === "1";
-  const full = new URL(request.url).searchParams.get("full") === "1";
 
   try {
-    // Use full fetch for conversion rate (slower, cached longer)
-    // Use recent fetch for dashboard (faster, cached shorter)
-    if (full) {
-      const result = nocache
-        ? await (async () => {
-            const { leads, totalItems } = await fetchAllExpaLeads();
-            return { stats: computeStats(leads), totalItems };
-          })()
-        : await getCachedAllLeads();
-      return NextResponse.json({ success: true, ...result, mode: "full" }, { status: 200 });
-    } else {
-      const result = nocache
-        ? await (async () => {
-            const { leads, totalItems } = await fetchRecentExpaLeads();
-            return { stats: computeStats(leads), totalItems };
-          })()
-        : await getCachedRecentLeads();
-      return NextResponse.json({ success: true, ...result, mode: "recent" }, { status: 200 });
-    }
+    const result = nocache
+      ? await (async () => {
+          const { leads, totalItems } = await fetchAllExpaLeads();
+          return { stats: computeStats(leads), totalItems };
+        })()
+      : await getCachedLeads();
+
+    return NextResponse.json({ success: true, ...result }, { status: 200 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Failed to fetch EXPA leads.";
     console.error("[api/expa/leads] error:", error);
