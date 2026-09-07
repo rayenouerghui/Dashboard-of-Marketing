@@ -35,6 +35,9 @@ function dateStr(iso: string): string {
 const APPLIED_STATUSES  = new Set(["open","accepted","approved","approved_ep_manager","matched","realized","completed","finished"]);
 const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 
+// Only count leads submitted on or after this date — everything before is reset to zero
+const RANKING_CUTOFF = "2026-09-07";
+
 // ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
 const getCachedExpaStatuses = unstable_cache(
   async (expaIds: string[]): Promise<Record<string, string>> => {
@@ -69,8 +72,13 @@ export async function GET(request: Request) {
       if (!memberName) continue;
 
       const submittedAt = r["Submitted at"] || r.submittedAt || r.submitted_at || "";
-      const expaId      = (r["EXPA ID"] || r.expaId || r.eXPAID || "").trim();
-      const isToday     = dateStr(submittedAt) === today;
+      const rowDate     = dateStr(submittedAt);
+
+      // Skip anything before the ranking cutoff date
+      if (!rowDate || rowDate < RANKING_CUTOFF) continue;
+
+      const expaId  = (r["EXPA ID"] || r.expaId || r.eXPAID || "").trim();
+      const isToday = rowDate === today;
 
       if (!memberLeads.has(memberName)) {
         memberLeads.set(memberName, { total: 0, today: 0, expaIds: new Set() });
