@@ -238,230 +238,59 @@ export default function TimelineClient({ initialLeads }: TimelineClientProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <Link
-            href="/member-dashboard"
-            className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-300 dark:hover:text-brand-400"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Return to Member Dashboard
-          </Link>
-          <h1 className="text-xl font-semibold text-gray-800 dark:text-white/90 sm:text-2xl">
-            Member Timeline
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Weekly attraction schedule and submitted leads (Monday &ndash; Friday)
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
-            <CalendarDays className="h-3.5 w-3.5" />
-            {weekScheduledCount} attraction{weekScheduledCount === 1 ? "" : "s"}
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {weekLeadTotal} lead{weekLeadTotal === 1 ? "" : "s"} this week
-          </span>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <Link
+          href="/member-dashboard"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 shadow-sm transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-white/[0.03] dark:text-gray-300 dark:hover:text-brand-400"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back
+        </Link>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-white">
+          THIS WEEK ATTRACTIONS
+        </h1>
       </div>
 
-      <div className="relative">
-        <div className="absolute top-8 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-5 relative">
-          {weekDays.map((day, idx) => {
-            const totalGoal = day.scheduled.reduce(
-              (s, ev) => s + (typeof ev.extendedProps.goal === "number" ? ev.extendedProps.goal : 0),
-              0
-            );
-            const progress =
-              totalGoal > 0 ? Math.min(100, Math.round((day.leads.length / totalGoal) * 100)) : null;
-
+      <div className="space-y-0">
+        {scheduledEvents.length === 0 ? (
+          <EmptyState title="No attractions scheduled this week" />
+        ) : (
+          scheduledEvents.map((ev, idx) => {
+            const eventDate = new Date(ev.start);
+            const dayName = eventDate.toLocaleDateString("en-US", { weekday: "long" });
+            const formattedDate = eventDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+            
             return (
-              <div key={day.dayStr} className="relative">
-                <div
-                  className={`hidden md:flex absolute top-7 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 z-10 ${
-                    day.isToday
-                      ? "bg-emerald-500 border-emerald-500"
-                      : day.isPast
-                      ? "bg-gray-300 border-gray-300 dark:bg-gray-600 dark:border-gray-600"
-                      : "bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600"
-                  }`}
-                ></div>
-
-                <div
-                  className={`mt-12 rounded-xl border p-4 transition-all shadow-sm sm:p-5 ${
-                    day.isToday
-                      ? "border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-900/20 shadow-md"
-                      : day.isPast
-                      ? "border-gray-200 bg-gray-50 opacity-80 dark:border-gray-700 dark:bg-gray-800/50"
-                      : "border-gray-200 bg-white dark:border-gray-700 dark:bg-white/[0.03]"
-                  }`}
-                >
-                  <div className="mb-4 text-center">
-                    <p
-                      className={`text-lg font-bold ${
-                        day.isToday
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-gray-800 dark:text-white"
-                      }`}
-                    >
-                      {day.dayName}
+              <div key={ev.id || `event-${idx}`}>
+                <div className="flex items-center gap-4 bg-blue-500 rounded-2xl p-4">
+                  <LogoOrInitials
+                    src={ev.extendedProps.universityLogo}
+                    name={ev.extendedProps.university}
+                    size={48}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-semibold text-base truncate">
+                      {getShortUniversityName(ev.extendedProps.university)}
                     </p>
-                    <p
-                      className={`text-sm ${
-                        day.isToday
-                          ? "text-emerald-600 dark:text-emerald-500"
-                          : "text-gray-500 dark:text-gray-400"
-                      }`}
-                    >
-                      {day.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </p>
-                    {day.isToday && (
-                      <span className="mt-2 inline-block rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white">
-                        Today
-                      </span>
-                    )}
-                    {totalGoal > 0 && (
-                      <div className="mt-3">
-                        <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-gray-500 dark:text-gray-400">
-                          <span>
-                            {day.leads.length} / {totalGoal} leads
-                          </span>
-                          <span>{progress}%</span>
-                        </div>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              (progress ?? 0) >= 100
-                                ? "bg-emerald-500"
-                                : (progress ?? 0) >= 50
-                                ? "bg-brand-500"
-                                : "bg-amber-400"
-                            }`}
-                            style={{ width: `${progress ?? 0}%` }}
-                          />
-                        </div>
-                      </div>
+                    {ev.extendedProps.note && (
+                      <p className="text-blue-100 text-sm truncate mt-0.5">
+                        {ev.extendedProps.note}
+                      </p>
                     )}
                   </div>
-
-                  <div className="space-y-3">
-                    {day.scheduled.length === 0 && day.leads.length === 0 ? (
-                      <EmptyState title="Nothing scheduled" />
-                    ) : (
-                      <>
-                        {day.scheduled.map((ev, evIdx) => (
-                          <div
-                            key={ev.id || `sch-${evIdx}`}
-                            className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-700 dark:bg-blue-900/20"
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-2">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-800/60 dark:text-blue-200">
-                                <MapPin className="h-2.5 w-2.5" />
-                                Scheduled
-                              </span>
-                              {typeof ev.extendedProps.goal === "number" && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
-                                  <Target className="h-2.5 w-2.5" />
-                                  Goal {ev.extendedProps.goal}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-start gap-2.5">
-                              <LogoOrInitials
-                                src={ev.extendedProps.universityLogo}
-                                name={ev.extendedProps.university}
-                                size={34}
-                              />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-gray-800 dark:text-white">
-                                  {getShortUniversityName(ev.extendedProps.university)}
-                                </p>
-                                {ev.extendedProps.note && (
-                                  <p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400">
-                                    {ev.extendedProps.note}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                        {day.leads.length > 0 && (
-                          <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 dark:border-emerald-800 dark:bg-emerald-900/15">
-                            <div className="mb-2 flex items-center justify-between px-0.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                                <CheckCircle2 className="h-3 w-3" />
-                                Submitted leads
-                              </span>
-                              <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-                                {day.leads.length}
-                              </span>
-                            </div>
-                            <div className="space-y-1.5">
-                              {day.leads.map((lead, li) => {
-                                const leadKey =
-                                  lead.submissionId || lead.expaId || `lead-${day.dayStr}-${li}`;
-                                const fullName = [lead.firstName, lead.lastName]
-                                  .filter(Boolean)
-                                  .join(" ") || "Unnamed Lead";
-                                return (
-                                  <div
-                                    key={leadKey}
-                                    className="rounded-md border border-white bg-white px-2.5 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-800/80"
-                                  >
-                                    <div className="flex items-start gap-2">
-                                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-bold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
-                                        {fullName.substring(0, 2).toUpperCase()}
-                                      </div>
-                                      <div className="min-w-0 flex-1">
-                                        <p className="truncate text-xs font-semibold text-gray-800 dark:text-white/90">
-                                          {fullName}
-                                        </p>
-                                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-gray-500 dark:text-gray-400">
-                                          <span className="inline-flex items-center gap-0.5">
-                                            <Building2 className="h-2.5 w-2.5" />
-                                            {getShortUniversityName(lead.university)}
-                                          </span>
-                                          {lead.memberName && (
-                                            <span className="inline-flex items-center gap-0.5">
-                                              <UserCircle className="h-2.5 w-2.5" />
-                                              {lead.memberName.length > 18
-                                                ? lead.memberName.substring(0, 18) + "..."
-                                                : lead.memberName}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
+                  <div className="text-right">
+                    <p className="text-white font-bold text-lg">{dayName}</p>
+                    <p className="text-blue-100 text-sm">{formattedDate}</p>
                   </div>
                 </div>
+                {idx < scheduledEvents.length - 1 && (
+                  <div className="h-px bg-gray-300 border-t border-dashed border-gray-400 my-3"></div>
+                )}
               </div>
             );
-          })}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-4 pt-2 text-sm">
-        <Legend color="bg-emerald-500" label="Today" />
-        <Legend color="bg-gray-300 dark:bg-gray-600" label="Past" />
-        <Legend
-          color="bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
-          label="Upcoming"
-        />
-        <Legend color="bg-blue-500" label="Scheduled attraction" />
-        <Legend color="bg-emerald-400" label="Submitted leads" />
+          })
+        )}
       </div>
     </div>
   );

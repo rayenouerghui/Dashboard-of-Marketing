@@ -2,104 +2,73 @@
 import React from "react";
 import Badge from "../ui/badge/Badge";
 import { ArrowUpIcon, BoxIconLine, GroupIcon, UserCircleIcon, CheckCircleIcon } from "@/icons";
+import type { ExpaLeadStats } from "@/app/api/expa/leads/route";
 
-interface EcommerceMetricsProps {
-  initialStats: Awaited<ReturnType<typeof import('@/lib/dataUtilsServer').getDashboardStats>>;
+interface Props { stats: ExpaLeadStats; loading?: boolean; }
+
+function Skeleton() {
+  return <div className="h-8 w-20 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />;
 }
 
-export const EcommerceMetrics = ({ initialStats }: EcommerceMetricsProps) => {
-  const stats = initialStats;
-  const digitalLeads = stats.totalLeads - stats.totalPhysicalLeads;
-  const digitalShare = stats.totalLeads > 0 ? Math.round((digitalLeads / stats.totalLeads) * 100) : 0;
-  const physicalShare = stats.totalLeads > 0 ? Math.round((stats.totalPhysicalLeads / stats.totalLeads) * 100) : 0;
+export const EcommerceMetrics = ({ stats, loading }: Props) => {
+  const { byProgramme } = stats;
+  const gta = byProgramme["GTa"]?.total ?? 0;
+  const gte = byProgramme["GTe"]?.total ?? 0;
+  const gv  = byProgramme["GV"]?.total  ?? 0;
+
+  const cards = [
+    {
+      icon:  <GroupIcon className="text-blue-600 size-6 dark:text-blue-400" />,
+      bg:    "bg-blue-100 dark:bg-blue-900/20",
+      label: "Total Sign-Ups",
+      value: stats.totalLeads,
+      badge: `${stats.leadsToday} today`,
+      bColor: "success" as const,
+    },
+    {
+      icon:  <CheckCircleIcon className="text-cyan-600 size-6 dark:text-cyan-400" />,
+      bg:    "bg-cyan-100 dark:bg-cyan-900/20",
+      label: "GTa",
+      value: gta,
+      badge: `${stats.byProgramme["GTa"]?.applied ?? 0} applied`,
+      bColor: "primary" as const,
+    },
+    {
+      icon:  <UserCircleIcon className="text-orange-600 size-6 dark:text-orange-400" />,
+      bg:    "bg-orange-100 dark:bg-orange-900/20",
+      label: "GTe",
+      value: gte,
+      badge: `${stats.byProgramme["GTe"]?.applied ?? 0} applied`,
+      bColor: "warning" as const,
+    },
+    {
+      icon:  <BoxIconLine className="text-rose-600 size-6 dark:text-rose-400" />,
+      bg:    "bg-rose-100 dark:bg-rose-900/20",
+      label: "GV",
+      value: gv,
+      badge: `${stats.byProgramme["GV"]?.applied ?? 0} applied`,
+      bColor: "error" as const,
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
-      {/* <!-- Total EPs --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-xl dark:bg-blue-900/20">
-          <GroupIcon className="text-blue-600 size-6 dark:text-blue-400" />
-        </div>
-
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Total EPs
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {stats.totalEPs}
-            </h4>
+    <div className="grid grid-cols-2 gap-4 md:gap-6">
+      {cards.map((c) => (
+        <div key={c.label} className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+          <div className={`flex items-center justify-center w-12 h-12 rounded-xl ${c.bg}`}>
+            {c.icon}
           </div>
-          <Badge color="success">
-            <ArrowUpIcon />
-            All
-          </Badge>
-        </div>
-      </div>
-
-      {/* <!-- Digital Attractions --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-xl dark:bg-green-900/20">
-          <CheckCircleIcon className="text-green-600 size-6 dark:text-green-400" />
-        </div>
-
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Digital Leads
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {digitalShare}%
-            </h4>
+          <div className="flex items-end justify-between mt-5">
+            <div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{c.label}</span>
+              <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                {loading ? <Skeleton /> : c.value.toLocaleString()}
+              </h4>
+            </div>
+            <Badge color={c.bColor}>{loading ? "—" : c.badge}</Badge>
           </div>
-          <Badge color="success">
-            {digitalLeads} leads
-          </Badge>
         </div>
-      </div>
-
-      {/* <!-- Physical Attractions --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-purple-100 rounded-xl dark:bg-purple-900/20">
-          <UserCircleIcon className="text-purple-600 size-6 dark:text-purple-400" />
-        </div>
-
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Physical Leads
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {physicalShare}%
-            </h4>
-          </div>
-          <Badge color="success">
-            {stats.totalPhysicalLeads} leads
-          </Badge>
-        </div>
-      </div>
-
-      {/* <!-- Universities --> */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div className="flex items-center justify-center w-12 h-12 bg-orange-100 rounded-xl dark:bg-orange-900/20">
-          <BoxIconLine className="text-orange-600 size-6 dark:text-orange-400" />
-        </div>
-
-        <div className="flex items-end justify-between mt-5">
-          <div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              Universities
-            </span>
-            <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-              {stats.totalUniversities}
-            </h4>
-          </div>
-          <Badge color="success">
-            <ArrowUpIcon />
-            Active
-          </Badge>
-        </div>
-      </div>
+      ))}
     </div>
   );
 };

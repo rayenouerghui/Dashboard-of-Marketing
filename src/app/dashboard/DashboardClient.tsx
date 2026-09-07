@@ -7,53 +7,46 @@ import DailyTarget from "@/components/ecommerce/DailyTarget";
 import MonthlySalesChart from "@/components/ecommerce/MonthlySalesChart";
 import StatisticsChart from "@/components/ecommerce/StatisticsChart";
 import RecentOrders from "@/components/ecommerce/RecentOrders";
-import DemographicCard from "@/components/ecommerce/DemographicCard";
 import PipelineSummary from "@/components/dashboard/PipelineSummary";
-import type { DashboardStats, SeriesResult, TopUniversityRow } from "@/lib/dataUtilsServer";
-import { useState, useEffect } from "react";
+import type { ExpaLeadStats } from "@/app/api/expa/leads/route";
+import { useState, useEffect, useCallback } from "react";
 
-interface DashboardClientProps {
-  initialStats: DashboardStats;
-  initialMonthly: SeriesResult;
-  initialWeekly: SeriesResult;
-  initialDaily: SeriesResult;
-  initialUniversities: TopUniversityRow[];
-}
+// ─── Empty stats placeholder shown while loading ──────────────────────────────
+const EMPTY: ExpaLeadStats = {
+  totalLeads: 0, leadsToday: 0, leadsThisWeek: 0, leadsThisMonth: 0,
+  applied: 0, approved: 0, realized: 0,
+  signupToApplied: 0, appliedToApproved: 0, approvedToRealized: 0,
+  byProgramme: {}, byMonth: [], recent: [], computedAt: "",
+};
 
-export default function DashboardClient({
-  initialStats,
-  initialMonthly,
-  initialWeekly,
-  initialDaily,
-  initialUniversities,
-}: DashboardClientProps) {
+export default function DashboardClient() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
 
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [stats, setStats]       = useState<ExpaLeadStats>(EMPTY);
+  const [loading, setLoading]   = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
 
-  // Initialize timestamp on client only to avoid hydration mismatch
-  useEffect(() => {
-    setLastRefresh(new Date());
+  const load = useCallback(async (nocache = false) => {
+    try {
+      const url = `/api/expa/leads${nocache ? "?nocache=1" : ""}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.stats);
+        setLastRefresh(new Date());
+      }
+    } catch { /* silent */ }
+    finally { setLoading(false); }
   }, []);
 
-  // Auto-refresh effect
-  useEffect(() => {
-    if (autoRefresh) {
-      const interval = setInterval(() => {
-        setLastRefresh(new Date());
-        // In a real app, you would refetch data here
-        // For now, we just update the timestamp
-      }, 60000); // Refresh every 60 seconds
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div className="space-y-6">
+      {/* Header banner */}
       <div className="rounded-2xl border border-gray-200 bg-gradient-to-r from-brand-500 to-brand-600 p-6 text-white shadow-lg dark:border-gray-700">
-        <div className="flex justify-between items-start">
+        <div className="flex flex-wrap justify-between items-start gap-4">
           <div>
             <h1 className="text-3xl font-bold">{isAdmin ? "Welcome Admin" : "Welcome"}</h1>
             <p className="mt-2 text-brand-100">
@@ -64,18 +57,15 @@ export default function DashboardClient({
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
-                autoRefresh
-                  ? 'border-white/30 bg-white/10 text-white hover:bg-white/20'
-                  : 'border-white/30 bg-transparent text-white/80 hover:bg-white/10'
-              }`}
+              onClick={() => load(true)}
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-50 transition-colors"
             >
-              <span className={`w-4 h-4 border-2 border-current rounded-full ${autoRefresh ? 'border-t-transparent animate-spin' : ''}`} />
-              Auto-refresh
+              <span className={`h-4 w-4 border-2 border-current rounded-full ${loading ? "border-t-transparent animate-spin" : ""}`} />
+              {loading ? "Refreshing…" : "Refresh"}
             </button>
             <div className="text-sm text-white/80">
-              Last updated: {lastRefresh ? lastRefresh.toLocaleTimeString() : 'Loading...'}
+              {lastRefresh ? `Updated ${lastRefresh.toLocaleTimeString()}` : "Loading…"}
             </div>
           </div>
         </div>
@@ -83,22 +73,19 @@ export default function DashboardClient({
 
       <div className="grid grid-cols-12 gap-4 md:gap-6">
         <div className="col-span-12 space-y-6 xl:col-span-7">
-          <EcommerceMetrics initialStats={initialStats} />
+          <EcommerceMetrics stats={stats} loading={loading} />
           <PipelineSummary />
-          <MonthlySalesChart initialStats={initialStats} />
+          <MonthlySalesChart stats={stats} />
         </div>
         <div className="col-span-12 space-y-6 xl:col-span-5">
-          <DailyTarget initialStats={initialStats} />
-          <MonthlyTarget initialStats={initialStats} />
+          <DailyTarget stats={stats} />
+          <MonthlyTarget stats={stats} />
         </div>
         <div className="col-span-12">
-          <StatisticsChart initialMonthly={initialMonthly} initialWeekly={initialWeekly} initialDaily={initialDaily} />
+          <StatisticsChart stats={stats} />
         </div>
-        <div className="col-span-12 xl:col-span-5">
-          <DemographicCard initialUniversities={initialUniversities} />
-        </div>
-        <div className="col-span-12 xl:col-span-7">
-          <RecentOrders initialStats={initialStats} />
+        <div className="col-span-12">
+          <RecentOrders stats={stats} loading={loading} />
         </div>
       </div>
     </div>
