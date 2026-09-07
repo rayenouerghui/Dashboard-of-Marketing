@@ -140,7 +140,7 @@ function computeStats(leads: ExpaLead[]): ExpaLeadStats {
   };
 }
 
-// ─── Cached fetcher (15 min) ──────────────────────────────────────────────────
+// ─── Cached fetcher (2 min for real-time updates) ──────────────────────────────
 const getCachedLeads = unstable_cache(
   async () => {
     const { leads, totalItems } = await fetchAllExpaLeads();
@@ -148,7 +148,7 @@ const getCachedLeads = unstable_cache(
     return { stats, totalItems };
   },
   ["expa-leads-stats"],
-  { revalidate: 900 }
+  { revalidate: 120 }
 );
 
 // ─── Route ────────────────────────────────────────────────────────────────────

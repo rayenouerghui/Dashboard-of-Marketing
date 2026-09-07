@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Resource } from "@/lib/resourcesServer";
@@ -118,11 +118,7 @@ export default function ResourcesClient() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadResources();
-  }, []);
-
-  async function loadResources() {
+  const loadResources = useCallback(async () => {
     try {
       const res = await fetch("/api/resources");
       const data = await res.json();
@@ -132,7 +128,17 @@ export default function ResourcesClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadResources();
+  }, [loadResources]);
+
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => loadResources(), 120000);
+    return () => clearInterval(interval);
+  }, [loadResources]);
 
   function renderResourceCard(resource: Resource) {
     switch (resource.type) {

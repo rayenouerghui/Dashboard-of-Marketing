@@ -42,6 +42,12 @@ export default function DashboardClient() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => load(), 120000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   return (
     <div className="space-y-6">
       {/* Header banner */}

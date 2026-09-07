@@ -173,6 +173,45 @@ function PipelineCard({ stats }: { stats: ExpaLeadStats }) {
         ))}
       </div>
 
+      {/* By Programme breakdown */}
+      <div className="mt-5">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          By Programme
+        </p>
+        <div className="space-y-2">
+          {Object.entries(stats.byProgramme).map(([prog, data]) => {
+            const approvedRate = data.total > 0 ? (data.approved / data.total) * 100 : 0;
+            const realizedRate = data.total > 0 ? (data.realized / data.total) * 100 : 0;
+            
+            return (
+              <div key={prog} className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-7 w-14 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                      {prog}
+                    </span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {data.total} EPs
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    <span className="text-blue-600 dark:text-blue-400">
+                      Open: <strong>{data.total}</strong>
+                    </span>
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      Approved: <strong>{data.approved}</strong> ({approvedRate.toFixed(1)}%)
+                    </span>
+                    <span className="text-violet-600 dark:text-violet-400">
+                      Realized: <strong>{data.realized}</strong> ({realizedRate.toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Conversion funnel */}
       <div className="mt-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">

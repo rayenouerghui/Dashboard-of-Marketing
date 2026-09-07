@@ -5,7 +5,12 @@ import type { Resource } from "@/lib/resourcesServer";
 export async function GET() {
   try {
     const resources = await loadResourcesFromSheet();
-    return NextResponse.json(resources);
+    return NextResponse.json(resources, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
   } catch (error) {
     console.error("[API/resources] GET error:", error);
     return NextResponse.json({ error: "Failed to load resources" }, { status: 500 });

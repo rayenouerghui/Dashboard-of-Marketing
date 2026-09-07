@@ -6,18 +6,15 @@ import type { Resource } from "@/lib/resourcesServer";
 export default function ResourcesClient() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [formData, setFormData] = useState({
     title: "",
-    description: "",
-    type: "text" as Resource["type"],
+    note: "",
+    type: "link" as Resource["type"],
     url: "",
-    content: "",
-    category: "",
-    tags: "",
-    order: 0,
-    imageUrl: "",
+    file: null as File | null,
   });
 
   useEffect(() => {
@@ -38,11 +35,34 @@ export default function ResourcesClient() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setUploading(true);
     try {
+      let finalUrl = formData.url;
+      
+      // Handle file upload
+      if (formData.file) {
+        const formDataObj = new FormData();
+        formDataObj.append('file', formData.file);
+        
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: formDataObj,
+        });
+        
+        if (!uploadRes.ok) {
+          const errorData = await uploadRes.json();
+          throw new Error(errorData.error || 'File upload failed');
+        }
+        
+        const uploadData = await uploadRes.json();
+        finalUrl = uploadData.url;
+      }
+
       const payload = {
-        ...formData,
-        url: formData.type === "link" || formData.type === "pdf" || formData.type === "image" ? formData.url : undefined,
-        content: formData.type === "text" ? formData.content : undefined,
+        title: formData.title,
+        description: formData.note,
+        type: formData.type,
+        url: finalUrl,
         id: editingResource?.id || crypto.randomUUID(),
         createdAt: editingResource?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -54,13 +74,19 @@ export default function ResourcesClient() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        await loadResources();
-        setShowModal(false);
-        resetForm();
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to save resource');
       }
+
+      await loadResources();
+      setShowModal(false);
+      resetForm();
     } catch (error) {
       console.error("Failed to save resource:", error);
+      alert(error instanceof Error ? error.message : 'Failed to save resource. Please try again.');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -83,14 +109,10 @@ export default function ResourcesClient() {
   function resetForm() {
     setFormData({
       title: "",
-      description: "",
-      type: "text",
+      note: "",
+      type: "link",
       url: "",
-      content: "",
-      category: "",
-      tags: "",
-      order: 0,
-      imageUrl: "",
+      file: null,
     });
     setEditingResource(null);
   }
@@ -99,14 +121,10 @@ export default function ResourcesClient() {
     setEditingResource(resource);
     setFormData({
       title: resource.title,
-      description: resource.description,
+      note: resource.description || "",
       type: resource.type,
       url: resource.url || "",
-      content: resource.content || "",
-      category: (resource as any).category || "",
-      tags: (resource as any).tags || "",
-      order: (resource as any).order || 0,
-      imageUrl: (resource as any).imageUrl || "",
+      file: null,
     });
     setShowModal(true);
   }
@@ -148,19 +166,13 @@ export default function ResourcesClient() {
           <thead className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-                Order
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                 Title
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-                Category
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                 Type
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
-                Tags
+                Note
               </th>
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400">
                 Actions
@@ -170,7 +182,7 @@ export default function ResourcesClient() {
           <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {resources.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   No resources found. Click "Add Resource" to create one.
                 </td>
               </tr>
@@ -178,24 +190,9 @@ export default function ResourcesClient() {
               resources.map((resource) => (
                 <tr key={resource.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-4 py-3">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-xs font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                      {resource.order || 0}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
                     <div className="font-medium text-gray-900 dark:text-white">
                       {resource.title}
                     </div>
-                    {(resource as any).description && (
-                      <div className="max-w-xs truncate text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        {(resource as any).description}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                      {(resource as any).category || "-"}
-                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
@@ -203,12 +200,8 @@ export default function ResourcesClient() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {(resource as any).tags?.split(',').map((tag: string, i: number) => (
-                        <span key={i} className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                          {tag.trim()}
-                        </span>
-                      ))}
+                    <div className="max-w-xs truncate text-sm text-gray-600 dark:text-gray-400">
+                      {resource.description || "-"}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
@@ -249,7 +242,7 @@ export default function ResourcesClient() {
               </h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Title *
@@ -266,6 +259,19 @@ export default function ResourcesClient() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Note
+                </label>
+                <textarea
+                  value={formData.note}
+                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Add a note about this resource"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Type *
                 </label>
                 <select
@@ -274,67 +280,13 @@ export default function ResourcesClient() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                   required
                 >
-                  <option value="text">Text Content</option>
                   <option value="link">External Link</option>
                   <option value="pdf">PDF Document</option>
                   <option value="image">Image</option>
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  placeholder="e.g., Sales, Marketing, Training"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tags (comma-separated)
-                </label>
-                <input
-                  type="text"
-                  value={formData.tags}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  placeholder="e.g., important, beginner, guide"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  placeholder="Brief description of the resource"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Display Order
-                </label>
-                <input
-                  type="number"
-                  value={formData.order}
-                  onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  min="0"
-                  placeholder="Lower numbers appear first"
-                />
-              </div>
-
-              {(formData.type === "link" || formData.type === "pdf" || formData.type === "image") && (
+              {formData.type === "link" && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     URL *
@@ -344,59 +296,50 @@ export default function ResourcesClient() {
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    required={formData.type === "link" || formData.type === "pdf" || formData.type === "image"}
+                    required
                     placeholder="https://example.com/resource"
                   />
                 </div>
               )}
 
-              {formData.type === "image" && (
+              {(formData.type === "pdf" || formData.type === "image") && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Thumbnail URL (optional)
+                    Upload File *
                   </label>
                   <input
-                    type="url"
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                    type="file"
+                    accept={formData.type === "pdf" ? "application/pdf" : "image/*"}
+                    onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] || null })}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    placeholder="https://example.com/thumbnail.jpg"
+                    required
                   />
+                  {formData.file && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Selected: {formData.file.name}
+                    </p>
+                  )}
                 </div>
               )}
 
-              {formData.type === "text" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Content *
-                  </label>
-                  <textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    rows={6}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    required={formData.type === "text"}
-                    placeholder="Enter the full content here..."
-                  />
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4 sticky bottom-0 bg-white dark:bg-gray-800 py-2">
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                  disabled={uploading}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600"
+                  disabled={uploading}
+                  className="flex-1 rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingResource ? "Update Resource" : "Create Resource"}
+                  {uploading ? "Uploading..." : (editingResource ? "Update" : "Upload")}
                 </button>
               </div>
             </form>
