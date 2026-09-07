@@ -50,11 +50,11 @@ function toStr(v: unknown): string {
   return v == null ? "" : String(v).trim();
 }
 
-function buildQuery(page: number): string {
+function buildQuery(page: number, fromDate: string = FROM_DATE): string {
   return JSON.stringify({
     query: `{
   allPeople(
-    filters: { registered: { from: "${FROM_DATE}" } }
+    filters: { registered: { from: "${fromDate}" } }
     per_page: ${PAGE_SIZE}
     page: ${page}
   ) {
@@ -107,13 +107,14 @@ function mapPerson(raw: RawPerson): ExpaLead {
 async function fetchPage(
   token: string,
   page: number,
+  fromDate: string = FROM_DATE,
 ): Promise<{ data: ExpaLead[]; totalPages: number; totalItems: number }> {
   const url = `https://gis-api.aiesec.org/graphql?access_token=${encodeURIComponent(token)}`;
 
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: buildQuery(page),
+    body: buildQuery(page, fromDate),
     cache: "no-store",
   });
 
@@ -138,11 +139,11 @@ async function fetchPage(
  * Fetch ALL people registered since FROM_DATE with their best application status.
  * Pages are fetched concurrently in batches of 10.
  */
-export async function fetchAllExpaLeads(): Promise<{ leads: ExpaLead[]; totalItems: number }> {
+export async function fetchAllExpaLeads(fromDate: string = FROM_DATE): Promise<{ leads: ExpaLead[]; totalItems: number }> {
   const token = getExpaToken();
   if (!token) throw new Error("EXPA API token is not configured.");
 
-  const first = await fetchPage(token, 1);
+  const first = await fetchPage(token, 1, fromDate);
   const pages = Math.min(first.totalPages, 300); // safety cap
   const all: ExpaLead[] = [...first.data];
 
@@ -150,10 +151,21 @@ export async function fetchAllExpaLeads(): Promise<{ leads: ExpaLead[]; totalIte
   for (let start = 2; start <= pages; start += BATCH) {
     const end     = Math.min(start + BATCH - 1, pages);
     const results = await Promise.all(
-      Array.from({ length: end - start + 1 }, (_, i) => fetchPage(token, start + i))
+      Array.from({ length: end - start + 1 }, (_, i) => fetchPage(token, start + i, fromDate))
     );
     for (const r of results) all.push(...r.data);
   }
 
   return { leads: all, totalItems: first.totalItems };
+}
+
+/**
+ * Fetch only recent EPs (last 7 days) for fast dashboard updates.
+ * Used for leads count, ranking, and daily goal.
+ */
+export async function fetchRecentExpaLeads(): Promise<{ leads: ExpaLead[]; totalItems: number }> {
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const fromDate = sevenDaysAgo.toISOString().split('T')[0];
+  return fetchAllExpaLeads(fromDate);
 }
