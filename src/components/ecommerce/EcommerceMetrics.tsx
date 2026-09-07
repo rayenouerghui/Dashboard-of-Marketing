@@ -16,6 +16,10 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
   const gte = byProgramme["GTe"]?.total ?? 0;
   const gv  = byProgramme["GV"]?.total  ?? 0;
 
+  const gtaRate = gta > 0 ? ((byProgramme["GTa"]?.applied ?? 0) / gta) * 100 : 0;
+  const gteRate = gte > 0 ? ((byProgramme["GTe"]?.applied ?? 0) / gte) * 100 : 0;
+  const gvRate = gv > 0 ? ((byProgramme["GV"]?.applied ?? 0) / gv) * 100 : 0;
+
   const cards = [
     {
       icon:  <GroupIcon className="text-blue-600 size-6 dark:text-blue-400" />,
@@ -30,7 +34,7 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
       bg:    "bg-cyan-100 dark:bg-cyan-900/20",
       label: "GTa",
       value: gta,
-      badge: `${stats.byProgramme["GTa"]?.applied ?? 0} applied`,
+      badge: `${gtaRate.toFixed(1)}% applied`,
       bColor: "primary" as const,
     },
     {
@@ -38,7 +42,7 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
       bg:    "bg-orange-100 dark:bg-orange-900/20",
       label: "GTe",
       value: gte,
-      badge: `${stats.byProgramme["GTe"]?.applied ?? 0} applied`,
+      badge: `${gteRate.toFixed(1)}% applied`,
       bColor: "warning" as const,
     },
     {
@@ -46,7 +50,7 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
       bg:    "bg-rose-100 dark:bg-rose-900/20",
       label: "GV",
       value: gv,
-      badge: `${stats.byProgramme["GV"]?.applied ?? 0} applied`,
+      badge: `${gvRate.toFixed(1)}% applied`,
       bColor: "error" as const,
     },
   ];
