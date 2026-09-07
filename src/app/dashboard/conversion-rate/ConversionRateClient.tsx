@@ -84,6 +84,12 @@ export default function ConversionRateClient() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Auto-refresh every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => load(), 120000);
+    return () => clearInterval(interval);
+  }, [load]);
+
   const programmes = useMemo(() => {
     const s = new Set(applications.map((a) => a.programme).filter(Boolean));
     return ["ALL", ...Array.from(s).sort()];
