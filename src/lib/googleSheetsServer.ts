@@ -16,7 +16,7 @@ function toCamelCase(header: string): string {
   return header.trim();
 }
 
-async function getGoogleApis() {
+export async function getGoogleApis() {
   const mod = await import("googleapis");
   return mod.google;
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import type { Resource } from "@/lib/resourcesServer";
 
 function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
   return (
@@ -114,6 +115,133 @@ function ProductSection({
 }
 
 export default function ResourcesClient() {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadResources();
+  }, []);
+
+  async function loadResources() {
+    try {
+      const res = await fetch("/api/resources");
+      const data = await res.json();
+      setResources(data);
+    } catch (error) {
+      console.error("Failed to load resources:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderResourceCard(resource: Resource) {
+    switch (resource.type) {
+      case "link":
+        return (
+          <Link
+            href={resource.url || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white mb-3">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+              {resource.title}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {resource.description}
+            </p>
+          </Link>
+        );
+      case "pdf":
+        return (
+          <Link
+            href={resource.url || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500 text-white mb-3">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+              {resource.title}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {resource.description}
+            </p>
+          </Link>
+        );
+      case "image":
+        return (
+          <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-5">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+              {resource.title}
+            </h3>
+            {resource.url && (
+              <img
+                src={resource.url}
+                alt={resource.title}
+                className="w-full rounded-lg"
+              />
+            )}
+            {resource.description && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                {resource.description}
+              </p>
+            )}
+          </div>
+        );
+      case "text":
+        return (
+          <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white mb-3">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+              {resource.title}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+              {resource.content}
+            </p>
+          </div>
+        );
+      default:
+        return null;
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto space-y-8 px-4 pb-10 pt-6">
       {/* Header */}
@@ -129,7 +257,18 @@ export default function ResourcesClient() {
         </p>
       </div>
 
-      {/* GTa Section */}
+      {/* Dynamic Resources */}
+      {resources.length > 0 && (
+        <div className="space-y-4">
+          {resources.map((resource) => (
+            <div key={resource.id}>
+              {renderResourceCard(resource)}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Static GTa Section */}
       <ProductSection
         code="GTa"
         title="Global Talent"
@@ -141,7 +280,7 @@ export default function ResourcesClient() {
         ]}
       />
 
-      {/* GV Section */}
+      {/* Static GV Section */}
       <ProductSection
         code="GV"
         title="Global Volunteer"
@@ -153,7 +292,7 @@ export default function ResourcesClient() {
         ]}
       />
 
-      {/* University Document Link */}
+      {/* Static University Document Link */}
       <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/60 p-5">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500 text-white mb-3">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

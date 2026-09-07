@@ -202,39 +202,6 @@ export default function ConversionRateClient() {
             ))}
           </div>
 
-          {/* By programme */}
-          {Object.keys(leadsStats.byProgramme).length > 0 && (
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03]">
-              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">By Programme</h2>
-              <div className="space-y-3">
-                {Object.entries(leadsStats.byProgramme).map(([prog, d]) => {
-                  const appPct  = d.total > 0 ? (d.applied  / d.total) * 100 : 0;
-                  const aprvPct = d.total > 0 ? (d.approved / d.total) * 100 : 0;
-                  const realPct = d.total > 0 ? (d.realized / d.total) * 100 : 0;
-                  return (
-                    <div key={prog} className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
-                      <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <ProgBadge prog={prog} />
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{d.total.toLocaleString()} sign-ups</span>
-                        </div>
-                        <div className="flex flex-wrap gap-3 text-xs">
-                          <span className="text-blue-600 dark:text-blue-400">Applied <strong>{d.applied}</strong> ({pct(appPct)})</span>
-                          <span className="text-violet-600 dark:text-violet-400">Approved <strong>{d.approved}</strong> ({pct(aprvPct)})</span>
-                          <span className="text-emerald-600 dark:text-emerald-400">Realized <strong>{d.realized}</strong> ({pct(realPct)})</span>
-                        </div>
-                      </div>
-                      <div className="flex h-1.5 w-full overflow-hidden rounded-full gap-px bg-gray-200 dark:bg-gray-700">
-                        <div className="bg-blue-400   rounded-l-full" style={{ width: `${appPct}%` }} />
-                        <div className="bg-violet-400"                style={{ width: `${aprvPct}%` }} />
-                        <div className="bg-emerald-400 rounded-r-full" style={{ width: `${realPct}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* EP table */}
           <div className="flex flex-wrap gap-3">

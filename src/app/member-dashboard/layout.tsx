@@ -107,50 +107,83 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
 
       {/* Today's Attractions Popup */}
       {showPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <span className="text-2xl">📍</span>
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-800 dark:text-white">Today's Attractions</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {todayAttractions.length} attraction{todayAttractions.length > 1 ? "s" : ""} today
-                </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-gradient-to-br from-white via-blue-50 to-white dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 rounded-3xl shadow-2xl max-w-md w-full p-6 animate-in slide-in-from-bottom-4 duration-500 border border-blue-100 dark:border-gray-700">
+            {/* Animated header with celebration */}
+            <div className="relative mb-6">
+              <div className="absolute -top-2 -left-2 w-16 h-16 bg-gradient-to-br from-brand-400 to-brand-600 rounded-full blur-2xl opacity-20 animate-pulse" />
+              <div className="absolute -top-2 -right-2 w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full blur-xl opacity-30 animate-pulse delay-100" />
+              
+              <div className="relative flex items-center gap-4">
+                <div className="relative">
+                  <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/30 animate-bounce">
+                    <span className="text-3xl">🎉</span>
+                  </div>
+                  <div className="absolute -top-1 -right-1 h-5 w-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white dark:border-gray-800">
+                    <span className="text-xs font-bold text-white">{todayAttractions.length}</span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:from-white dark:to-gray-300">
+                    Today's Attractions
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                    {todayAttractions.length} attraction{todayAttractions.length > 1 ? "s" : ""} scheduled
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3 mb-6">
+            {/* Attractions list with staggered animation */}
+            <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
               {todayAttractions.map((a, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50">
-                  <div className="h-8 w-8 rounded-lg bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center shrink-0">
-                    <span className="text-sm">{a.type === "scheduled" ? "📅" : "🎯"}</span>
+                <div
+                  key={i}
+                  className="flex items-start gap-3 p-4 rounded-2xl bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300 animate-in slide-in-from-left-2"
+                  style={{ animationDelay: `${i * 100}ms` }}
+                >
+                  <div className="relative">
+                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      a.type === "scheduled"
+                        ? "bg-gradient-to-br from-blue-400 to-blue-600 shadow-lg shadow-blue-500/20"
+                        : "bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-lg shadow-emerald-500/20"
+                    }`}>
+                      <span className="text-lg">{a.type === "scheduled" ? "📅" : "🎯"}</span>
+                    </div>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{a.university}</p>
-                    {a.location && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.location}</p>}
+                    {a.location && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-xs">📍</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{a.location}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                   </div>
                 </div>
               ))}
             </div>
 
+            {/* Action buttons */}
             <div className="flex gap-3">
               <Link
                 href="/member-dashboard/timeline"
                 onClick={() => setShowPopup(false)}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-600 transition-colors"
+                className="flex-1 group flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-brand-500 to-brand-600 px-4 py-3.5 text-sm font-semibold text-white hover:from-brand-600 hover:to-brand-700 transition-all duration-300 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 hover:-translate-y-0.5"
               >
                 View Timeline
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
               <button
                 onClick={() => setShowPopup(false)}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-700 dark:border-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 rounded-2xl border-2 border-gray-200 px-4 py-3.5 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 hover:-translate-y-0.5"
               >
-                Close
+                Dismiss
               </button>
             </div>
           </div>

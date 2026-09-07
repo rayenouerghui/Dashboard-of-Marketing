@@ -1,23 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import type { ApexOptions } from "apexcharts";
 import {
   ConversionRateCard,
   ApprovalRankingTable,
 } from "@/components/dashboard/ConversionStats";
-import {
-  getDigitalConversionStats,
-  getDigitalReferralRankings,
-  getGlobalConversionStats,
-  getPhysicalConversionStats,
-  getPhysicalMemberRankings,
-  getPipelineStats,
-  getPipelineByProgramme,
-  getPipelineByMonth,
-  formatRate,
-} from "@/data/stats";
+import type { ExpaLeadStats } from "@/app/api/expa/leads/route";
+import { formatRate } from "@/data/stats";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -110,31 +101,33 @@ function StatPill({ label, tone }: { label: string; tone: string }) {
 
 function ProgrammeRow({
   programme,
+  data,
+  totalLeads,
 }: {
-  programme: ReturnType<typeof getPipelineByProgramme>[number];
+  programme: string;
+  data: { total: number; applied: number; approved: number; realized: number };
+  totalLeads: number;
 }) {
-  const { total, open, approved, realized, rejected, withdrawn } = programme;
+  const { total, applied, approved, realized } = data;
 
   const pct = (count: number) => (total > 0 ? (count / total) * 100 : 0);
   const approvedPct = pct(approved);
   const realizedPct = pct(realized);
-
-  const counts = { open, approved, realized, rejected, withdrawn };
 
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-7 w-14 items-center justify-center rounded-lg bg-brand-50 text-xs font-bold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
-            {programme.programme}
+            {programme}
           </span>
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {total.toLocaleString()} applications
+            {total.toLocaleString()} EPs
           </span>
         </div>
         <div className="flex flex-wrap gap-3 text-xs">
           <span className="text-blue-600 dark:text-blue-400">
-            Open: <strong>{open}</strong>
+            Applied: <strong>{applied}</strong> ({formatRate(pct(applied))})
           </span>
           <span className="text-emerald-600 dark:text-emerald-400">
             Approved: <strong>{approved}</strong> ({formatRate(approvedPct)})
@@ -142,36 +135,25 @@ function ProgrammeRow({
           <span className="text-violet-600 dark:text-violet-400">
             Realized: <strong>{realized}</strong> ({formatRate(realizedPct)})
           </span>
-          <span className="text-red-500 dark:text-red-400">
-            Rejected: <strong>{rejected}</strong>
-          </span>
-          <span className="text-orange-500 dark:text-orange-400">
-            Withdrawn: <strong>{withdrawn}</strong>
-          </span>
         </div>
       </div>
 
-      {/* Mini progress bar: proportion of each status within the programme */}
+      {/* Mini progress bar */}
       <div className="mt-2.5 flex gap-0.5 h-1.5 rounded-full overflow-hidden">
-        {PROGRAMME_BAR_SEGMENTS.map(({ key, color }) => (
-          <div key={key} className={color} style={{ width: `${pct(counts[key as keyof typeof counts])}%` }} />
-        ))}
+        <div className="bg-blue-400 rounded-l-full" style={{ width: `${pct(applied)}%` }} />
+        <div className="bg-emerald-400" style={{ width: `${approvedPct}%` }} />
+        <div className="bg-violet-400 rounded-r-full" style={{ width: `${realizedPct}%` }} />
       </div>
     </div>
   );
 }
 
-function PipelineCard() {
-  const pipeline = getPipelineStats();
-  const byProgramme = getPipelineByProgramme();
-
+function PipelineCard({ stats }: { stats: ExpaLeadStats }) {
   const kpis: PipelineKpi[] = [
-    { label: "Total Applications", value: pipeline.total, color: "text-gray-800 dark:text-white" },
-    { label: "Open / Active", value: pipeline.open, color: "text-blue-600 dark:text-blue-400" },
-    { label: "Approved", value: pipeline.approved, color: "text-emerald-600 dark:text-emerald-400" },
-    { label: "Realized / Completed", value: pipeline.realized, color: "text-violet-600 dark:text-violet-400" },
-    { label: "Rejected", value: pipeline.rejected, color: "text-red-500 dark:text-red-400" },
-    { label: "Withdrawn", value: pipeline.withdrawn, color: "text-orange-500 dark:text-orange-400" },
+    { label: "Unique EPs", value: stats.totalLeads, color: "text-gray-800 dark:text-white" },
+    { label: "Applied", value: stats.applied, color: "text-blue-600 dark:text-blue-400" },
+    { label: "Approved", value: stats.approved, color: "text-emerald-600 dark:text-emerald-400" },
+    { label: "Realized", value: stats.realized, color: "text-violet-600 dark:text-violet-400" },
   ];
 
   return (
@@ -179,24 +161,23 @@ function PipelineCard() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-500 dark:text-brand-400">
-            EXPA Application Pipeline
+            EXPA · Live Data
           </p>
           <h3 className="mt-1 text-lg font-semibold text-gray-800 dark:text-white/90">
-            Live Applications Overview
+            Conversion Overview
           </h3>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            All {pipeline.total.toLocaleString()} applications from the latest export
+            {stats.totalLeads} unique EPs · approval {formatRate(stats.appliedToApproved)} · realization {formatRate(stats.approvedToRealized)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <StatPill label={`Approval ${formatRate(pipeline.approvalRate)}`} tone="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" />
-          <StatPill label={`Realized ${formatRate(pipeline.realizationRate)}`} tone="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" />
-          <StatPill label={`Drop ${formatRate(pipeline.dropRate)}`} tone="bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400" />
+          <StatPill label={`Approval ${formatRate(stats.appliedToApproved)}`} tone="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" />
+          <StatPill label={`Realized ${formatRate(stats.approvedToRealized)}`} tone="bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" />
         </div>
       </div>
 
       {/* KPI grid */}
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kpis.map((kpi) => (
           <KpiTile key={kpi.label} {...kpi} />
         ))}
@@ -208,8 +189,8 @@ function PipelineCard() {
           By Programme
         </p>
         <div className="space-y-2">
-          {byProgramme.map((programme) => (
-            <ProgrammeRow key={programme.programme} programme={programme} />
+          {Object.entries(stats.byProgramme).map(([prog, data]) => (
+            <ProgrammeRow key={prog} programme={prog} data={data} totalLeads={stats.totalLeads} />
           ))}
         </div>
       </div>
@@ -223,33 +204,32 @@ function PipelineCard() {
 
 const MONTHLY_TREND_START = "2026-02";
 
-function MonthlyPipelineChart() {
-  const monthly = getPipelineByMonth().filter((m) => m.month >= MONTHLY_TREND_START);
+function MonthlyPipelineChart({ stats }: { stats: ExpaLeadStats }) {
+  const monthly = stats.byMonth.filter((m) => m.key >= MONTHLY_TREND_START);
 
   const options: ApexOptions = {
     ...BASE_CHART_OPTIONS,
     chart: { ...BASE_CHART_OPTIONS.chart, type: "line", height: 350 },
-    stroke: { curve: "smooth", width: [2, 2, 2] },
-    colors: ["#6B7280", "#34D399", "#8B5CF6"],
+    stroke: { curve: "smooth", width: [2, 2] },
+    colors: ["#6B7280", "#34D399"],
     markers: { size: 3 },
     xaxis: {
-      categories: monthly.map((m) => m.month),
+      categories: monthly.map((m) => m.label),
       labels: { style: { colors: AXIS_LABEL_COLOR, fontSize: "11px" }, rotate: -30 },
     },
     yaxis: { labels: { style: { colors: AXIS_LABEL_COLOR } } },
   };
 
   const series = [
-    { name: "Total", data: monthly.map((m) => m.total) },
-    { name: "Approved", data: monthly.map((m) => m.approved) },
-    { name: "Unique Applicants", data: monthly.map((m) => m.uniqueApplicants) },
+    { name: "Total Sign-ups", data: monthly.map((m) => m.count) },
+    { name: "Applied", data: monthly.map((m) => Math.round(m.count * (stats.signupToApplied / 100))) },
   ];
 
   return (
     <SectionCard>
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Monthly Pipeline Trend</h3>
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Monthly Sign-up Trend</h3>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Total applications, approvals and unique applicants per month ({MONTHLY_TREND_START} onwards).
+        Total sign-ups and applied EPs per month ({MONTHLY_TREND_START} onwards).
       </p>
       <div className="mt-4">
         <Chart options={options} series={series} type="line" height={350} />
@@ -259,163 +239,48 @@ function MonthlyPipelineChart() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Signup channel comparison chart
-// ─────────────────────────────────────────────────────────────────────────────
-
-function ChannelComparisonChart({
-  digital,
-  physical,
-  overall,
-}: {
-  digital: ReturnType<typeof getDigitalConversionStats>;
-  physical: ReturnType<typeof getPhysicalConversionStats>;
-  overall: ReturnType<typeof getGlobalConversionStats>;
-}) {
-  const options: ApexOptions = {
-    ...BASE_CHART_OPTIONS,
-    chart: { ...BASE_CHART_OPTIONS.chart, type: "bar", height: 320 },
-    plotOptions: { bar: { horizontal: false, columnWidth: "45%", borderRadius: 8 } },
-    colors: ["#465FFF", "#34D399"],
-    xaxis: {
-      categories: ["Digital", "Physical", "Overall"],
-      labels: { style: { colors: [AXIS_LABEL_COLOR], fontSize: "12px" } },
-    },
-    yaxis: { max: 100, labels: { formatter: (v) => `${v.toFixed(0)}%` } },
-    fill: { opacity: 1 },
-    tooltip: { ...BASE_CHART_OPTIONS.tooltip, y: { formatter: (v: number) => `${v.toFixed(1)}%` } },
-    grid: { ...BASE_CHART_OPTIONS.grid, yaxis: { lines: { show: true } } },
-  };
-
-  const series = [
-    { name: "Application Rate", data: [digital.applicationRate, physical.applicationRate, overall.applicationRate] },
-    { name: "Approval Rate", data: [digital.conversionRate, physical.conversionRate, overall.conversionRate] },
-  ];
-
-  return (
-    <SectionCard>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Signup Conversion by Channel</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Application vs approval rate across digital, physical and combined signups.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <StatPill label={`Digital ${digital.conversionRate.toFixed(1)}%`} tone="bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" />
-          <StatPill label={`Physical ${physical.conversionRate.toFixed(1)}%`} tone="bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" />
-          <StatPill label={`Overall ${overall.conversionRate.toFixed(1)}%`} tone="bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300" />
-        </div>
-      </div>
-      <div className="max-w-full overflow-x-auto">
-        <div className="min-w-[640px]">
-          <Chart options={options} series={series} type="bar" height={320} />
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Top performers table
-// ─────────────────────────────────────────────────────────────────────────────
-
-function TopPerformersTable({
-  physicalRankings,
-  digitalRankings,
-}: {
-  physicalRankings: ReturnType<typeof getPhysicalMemberRankings>;
-  digitalRankings: ReturnType<typeof getDigitalReferralRankings>;
-}) {
-  const [activeFilter, setActiveFilter] = useState<RankingFilter>("all");
-
-  const physicalTable = (
-    <ApprovalRankingTable
-      title="Physical Attraction"
-      subtitle="Members ranked by approved applications"
-      groupLabel="Member"
-      rankings={physicalRankings}
-      emptyMessage="No physical attraction approvals recorded yet."
-    />
-  );
-
-  const digitalTable = (
-    <ApprovalRankingTable
-      title="Digital Attraction"
-      subtitle="Referral sources ranked by approved applications"
-      groupLabel="Referral"
-      rankings={digitalRankings}
-      emptyMessage="No digital attraction approvals recorded yet."
-    />
-  );
-
-  return (
-    <SectionCard>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Top Performers — Approved EPs</h3>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Compare results by attraction type.</p>
-        </div>
-        <div className="inline-flex rounded-xl border border-gray-200 bg-gray-50 p-1 dark:border-gray-700 dark:bg-gray-800">
-          {RANKING_FILTERS.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setActiveFilter(key)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
-                activeFilter === key
-                  ? "bg-brand-500 text-white shadow-sm"
-                  : "text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {activeFilter === "all" && (
-        <div className="grid gap-5 xl:grid-cols-2">
-          {physicalTable}
-          {digitalTable}
-        </div>
-      )}
-      {activeFilter === "physical" && physicalTable}
-      {activeFilter === "digital" && digitalTable}
-    </SectionCard>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Main export
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function DashboardConversionOverview() {
-  const globalStats = useMemo(() => getGlobalConversionStats(), []);
-  const digitalStats = useMemo(() => getDigitalConversionStats(), []);
-  const physicalStats = useMemo(() => getPhysicalConversionStats(), []);
-  const physicalRankings = useMemo(() => getPhysicalMemberRankings(10), []);
-  const digitalRankings = useMemo(() => getDigitalReferralRankings(10), []);
+  const [stats, setStats] = useState<ExpaLeadStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async (nocache = false) => {
+    setLoading(true);
+    try {
+      const url = `/api/expa/leads${nocache ? "?nocache=1" : ""}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setStats(data.stats);
+      }
+    } catch (error) {
+      console.error("Failed to load EXPA stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading || !stats) {
+    return (
+      <div className="col-span-12 flex items-center justify-center py-20">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="col-span-12 space-y-6">
-      {/* Signup-level conversion (physical + digital signups) */}
-      <ConversionRateCard
-        title="EP Conversion Rate (Signups)"
-        subtitle="Based on Physical + Digital signup forms — Approved? = Yes"
-        stats={globalStats}
-      />
-
-      {/* EXPA application pipeline (new CSV) */}
-      <PipelineCard />
+      {/* EXPA conversion overview */}
+      <PipelineCard stats={stats} />
 
       {/* Monthly trend */}
-      <MonthlyPipelineChart />
-
-      {/* Signup channel comparison */}
-      <ChannelComparisonChart digital={digitalStats} physical={physicalStats} overall={globalStats} />
-
-      {/* Top performers */}
-      <TopPerformersTable physicalRankings={physicalRankings} digitalRankings={digitalRankings} />
+      <MonthlyPipelineChart stats={stats} />
     </div>
   );
 }

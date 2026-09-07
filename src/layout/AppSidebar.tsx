@@ -47,6 +47,7 @@ const navItems: NavItem[] = [
   { icon: <PieChartIcon />,   name: "Physical Attractions",         path: "/dashboard/physical-attraction" },
   { icon: <CalenderIcon />,   name: "Attraction Management",        path: "/dashboard/attraction-management" },
   { icon: <PieChartIcon />,   name: "Ranking Attraction",           path: "/dashboard/ranking" },
+  { icon: <DocsIcon />,       name: "Resources for Members",        path: "/dashboard/resources" },
   { icon: <DocsIcon />,       name: "Submissions OGV",              path: "/dashboard/submissions/ogv", color: "red"  },
   { icon: <DocsIcon />,       name: "Submissions OGT",              path: "/dashboard/submissions/ogt", color: "blue" },
 ];
