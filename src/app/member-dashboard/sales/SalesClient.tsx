@@ -19,14 +19,21 @@ const PRODUCT_LOGOS: Record<string, string> = {
   GV: "/images/products/gv.png",
 };
 
+// Sales speeches for each product
+const PRODUCT_SPEECHES: Record<string, string> = {
+  GTa: "Global Talent (GTa) offers professional internships abroad for students and recent graduates. Participants gain international work experience, develop professional skills, and build a global network. Programs are available in various fields including IT, Marketing, Engineering, and Business. The duration typically ranges from 6 to 78 weeks, providing flexibility for different academic schedules.",
+  GTe: "Global Teacher (GTe) focuses on teaching opportunities in educational institutions worldwide. Participants can teach languages, STEM subjects, or other disciplines while experiencing new cultures. This program is ideal for education students and those passionate about teaching. Programs usually last 6-12 weeks and include accommodation and sometimes meals.",
+  GV: "Global Volunteer (GV) provides volunteer projects in social impact areas such as education, environment, health, and community development. Volunteers work on meaningful projects while developing leadership skills and cultural understanding. Projects are typically 6-8 weeks long and focus on creating sustainable impact in local communities.",
+};
+
 type Tag = { label: string; color: string; logo: string };
 
 interface UniversityGroup {
   id: string;
-  title?: string; // used only when there are no tags
+  title?: string;
   tags: Tag[];
   subtitle?: string;
-  keywords: string[]; // matched against short + full university name
+  keywords: string[];
 }
 
 const tag = (label: keyof typeof PRODUCT_COLORS): Tag => ({
@@ -35,7 +42,6 @@ const tag = (label: keyof typeof PRODUCT_COLORS): Tag => ({
   logo: PRODUCT_LOGOS[label],
 });
 
-// ---- Groupings you specified ----
 const GROUPS: UniversityGroup[] = [
   {
     id: "gte-teaching",
@@ -74,13 +80,13 @@ export default function SalesClient() {
   const universities = getUniversities();
   const [mounted, setMounted] = useState(false);
   const [pressedId, setPressedId] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(t);
   }, []);
 
-  // Bucket universities into groups; anything unmatched falls into "Other"
   const categorized = GROUPS.map((group) => ({
     group,
     universities: universities.filter((u) => matchesGroup(u.name, group)),
@@ -91,7 +97,7 @@ export default function SalesClient() {
   );
   const others = universities.filter((u) => !matchedIds.has(u.id));
 
-  let cardIndex = 0; // global index so stagger animation flows across all sections
+  let cardIndex = 0;
 
   const renderCard = (university: (typeof universities)[number], accentColor?: string) => {
     const index = cardIndex++;
@@ -114,7 +120,6 @@ export default function SalesClient() {
           transitionTimingFunction: "ease-out",
         }}
       >
-        {/* Accent bar reflecting the group's product color */}
         {accentColor && (
           <span
             className="absolute inset-x-0 top-0 h-1"
@@ -122,7 +127,6 @@ export default function SalesClient() {
           />
         )}
 
-        {/* Logo */}
         <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-800 mt-1">
           {university.logo ? (
             <Image
@@ -139,12 +143,10 @@ export default function SalesClient() {
           )}
         </div>
 
-        {/* Name */}
         <h3 className="mt-2 sm:mt-3 line-clamp-2 text-[11px] sm:text-base font-semibold leading-tight text-gray-800 dark:text-white group-hover:text-brand-500 transition-colors">
           {university.name}
         </h3>
 
-        {/* Location — hidden on very small screens to stay clean */}
         <p className="mt-0.5 sm:mt-1 hidden sm:block truncate w-full text-sm text-gray-500 dark:text-gray-400">
           {university.location}
         </p>
@@ -161,80 +163,134 @@ export default function SalesClient() {
           Sales
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Browse universities and their available opportunities for sales conversations.
+          Select a product to view sales speech, then choose a university.
         </p>
       </div>
 
-      {/* Grouped sections */}
-      {categorized.map(({ group, universities: groupUniversities }) => {
-        if (groupUniversities.length === 0) return null;
-        const primaryColor = group.tags[0]?.color;
+      {/* Product Selector */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Select Product
+        </h2>
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(PRODUCT_COLORS).map(([label, color]) => (
+            <button
+              key={label}
+              onClick={() => setSelectedProduct(selectedProduct === label ? null : label)}
+              className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 transition-all ${
+                selectedProduct === label
+                  ? "border-current shadow-lg"
+                  : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+              }`}
+              style={{
+                backgroundColor: selectedProduct === label ? `${color}10` : "white",
+                color: selectedProduct === label ? color : "gray",
+              }}
+            >
+              <div className="relative h-8 w-8 shrink-0">
+                <Image
+                  src={PRODUCT_LOGOS[label]}
+                  alt={label}
+                  fill
+                  className="object-contain"
+                  sizes="32px"
+                />
+              </div>
+              <span className="font-semibold">{label}</span>
+            </button>
+          ))}
+        </div>
 
-        return (
-          <div key={group.id} className="space-y-3">
-            {/* Big title: product logo + colored label */}
-            <div className="flex flex-wrap items-center gap-4">
-              {group.tags.length > 0 ? (
-                group.tags.map((t) => (
+        {/* Sales Speech Display */}
+        {selectedProduct && (
+          <div className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm dark:border-brand-800/50 dark:from-brand-900/20 dark:to-white/[0.03] animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex items-start gap-3 mb-3">
+              <div className="relative h-8 w-8 shrink-0">
+                <Image
+                  src={PRODUCT_LOGOS[selectedProduct]}
+                  alt={selectedProduct}
+                  fill
+                  className="object-contain"
+                  sizes="32px"
+                />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                {selectedProduct} Sales Speech
+              </h3>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
+              {PRODUCT_SPEECHES[selectedProduct]}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Universities in Tabs */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          Universities
+        </h2>
+        
+        {categorized.map(({ group, universities: groupUniversities }) => {
+          if (groupUniversities.length === 0) return null;
+          const primaryColor = group.tags[0]?.color;
+
+          return (
+            <div key={group.id} className="space-y-3">
+              <div className="flex flex-wrap items-center gap-4">
+                {group.tags.map((t) => (
                   <div key={t.label} className="flex items-center gap-2">
-                    <div className="relative h-9 w-9 sm:h-11 sm:w-11 shrink-0">
+                    <div className="relative h-8 w-8 shrink-0">
                       <Image
                         src={t.logo}
                         alt={t.label}
                         fill
                         className="object-contain"
-                        sizes="44px"
+                        sizes="32px"
                       />
                     </div>
                     <span
-                      className="text-lg sm:text-2xl font-extrabold tracking-wide"
+                      className="text-lg font-extrabold tracking-wide"
                       style={{ color: t.color }}
                     >
                       {t.label}
                     </span>
                   </div>
-                ))
-              ) : (
-                <span className="text-lg sm:text-2xl font-extrabold tracking-wide text-gray-600 dark:text-gray-300">
-                  {group.title}
-                </span>
-              )}
-              {group.subtitle && (
-                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
-                  {group.subtitle}
-                </span>
-              )}
-            </div>
+                ))}
+                {group.subtitle && (
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {group.subtitle}
+                  </span>
+                )}
+              </div>
 
-            {/* Cards for this group */}
+              <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+                {groupUniversities.map((university) => renderCard(university, primaryColor))}
+              </div>
+            </div>
+          );
+        })}
+
+        {others.length > 0 && (
+          <div className="space-y-3">
+            <span className="text-lg font-extrabold tracking-wide text-gray-500 dark:text-gray-400">
+              Other Universities
+            </span>
             <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
-              {groupUniversities.map((university) => renderCard(university, primaryColor))}
+              {others.map((university) => renderCard(university))}
             </div>
           </div>
-        );
-      })}
+        )}
 
-      {/* Ungrouped / other universities */}
-      {others.length > 0 && (
-        <div className="space-y-3">
-          <span className="text-lg sm:text-2xl font-extrabold tracking-wide text-gray-500 dark:text-gray-400">
-            Other Universities
-          </span>
-          <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
-            {others.map((university) => renderCard(university))}
+        {!hasAnyUniversities && (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-800/50">
+            <div className="text-4xl mb-3">🎓</div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No universities available yet.
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!hasAnyUniversities && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 dark:border-gray-700 dark:bg-gray-800/50">
-          <div className="text-4xl mb-3">🎓</div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            No universities available yet.
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

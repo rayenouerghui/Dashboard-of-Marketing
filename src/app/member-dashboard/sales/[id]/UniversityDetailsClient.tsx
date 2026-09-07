@@ -189,33 +189,21 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* General Information */}
+      {/* General Information - Bullet Points */}
       <div className={`rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-white/[0.03] transition-all duration-500 ease-out ${
         mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       }`} style={{ transitionDelay: "100ms" }}>
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-3">
-          General Information
+          About This University
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-          {university.generalInfo}
-        </p>
-      </div>
-
-      {/* Sales Speech */}
-      <div className={`rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm dark:border-brand-800/50 dark:from-brand-900/20 dark:to-white/[0.03] transition-all duration-500 ease-out ${
-        mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-      }`} style={{ transitionDelay: "200ms" }}>
-        <div className="flex items-start gap-3 mb-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
-            💬
-          </div>
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
-            Sales Speech
-          </h2>
-        </div>
-        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pl-11">
-          {university.salesSpeech}
-        </p>
+        <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+          {university.generalInfo.split('.').filter(Boolean).map((point, idx) => (
+            <li key={idx} className="flex items-start gap-2">
+              <span className="text-brand-500 mt-0.5">•</span>
+              <span>{point.trim()}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* Current Opportunities */}
