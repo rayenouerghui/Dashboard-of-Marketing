@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     await saveScheduledAttractionToSheet(body);
-    revalidateTag('scheduled-attractions');
+    revalidateTag('scheduled-attractions', 'api/scheduled-attractions');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to save scheduled attraction:', error);
@@ -36,7 +36,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     }
     await deleteScheduledAttractionFromSheet(id);
-    revalidateTag('scheduled-attractions');
+    revalidateTag('scheduled-attractions', 'api/scheduled-attractions');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Failed to delete scheduled attraction:', error);
