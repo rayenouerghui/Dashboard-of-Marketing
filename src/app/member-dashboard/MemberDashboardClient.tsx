@@ -13,7 +13,6 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-const STORAGE_KEY = "customCalendarEvents";
 const DEFAULT_GOAL = 30;
 const TOP_MEMBERS_LIMIT = 6;
 
@@ -32,15 +31,9 @@ interface CustomEvent {
 }
 
 /** Return ALL events scheduled for today (supports multiple per day). */
-function readTodaysAttractions(): CustomEvent[] {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const events: CustomEvent[] = saved ? JSON.parse(saved) : [];
-    const todayStr = toLocalDateString(new Date());
-    return events.filter((e) => e.start === todayStr);
-  } catch {
-    return [];
-  }
+function filterTodaysAttractions(events: CustomEvent[]): CustomEvent[] {
+  const todayStr = toLocalDateString(new Date());
+  return events.filter((e) => e.start === todayStr);
 }
 
 /**
@@ -62,10 +55,21 @@ export default function MemberDashboardClient({
 }) {
   const leads = initialLeads; // physical leads only (server-fetched, used as initial state)
   const [mounted, setMounted] = useState(false);
-  const [todaysAttractions, setTodaysAttractions] = useState<CustomEvent[]>([]);
+  const [allAttractions, setAllAttractions] = useState<CustomEvent[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   // Live member counts from the ranking API — polled every 30s
   const [liveMemberCounts, setLiveMemberCounts] = useState<Record<string, number>>({});
+
+  // Fetch attractions from the cross-device sheet-backed API
+  const fetchAttractions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/scheduled-attractions");
+      if (res.ok) {
+        const data = await res.json();
+        setAllAttractions(data);
+      }
+    } catch { /* silent */ }
+  }, []);
 
   // Poll /api/ranking every 30s for real-time today's member lead counts
   const refreshLiveCounts = useCallback(async () => {
@@ -94,22 +98,32 @@ export default function MemberDashboardClient({
     return () => cancelAnimationFrame(t);
   }, []);
 
+  // Initial attractions fetch + periodic poll + event-based sync
   useEffect(() => {
+    fetchAttractions();
+    const pollId = setInterval(fetchAttractions, 15_000);
+
     const handleSync = () => {
-      const next = readTodaysAttractions();
-      setTodaysAttractions(next);
-      // Keep active tab in range if attractions change
-      setActiveTab((prev) => (prev < next.length ? prev : 0));
+      fetchAttractions();
     };
 
-    handleSync();
-    window.addEventListener("storage", handleSync);
     window.addEventListener("attractionUpdated", handleSync);
     return () => {
-      window.removeEventListener("storage", handleSync);
+      clearInterval(pollId);
       window.removeEventListener("attractionUpdated", handleSync);
     };
-  }, []);
+  }, [fetchAttractions]);
+
+  // Derive today's attractions from the full list (same filter every render)
+  const todaysAttractions = useMemo(
+    () => filterTodaysAttractions(allAttractions),
+    [allAttractions]
+  );
+
+  // Keep active tab in range when attractions change
+  useEffect(() => {
+    setActiveTab((prev) => (prev < todaysAttractions.length ? prev : 0));
+  }, [todaysAttractions.length]);
 
   const today = toLocalDateString(new Date());
 
