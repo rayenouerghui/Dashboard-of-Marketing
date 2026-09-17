@@ -14,7 +14,6 @@ import {
   ListIcon,
   PieChartIcon,
   UserCircleIcon,
-  GroupIcon,
   DocsIcon,
   TaskIcon,
   DollarLineIcon,

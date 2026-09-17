@@ -67,7 +67,7 @@ export function getConversionStats(signups: { accountStatus: string; applied?: s
   let approved = 0;
   let applied = 0;
   let rejected = 0;
-  let noApplication = 0;
+  const noApplication = 0;
 
   for (const s of signups) {
     if (isApproved(s.accountStatus)) approved++;
@@ -162,7 +162,7 @@ export function getPhysicalUniversityStats() {
   }
 
   return [...map.entries()]
-    .map(([name, { total, created, applications, approvals }]) => ({
+    .map(([name, { total, applications, approvals }]) => ({
       name,
       shortName: name.includes(":") ? name.split(":")[0].trim() : name,
       total,

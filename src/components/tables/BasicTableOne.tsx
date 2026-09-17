@@ -21,6 +21,17 @@ interface BasicTableOneProps {
 type SortField = 'name' | 'email' | 'phone' | 'university' | 'type' | 'status' | 'date';
 type SortDirection = 'asc' | 'desc';
 
+interface SortIconProps {
+  field: SortField;
+  sortField: SortField;
+  sortDirection: SortDirection;
+}
+
+const SortIcon = ({ field, sortField, sortDirection }: SortIconProps) => {
+  if (sortField !== field) return null;
+  return sortDirection === 'asc' ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />;
+};
+
 export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
   const allLeads = initialLeads;
   const [searchTerm, setSearchTerm] = useState("");
@@ -105,11 +116,6 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
     }
   };
 
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />;
-  };
-
   return (
     <div>
       {/* Filters */}
@@ -164,7 +170,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('name')}
                     >
                       Name
-                      <SortIcon field="name" />
+                      <SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                   <TableCell
@@ -176,7 +182,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('email')}
                     >
                       Email
-                      <SortIcon field="email" />
+                      <SortIcon field="email" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                   <TableCell
@@ -188,7 +194,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('phone')}
                     >
                       Phone
-                      <SortIcon field="phone" />
+                      <SortIcon field="phone" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                   <TableCell
@@ -200,7 +206,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('university')}
                     >
                       University
-                      <SortIcon field="university" />
+                      <SortIcon field="university" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                   <TableCell
@@ -212,7 +218,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('type')}
                     >
                       Type
-                      <SortIcon field="type" />
+                      <SortIcon field="type" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                   <TableCell
@@ -224,7 +230,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('date')}
                     >
                       Date
-                      <SortIcon field="date" />
+                      <SortIcon field="date" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                   <TableCell
@@ -236,7 +242,7 @@ export default function BasicTableOne({ initialLeads }: BasicTableOneProps) {
                       onClick={() => handleSort('status')}
                     >
                       Status
-                      <SortIcon field="status" />
+                      <SortIcon field="status" sortField={sortField} sortDirection={sortDirection} />
                     </div>
                   </TableCell>
                 </TableRow>

@@ -70,7 +70,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<AuthContextValue>(
     () => ({ role, hydrated, login, logout, switchToMember }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [role, hydrated],
   );
 
