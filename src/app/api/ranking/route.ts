@@ -61,6 +61,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     // ?expa=0 skips EXPA lookup entirely — returns sheet data immediately
     const skipExpa = searchParams.get("expa") === "0";
+    // ?university=ESPRIT filters leads to only that university
+    const filterUniversity = searchParams.get("university")?.trim() || null;
 
     const today   = todayLocalStr();
     const rawRows = await fetchPhysicalLeadsRaw();
@@ -76,6 +78,16 @@ export async function GET(request: Request) {
 
       // Skip anything before the ranking cutoff date
       if (!rowDate || rowDate < RANKING_CUTOFF) continue;
+
+      // Filter by university if specified (fuzzy match)
+      if (filterUniversity) {
+        const university = (r["University"] || r.university || r.University || "").trim();
+        const a = university.toLowerCase();
+        const b = filterUniversity.toLowerCase();
+        if (!a || !b || !(a === b || a.includes(b) || b.includes(a))) {
+          continue;
+        }
+      }
 
       const expaId  = (r["EXPA ID"] || r.expaId || r.eXPAID || "").trim();
       const isToday = rowDate === today;
