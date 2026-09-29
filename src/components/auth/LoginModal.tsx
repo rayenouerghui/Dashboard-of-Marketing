@@ -4,31 +4,38 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
-export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: boolean; onClose: () => void; isAdminLogin?: boolean }) {
   const router = useRouter();
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState("");
 
   if (!isOpen) return null;
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const ok = login(username, password);
+    setError("");
+    
+    const ok = await login(username, password, accessCode);
 
     if (!ok) {
       setError("Incorrect credentials. Please try again.");
       return;
     }
 
-    setError("");
-
     setUsername("");
     setPassword("");
+    setAccessCode("");
     onClose();
 
-    router.push("/dashboard");
+    // Redirect by role after successful login
+    if (isAdminLogin) {
+      router.push("/dashboard");
+    } else {
+      router.push("/member-dashboard");
+    }
   };
 
   return (
@@ -50,25 +57,40 @@ export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {isAdminLogin ? "Username" : "Name or Member ID"}
+            </label>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              placeholder="Username"
+              placeholder={isAdminLogin ? "Username" : "Name or Member ID"}
             />
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              placeholder="Password"
-            />
-          </div>
+          {isAdminLogin ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                placeholder="Password"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Access Code</label>
+              <input
+                type="password"
+                value={accessCode}
+                onChange={(e) => setAccessCode(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                placeholder="Access Code"
+              />
+            </div>
+          )}
 
           {error && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
@@ -80,7 +102,7 @@ export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             type="submit"
             className="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
           >
-            Log in
+            {isAdminLogin ? "Admin Login" : "Member Login"}
           </button>
         </form>
       </div>

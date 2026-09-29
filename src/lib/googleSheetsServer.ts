@@ -196,7 +196,7 @@ export async function appendOpportunitySubmission(payload: Omit<OpportunitySubmi
   await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: escapeA1ColumnRange(sheetTitle),
-    valueInputOption: "USER_ENTERED",
+    valueInputOption: "RAW",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
       values: [rowValues],
@@ -268,9 +268,12 @@ async function fetchSheetTab(tabName: string): Promise<Record<string, string>[]>
   const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
   const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
 
-  // If env vars are not set, fall back to static JSON files
+  // If env vars are not set, throw in production, fall back in development
   if (!sheetId || !clientEmail || !privateKey) {
-    console.warn('[googleSheetsServer] Google Sheets environment variables not set, falling back to static JSON data');
+    if (process.env.NODE_ENV === "production") {
+      throw new Error('Google Sheets environment variables (GOOGLE_SHEET_ID, GOOGLE_SHEETS_CLIENT_EMAIL, GOOGLE_SHEETS_PRIVATE_KEY) are required in production');
+    }
+    console.warn('[googleSheetsServer] Google Sheets environment variables not set, falling back to static JSON data (development only)');
     return fetchFromFallback(tabName);
   }
 
@@ -628,12 +631,21 @@ export async function loadScheduledAttractionsFromSheet(): Promise<any[]> {
 
   const rows: string[][] = response.data.values ?? [];
   const results: any[] = [];
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
 
   for (let i = 1; i < rows.length; i++) {
     const jsonBlob = rows[i]?.[1];
     if (!jsonBlob) continue;
     try {
-      results.push(JSON.parse(jsonBlob));
+      const parsed = JSON.parse(jsonBlob);
+      const attractionDate = parsed.start || parsed.date;
+
+      // Filter out attractions older than one week (don't delete, just filter)
+      if (!attractionDate || attractionDate >= oneWeekAgoStr) {
+        results.push(parsed);
+      }
     } catch {
       // skip malformed
     }

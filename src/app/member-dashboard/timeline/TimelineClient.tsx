@@ -158,12 +158,7 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
     }
   };
 
-  useEffect(() => {
-    const handleSync = () => fetchAttractions();
-    window.addEventListener("attractionUpdated", handleSync);
-    return () => window.removeEventListener("attractionUpdated", handleSync);
-  }, []);
-
+  // Polling for updates every 15 seconds
   useEffect(() => {
     const t = setInterval(fetchAttractions, 15000);
     return () => clearInterval(t);

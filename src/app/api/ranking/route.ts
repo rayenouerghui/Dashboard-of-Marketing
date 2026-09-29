@@ -3,6 +3,7 @@ import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
 import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
+import { requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,37 @@ const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 // Only count leads submitted on or after this date — everything before is reset to zero
 const RANKING_CUTOFF = "2026-09-07";
 
+// Source labels to exclude from ranking (not actual person names)
+const SOURCE_LABELS = new Set([
+  "heard by friend",
+  "facebook",
+  "instagram",
+  "linkedin",
+  "twitter",
+  "tiktok",
+  "whatsapp",
+  "referral",
+  "walk-in",
+  "walk in",
+  "online",
+  "social media",
+  "google",
+  "youtube",
+  "snapchat",
+  "telegram",
+  "website",
+  "event",
+  "poster",
+  "flyer",
+  "banner",
+  "brochure",
+]);
+
+function isSourceLabel(name: string): boolean {
+  const lower = name.toLowerCase();
+  return SOURCE_LABELS.has(lower);
+}
+
 // ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
 const getCachedExpaStatuses = unstable_cache(
   async (expaIds: string[]): Promise<Record<string, string>> => {
@@ -58,6 +90,7 @@ const getCachedExpaStatuses = unstable_cache(
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
   try {
+    await requireRole('member'); // Member or admin can read
     const { searchParams } = new URL(request.url);
     // ?expa=0 skips EXPA lookup entirely — returns sheet data immediately
     const skipExpa = searchParams.get("expa") === "0";
@@ -72,6 +105,9 @@ export async function GET(request: Request) {
     for (const r of rawRows) {
       const memberName = (r["🙋Member Name"] || r.memberName || r.member_name || "").trim();
       if (!memberName) continue;
+
+      // Skip source labels (not actual person names)
+      if (isSourceLabel(memberName)) continue;
 
       const submittedAt = r["Submitted at"] || r.submittedAt || r.submitted_at || "";
       const rowDate     = dateStr(submittedAt);
@@ -153,6 +189,9 @@ export async function GET(request: Request) {
       cached:        !skipExpa,
     });
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     const msg = error instanceof Error ? error.message : "Failed to compute rankings.";
     console.error("[api/ranking] error:", error);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

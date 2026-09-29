@@ -4,8 +4,17 @@
 
 This is a custom-built AIESEC dashboard application built on Next.js 16, React 19, TypeScript, and Tailwind CSS. It provides two distinct dashboards:
 
-1. **Admin Dashboard** (`/dashboard`) - For AIESEC administrators to manage leads, opportunities, and analytics
-2. **Member Dashboard** (`/member-dashboard`) - For AIESEC members to access resources, sales information, and rankings
+1. **Admin Dashboard** (`/dashboard`) - For AIESEC administrators to manage leads, opportunities, attractions, and analytics
+2. **Member Dashboard** (`/member-dashboard`) - For AIESEC members to access resources, sales information, rankings, and real-time attraction progress
+
+### Key Features
+
+- **Real-time Lead Tracking**: Google Sheets integration for live physical attraction leads
+- **University-Specific Rankings**: Per-university lead counting with support for multiple simultaneous attractions
+- **Attraction Management**: Schedule and manage physical attractions with automatic cleanup after one week
+- **Member Performance**: Real-time leaderboards with 30-second polling
+- **Cross-Device Sync**: Data persisted in Google Sheets with cache invalidation
+- **Source Label Filtering**: Ranking excludes non-person entries (e.g., "Facebook", "Instagram")
 
 ## Technology Stack
 
@@ -18,6 +27,7 @@ This is a custom-built AIESEC dashboard application built on Next.js 16, React 1
 - **Maps:** @react-jvectormap
 - **Icons:** Custom SVG icons + Lucide React
 - **Build:** Turbopack (production), Webpack (dev)
+- **Google Sheets API:** googleapis for real-time data synchronization
 
 ## Architecture Pattern
 
@@ -98,6 +108,50 @@ aiesec-dashboard/
   - Dark mode styles
   - Utility class extensions
 
+#### `src/app/api/` - API Routes
+
+- **`attraction-leads/route.ts`** - Attraction leads API
+  - Fetches physical leads from Google Sheets
+  - Computes statistics: total, today, this week, this month
+  - Groups by university and month
+  - Returns recent leads (last 20)
+  - Cached for 2 minutes with `unstable_cache`
+  - Supports `?nocache=1` to bypass cache
+
+- **`ranking/route.ts`** - Member ranking API
+  - Fetches physical leads from Google Sheets
+  - Filters by university with `?university=` parameter (fuzzy match)
+  - Excludes source labels (Facebook, Instagram, etc.)
+  - Counts leads per member with date cutoff
+  - Optional EXPA status lookup with `?expa=0` to skip
+  - Caches EXPA lookups for 15 minutes
+  - Returns: total leads, today's leads, applied, realized counts
+
+- **`scheduled-attractions/route.ts`** - Attraction management API
+  - GET: Loads all scheduled attractions from Google Sheets
+  - POST: Saves new attraction to Google Sheets
+  - DELETE: Removes attraction by ID from Google Sheets
+  - Revalidates cache tags on mutations
+
+- **`leads/physical/route.ts`** - Physical leads API
+  - Fetches raw physical leads from Google Sheets
+  - Error handling for permission issues
+
+- **`expa/leads/route.ts`** - EXPA leads API (legacy)
+  - Previously used for EXPA lead statistics
+  - Now superseded by attraction-leads API
+
+- **`expa/applications/route.ts`** - EXPA applications API
+  - Fetches application statuses for leads
+  - Used by ranking API for applied/realized counts
+
+- **`opportunities/route.ts`** - Opportunities API
+  - GET: Loads opportunities from Google Sheets
+  - POST: Saves opportunity to Google Sheets
+
+- **`submissions/route.ts`** - Form submissions API
+  - Handles form submissions for opportunities
+
 #### `src/app/dashboard/` - Admin Dashboard
 
 - **`layout.tsx`** - Admin dashboard layout
@@ -110,9 +164,22 @@ aiesec-dashboard/
   - Exports `dynamic = 'force-dynamic'`
 
 - **`DashboardClient.tsx`** - Admin dashboard client component
-  - KPI cards (total leads, successful accounts, etc.)
-  - Recent leads table
-  - Lead statistics charts
+  - Fetches attraction leads from `/api/attraction-leads`
+  - KPI cards (total leads, universities, top university, weekly leads)
+  - Recent leads table from Google Sheets
+  - Lead statistics charts (monthly, by university, time periods)
+  - Auto-refreshes every 2 minutes
+
+- **`attraction-management/page.tsx`** - Attraction management page
+  - Thin server component rendering AttractionPageClient
+  - Exports `dynamic = 'force-dynamic'`
+
+- **`attraction-management/AttractionPageClient.tsx`** - Attraction management client component
+  - Create/delete attractions with university, date, goal, and notes
+  - Calendar view with FullCalendar
+  - University logo display
+  - Toast notifications for actions
+  - Cross-device sync via custom events
 
 - **`leads/page.tsx`** - Leads management page
   - Thin server component rendering LeadsClient
@@ -143,9 +210,12 @@ aiesec-dashboard/
   - Exports `dynamic = 'force-dynamic'`
 
 - **`MemberDashboardClient.tsx`** - Member dashboard client component
-  - Daily leaderboard display
-  - Recent leads for member
-  - Quick stats
+  - Displays today's attractions with tab switcher for multiple attractions
+  - Per-university lead counting (each attraction shows only its university's leads)
+  - Real-time leaderboard with 30-second polling from `/api/ranking?university=`
+  - Goal progress tracking with percentage
+  - Fallback to static data when live API unavailable
+  - Animal avatar assignment for members
 
 - **`sales/page.tsx`** - Sales page
   - Thin server component rendering SalesClient
@@ -272,7 +342,7 @@ aiesec-dashboard/
 
 ### `src/lib/` - Utility Functions
 
-- **`dataUtils.ts`** - **CRITICAL FILE** - Single data access layer
+- **`dataUtils.ts`** - **CRITICAL FILE** - Single data access layer for static JSON data
   - **Purpose:** Centralized data access for all JSON files
   - **Exports:**
     - `getDigitalLeads()` - Returns digital leads array
@@ -288,7 +358,33 @@ aiesec-dashboard/
     - `getLeadSeriesMonthly()` - Monthly lead series for charts
     - `getLeadSeriesWeekly()` - Weekly lead series for charts
     - `getLeadSeriesDaily()` - Daily lead series for charts
-  - **Note:** All data access should go through this file, not direct JSON imports
+  - **Note:** All static data access should go through this file, not direct JSON imports
+
+- **`googleSheetsServer.ts`** - **CRITICAL FILE** - Google Sheets integration (server-side only)
+  - **Purpose:** Server-side Google Sheets API integration for real-time data
+  - **Key Functions:**
+    - `fetchPhysicalLeadsRaw()` - Fetches physical leads from Google Sheets
+    - `loadScheduledAttractionsFromSheet()` - Loads attractions with automatic cleanup of old entries (>1 week)
+    - `saveScheduledAttractionToSheet()` - Saves new attraction to Google Sheets
+    - `deleteScheduledAttractionFromSheet()` - Deletes attraction from Google Sheets
+    - `loadOpportunitiesFromSheet()` - Loads opportunities from Google Sheets
+    - `saveOpportunityToSheet()` - Saves opportunity to Google Sheets
+  - **Features:**
+    - Lazy imports googleapis to avoid OOM crashes
+    - Fallback to static JSON if env vars not set
+    - Automatic tab creation if missing
+    - Sheet title normalization
+    - Header mapping for column variations
+  - **Environment Variables:**
+    - `GOOGLE_SHEETS_SPREADSHEET_ID` - Main spreadsheet ID
+    - `GOOGLE_SHEETS_CREDENTIALS` - Service account credentials JSON
+
+- **`dataUtilsServer.ts`** - Server-side data utilities
+  - **Purpose:** Server-side data access and processing
+  - **Exports:**
+    - `getPhysicalAttractionLeads()` - Fetches physical leads (with Google Sheets fallback)
+    - Type definitions for PhysicalAttractionLead
+  - **Note:** Used by server components and API routes
 
 ### `src/layout/` - Layout Components
 
@@ -386,6 +482,78 @@ Global state is managed via React Context:
 const { user, login } = useAuth();
 ```
 
+## Data Flow Architecture
+
+### Google Sheets Integration
+
+The application uses Google Sheets as a real-time database for:
+
+1. **Physical Leads** - Live attraction leads from physical events
+   - Sheet: Main spreadsheet, tab with physical leads data
+   - Columns: Member Name, University, Submitted at, EXPA ID, Email, etc.
+   - Accessed via: `fetchPhysicalLeadsRaw()` in `googleSheetsServer.ts`
+
+2. **Scheduled Attractions** - Attraction events with dates, universities, goals
+   - Sheet: Main spreadsheet, "Scheduled Attractions" tab
+   - Columns: ID (A), JSON blob (B) with attraction data
+   - Auto-cleanup: Entries older than 1 week are deleted on load
+   - Accessed via: `loadScheduledAttractionsFromSheet()` in `googleSheetsServer.ts`
+
+3. **Opportunities** - University-specific opportunity cards
+   - Sheet: Separate spreadsheet, "Opportunities" tab
+   - Columns: universityId (A), JSON blob (B) with opportunity data
+   - Accessed via: `loadOpportunitiesFromSheet()` in `googleSheetsServer.ts`
+
+### Real-Time Data Flow
+
+```
+Google Sheets
+    ↓
+API Routes (src/app/api/)
+    ↓
+Client Components (src/app/dashboard/, src/app/member-dashboard/)
+    ↓
+UI Updates (with polling/cache invalidation)
+```
+
+**Polling Intervals:**
+- Member dashboard ranking: 30 seconds
+- Member dashboard attractions: 15 seconds
+- Admin dashboard leads: 2 minutes (cache)
+
+**Cache Invalidation:**
+- Uses `revalidateTag()` for Next.js cache
+- Custom events (`attractionUpdated`) for cross-device sync
+- `unstable_cache` for expensive operations (EXPA lookups)
+
+### University-Specific Attraction Handling
+
+When multiple attractions are scheduled on the same day:
+
+1. **Attraction Creation**: Admin creates attraction with university, date, goal
+2. **Member Dashboard**: Shows tab for each attraction
+3. **Lead Counting**: Each tab only counts leads from its university
+   - Uses fuzzy matching for university names
+   - Filters via `?university=` parameter in ranking API
+4. **Ranking**: Per-university leaderboards
+   - Members ranked by leads at that specific university
+   - Live data from `/api/ranking?university=ESPRIT&expa=0`
+
+### Source Label Filtering
+
+The ranking API automatically excludes non-person entries:
+
+**Excluded Labels:**
+- Social media: Facebook, Instagram, LinkedIn, Twitter, TikTok, WhatsApp
+- Referral methods: "Heard by friend", Referral, Walk-in
+- Online sources: Google, YouTube, Website, Social media
+- Marketing: Event, Poster, Flyer, Banner, Brochure
+
+**Implementation:**
+- `SOURCE_LABELS` Set in `ranking/route.ts`
+- `isSourceLabel()` function checks member name
+- Skips counting if name matches a source label
+
 ## Important Notes for AI Agents
 
 ### SVG Handling
@@ -471,7 +639,21 @@ Most pages follow this pattern:
 
 ## Environment Variables
 
-Currently no environment variables are used. The application runs with static data.
+### Google Sheets Integration (Optional)
+
+If Google Sheets integration is enabled, the following environment variables are required:
+
+- **`GOOGLE_SHEETS_SPREADSHEET_ID`** - Main Google Spreadsheet ID for physical leads and attractions
+- **`GOOGLE_SHEETS_CREDENTIALS`** - Service account credentials JSON (stringified)
+- **`ATTRACTIONS_SPREADSHEET_ID`** - Spreadsheet ID for scheduled attractions (if different from main)
+- **`OPPORTUNITIES_SPREADSHEET_ID`** - Spreadsheet ID for opportunities
+
+### Authentication
+
+- **`NEXT_PUBLIC_ADMIN_USER`** - Admin username (default: "crispy")
+- **`NEXT_PUBLIC_ADMIN_PASS`** - Admin password (default: "crispy")
+
+If these variables are not set, the application falls back to static JSON data in `src/data/`.
 
 ## Deployment
 

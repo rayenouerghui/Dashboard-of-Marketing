@@ -61,6 +61,7 @@ const AppSidebar: React.FC = () => {
   const [openSubmenu, setOpenSubmenu] = useState<{ type: "main" | "others"; index: number } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [, setLogoClicks] = useState(0);
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -101,10 +102,10 @@ const AppSidebar: React.FC = () => {
     setLogoClicks((prev) => {
       const next = prev + 1;
       if (next >= 5) {
-        setIsLoginOpen(true);
+        router.push("/admin-login");
         return 0;
       }
-      return next;
+      return prev;
     });
   };
 
@@ -242,7 +243,7 @@ const AppSidebar: React.FC = () => {
         )}
       </div>
 
-      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
+      <LoginModal isOpen={isLoginOpen} onClose={() => { setIsLoginOpen(false); setIsAdminLogin(false); }} isAdminLogin={isAdminLogin} />
     </aside>
   );
 };

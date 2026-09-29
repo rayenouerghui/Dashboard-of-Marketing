@@ -1,66 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendOpportunitySubmission } from "@/lib/googleSheetsServer";
 import { addSubmission, productToSheet } from "@/lib/submissionsStore";
+import { z } from "zod";
+import { sanitizeObject } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
+
+const fillSchema = z.object({
+  product: z.string().min(1).max(50),
+  opportunityId: z.string().min(1).max(50),
+  opportunityTitle: z.string().min(1).max(200),
+  universityId: z.string().min(1).max(50),
+  universityName: z.string().min(1).max(100),
+  country: z.string().max(100).optional(),
+  duration: z.string().max(50).optional(),
+  opportunityDate: z.string().max(50).optional(),
+  epName: z.string().min(1).max(100),
+  condition: z.string().max(500).optional(),
+  note: z.string().max(500).optional(),
+  source: z.string().max(50).optional(),
+});
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
-    const product         = String(body?.product         ?? "").trim();
-    const opportunityId   = String(body?.opportunityId   ?? "").trim();
-    const opportunityTitle= String(body?.opportunityTitle?? "").trim();
-    const universityId    = String(body?.universityId    ?? "").trim();
-    const universityName  = String(body?.universityName  ?? "").trim();
-    const country         = String(body?.country         ?? "").trim();
-    const duration        = String(body?.duration        ?? "").trim();
-    const opportunityDate = String(body?.opportunityDate ?? "").trim();
-    const epName          = String(body?.epName          ?? "").trim();
-    const condition       = String(body?.condition ?? body?.note ?? "").trim();
-    const note            = String(body?.note            ?? "").trim();
-    const source          = String(body?.source          ?? "member-dashboard").trim();
-
-    if (!product || !opportunityId || !opportunityTitle || !universityId || !universityName || !epName) {
-      return NextResponse.json(
-        { error: "Missing required opportunity submission fields." },
-        { status: 400 }
-      );
-    }
+    
+    // Validate with Zod
+    const validated = fillSchema.parse(body);
+    
+    // Sanitize user-provided strings
+    const sanitized = sanitizeObject(validated, {
+      opportunityTitle: 200,
+      universityName: 100,
+      epName: 100,
+      condition: 500,
+      note: 500,
+    });
 
     // 1. Record in-memory so the submissions viewer can show it instantly
     addSubmission({
-      sheet: productToSheet(product),
-      product,
-      opportunityId,
-      opportunityTitle,
-      universityId,
-      universityName,
-      country,
-      duration,
-      opportunityDate,
-      epName,
-      condition,
-      note,
-      source,
+      sheet: productToSheet(sanitized.product),
+      product: sanitized.product,
+      opportunityId: sanitized.opportunityId,
+      opportunityTitle: sanitized.opportunityTitle,
+      universityId: sanitized.universityId,
+      universityName: sanitized.universityName,
+      country: sanitized.country || "",
+      duration: sanitized.duration || "",
+      opportunityDate: sanitized.opportunityDate || "",
+      epName: sanitized.epName,
+      condition: sanitized.condition || "",
+      note: sanitized.note || "",
+      source: sanitized.source || "member-dashboard",
     });
 
     // 2. Also write to Google Sheets (best-effort — don't fail the request if sheets is down)
     let sheetResult: Record<string, unknown> = {};
     try {
       sheetResult = await appendOpportunitySubmission({
-        product,
-        opportunityId,
-        opportunityTitle,
-        universityId,
-        universityName,
-        country,
-        duration,
-        opportunityDate,
-        epName,
-        condition,
-        note,
-        source,
+        product: sanitized.product,
+        opportunityId: sanitized.opportunityId,
+        opportunityTitle: sanitized.opportunityTitle,
+        universityId: sanitized.universityId,
+        universityName: sanitized.universityName,
+        country: sanitized.country || "",
+        duration: sanitized.duration || "",
+        opportunityDate: sanitized.opportunityDate || "",
+        epName: sanitized.epName,
+        condition: sanitized.condition || "",
+        note: sanitized.note || "",
+        source: sanitized.source || "member-dashboard",
         submittedAt: new Date().toISOString(),
       });
     } catch (sheetErr) {
@@ -69,6 +78,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, ...sheetResult }, { status: 200 });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
+    }
     console.error("[member-dashboard/opportunities/fill] error:", error);
     return NextResponse.json(
       { error: String((error as Error)?.message ?? error) },

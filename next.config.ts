@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
   // Allow any device on the local network to access the dev server
   allowedDevOrigins: ["*"],
   webpack(config, { dev }) {

@@ -493,7 +493,10 @@ export async function getAllDashboardData(): Promise<DashboardData> {
   try {
     return await cachedAll();
   } catch (err) {
-    console.error("[getAllDashboardData] falling back to empty dataset:", err);
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Failed to fetch dashboard data from Google Sheets");
+    }
+    console.error("[getAllDashboardData] falling back to empty dataset (development only):", err);
     return EMPTY;
   }
 }

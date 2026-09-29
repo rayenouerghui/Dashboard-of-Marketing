@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
 import { unstable_cache } from "next/cache";
+import { requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -152,6 +153,7 @@ export async function GET(request: Request) {
   const nocache = new URL(request.url).searchParams.get("nocache") === "1";
 
   try {
+    await requireRole('admin'); // Admin only for attraction leads
     const result = nocache
       ? await (async () => {
           const rows = await fetchPhysicalLeadsRaw();
@@ -161,6 +163,9 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, ...result }, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     const msg = error instanceof Error ? error.message : "Failed to fetch attraction leads.";
     console.error("[api/attraction-leads] error:", error);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

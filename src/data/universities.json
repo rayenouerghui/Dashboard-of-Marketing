@@ -2,7 +2,7 @@
   {
     "id": "uni-001",
     "name": "ENS Tunis",
-    "logo": "/uniersity logos/ENS_Logo_TL.jpg",
+    "logo": "/university-logos/ENS_Logo_TL.jpg",
     "country": "Tunisia",
     "location": "Tunis, Tunisia",
     "generalInfo": "The École Normale Supérieure de Tunis is a prestigious institution known for its strong programs in engineering, business, and sciences. It has a diverse student body and offers numerous international exchange opportunities.",
@@ -11,7 +11,7 @@
   {
     "id": "uni-002",
     "name": "ISEAHT",
-    "logo": "/uniersity logos/iseaht-logo.jpg",
+    "logo": "/university-logos/iseaht-logo.jpg",
     "country": "Tunisia",
     "location": "Sfax, Tunisia",
     "generalInfo": "The Institut Supérieur des Études Appliquées en Haute Technologie is a leading research institution in Tunisia, particularly renowned for its engineering and technology faculties. It maintains strong partnerships with institutions across Europe and the Middle East.",
@@ -20,7 +20,7 @@
   {
     "id": "uni-003",
     "name": "ESPRIT",
-    "logo": "/uniersity logos/ESPRIT.jpg",
+    "logo": "/university-logos/ESPRIT.jpg",
     "country": "Tunisia",
     "location": "El Ghazala, Ariana",
     "generalInfo": "Large private engineering school • IT, Telecom, Civil, Electromechanical + Business/Data",
@@ -29,7 +29,7 @@
   {
     "id": "uni-004",
     "name": "ESSECT",
-    "logo": "/uniersity logos/ESSECT.jpg",
+    "logo": "/university-logos/ESSECT.jpg",
     "country": "Tunisia",
     "location": "Tunis, Tunisia",
     "generalInfo": "2,920 students • Economics, Management, Business, Finance",
@@ -38,7 +38,7 @@
   {
     "id": "uni-005",
     "name": "FMT",
-    "logo": "/uniersity logos/FMT.png",
+    "logo": "/university-logos/FMT.png",
     "country": "Tunisia",
     "location": "Bab Saadoun, Tunis",
     "generalInfo": "4,284 students • Medicine, Medical sciences, Pharmacy/Dentistry pathways",
@@ -47,7 +47,7 @@
   {
     "id": "uni-006",
     "name": "FSHST",
-    "logo": "/uniersity logos/FSHST.jpg",
+    "logo": "/university-logos/FSHST.jpg",
     "country": "Tunisia",
     "location": "Bab El Khadra, Tunis",
     "generalInfo": "~4,250 students • Humanities, Social Sciences, Languages",
@@ -56,7 +56,7 @@
   {
     "id": "uni-007",
     "name": "HIDE",
-    "logo": "/uniersity logos/HIDE.png",
+    "logo": "/university-logos/HIDE.png",
     "country": "Tunisia",
     "location": "Bab Saadoun, Tunis",
     "generalInfo": "New public institute • Digital Engineering, AI, Data Science, Manufacturing Engineering • currently small/new cohort",
@@ -65,7 +65,7 @@
   {
     "id": "uni-008",
     "name": "ISBAT",
-    "logo": "/uniersity logos/ISBAT.jpg",
+    "logo": "/university-logos/ISBAT.jpg",
     "country": "Tunisia",
     "location": "Tunis, Tunisia",
     "generalInfo": "~1,473 students • Fine Arts, Design, Visual Arts",
@@ -74,7 +74,7 @@
   {
     "id": "uni-009",
     "name": "ISG",
-    "logo": "/uniersity logos/ISG.jpg",
+    "logo": "/university-logos/ISG.jpg",
     "country": "Tunisia",
     "location": "Tunis, Tunisia",
     "generalInfo": "3,242 students • Business, Management, Finance, Marketing, Economics",
@@ -83,7 +83,7 @@
   {
     "id": "uni-010",
     "name": "ISMT",
-    "logo": "/uniersity logos/ISMT.jpg",
+    "logo": "/university-logos/ISMT.jpg",
     "country": "Tunisia",
     "location": "Tunis, Tunisia",
     "generalInfo": "The Higher Institute of Multimedia Technologies specializes in digital media, animation, and interactive design programs.",
@@ -92,7 +92,7 @@
   {
     "id": "uni-011",
     "name": "TBS",
-    "logo": "/uniersity logos/TBS.jpg",
+    "logo": "/university-logos/TBS.jpg",
     "country": "Tunisia",
     "location": "El Mourouj",
     "generalInfo": "1,498 students • Business, Management, Finance, Marketing",
@@ -101,7 +101,7 @@
   {
     "id": "uni-012",
     "name": "ENSIT",
-    "logo": "/uniersity logos/ensit.jpg",
+    "logo": "/university-logos/ensit.jpg",
     "country": "Tunisia",
     "location": "Montfleury, Tunis",
     "generalInfo": "~1,085 students • Engineering: ICT, Industrial, Mechanical, Civil, etc.",
@@ -110,7 +110,7 @@
   {
     "id": "uni-013",
     "name": "ISET Charguia",
-    "logo": "/uniersity logos/iset chargia.jpg",
+    "logo": "/university-logos/iset chargia.jpg",
     "country": "Tunisia",
     "location": "Charguia II",
     "generalInfo": "Public ISET • IT, Business Management, Logistics, Industrial Management, Smart Data, Cloud, Software",
@@ -119,7 +119,7 @@
   {
     "id": "uni-014",
     "name": "ECB",
-    "logo": "/uniersity logos/ECB.png",
+    "logo": "/university-logos/ECB.png",
     "country": "Tunisia",
     "location": "Tunis, Tunisia",
     "generalInfo": "The Ecole de Commerce et de Business is a specialized business school focusing on commerce, trade, and international business.",

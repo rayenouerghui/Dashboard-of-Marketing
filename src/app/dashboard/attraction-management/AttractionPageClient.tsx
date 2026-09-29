@@ -182,17 +182,7 @@ export default function AttractionPageClient() {
     fetchAttractions();
   }, []);
 
-  useEffect(() => {
-    const handleSync = () => {
-      fetchAttractions();
-      setForceUpdate((prev) => prev + 1);
-    };
-
-    window.addEventListener("attractionUpdated", handleSync);
-    return () => window.removeEventListener("attractionUpdated", handleSync);
-  }, []);
-
-  // Optional polling
+  // Polling for updates every 15 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchAttractions();
@@ -250,7 +240,7 @@ export default function AttractionPageClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEvent),
       });
-      window.dispatchEvent(new CustomEvent("attractionUpdated", { detail: updated }));
+      // Polling will handle the update
     } catch (err) {
       console.error(err);
     }
@@ -266,7 +256,7 @@ export default function AttractionPageClient() {
     
     try {
       await fetch(`/api/scheduled-attractions?id=${pendingDelete.id}`, { method: 'DELETE' });
-      window.dispatchEvent(new CustomEvent("attractionUpdated", { detail: updated }));
+      // Polling will handle the update
     } catch (err) {
       console.error(err);
     }

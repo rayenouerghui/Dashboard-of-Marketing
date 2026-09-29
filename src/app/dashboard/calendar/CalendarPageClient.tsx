@@ -231,9 +231,9 @@ export default function CalendarPageClient({ initialLeads }: CalendarPageClientP
     };
     fetchAttractions();
     
-    const handleSync = () => fetchAttractions();
-    window.addEventListener("attractionUpdated", handleSync);
-    return () => window.removeEventListener("attractionUpdated", handleSync);
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchAttractions, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const calendarEvents = useMemo(
@@ -331,7 +331,7 @@ Status: ${props.accountStatus || "N/A"}
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(newEvent),
         });
-        window.dispatchEvent(new CustomEvent("attractionUpdated"));
+        // Polling will handle the update
       } catch (err) {
         console.error(err);
       }
@@ -343,7 +343,7 @@ Status: ${props.accountStatus || "N/A"}
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(event),
         });
-        window.dispatchEvent(new CustomEvent("attractionUpdated"));
+        // Polling will handle the update
       } catch (err) {
         console.error(err);
       }
@@ -355,7 +355,7 @@ Status: ${props.accountStatus || "N/A"}
       setCustomEvents((previous) => previous.filter((e) => e.id !== selectedEvent.id));
       try {
         await fetch(`/api/scheduled-attractions?id=${selectedEvent.id}`, { method: "DELETE" });
-        window.dispatchEvent(new CustomEvent("attractionUpdated"));
+        // Polling will handle the update
       } catch (err) {
         console.error(err);
       }

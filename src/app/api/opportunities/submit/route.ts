@@ -1,42 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { appendOpportunitySubmission, saveOpportunityToSheet } from "@/lib/googleSheetsServer";
 import { getUniversityById, type Opportunity } from "@/lib/dataUtils";
+import { z } from "zod";
+import { sanitizeObject } from "@/lib/sanitize";
 
 export const dynamic = "force-dynamic";
 
+const submitSchema = z.object({
+  product: z.string().min(1).max(50),
+  opportunityId: z.string().max(50).optional(),
+  title: z.string().min(1).max(200),
+  universityId: z.string().min(1).max(50),
+  country: z.string().max(100).optional(),
+  duration: z.string().max(50).optional(),
+  opportunityDate: z.string().max(50).optional(),
+  epName: z.string().max(100).optional(),
+  condition: z.string().max(500).optional(),
+  note: z.string().max(500).optional(),
+  source: z.string().max(50).optional(),
+  opportunity: z.any().optional(),
+});
+
 export async function POST(request: NextRequest) {
-  let body: Record<string, unknown>;
-
   try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ success: false, error: "Invalid request body." }, { status: 400 });
-  }
+    const body = await request.json();
+    
+    // Validate with Zod
+    const validated = submitSchema.parse(body);
+    
+    // Sanitize user-provided strings
+    const sanitized = sanitizeObject(validated, {
+      title: 200,
+      epName: 100,
+      condition: 500,
+      note: 500,
+    });
 
-  // ── Required fields ────────────────────────────────────────────────────────
-  const product       = String(body.product       ?? "").trim();
-  const opportunityId = String(body.opportunityId ?? "").trim();
-  const title         = String(body.title         ?? "").trim();
-  const universityId  = String(body.universityId  ?? "").trim();
-  const country       = String(body.country       ?? "").trim();
-
-  if (!product)      return NextResponse.json({ success: false, error: "product is required."      }, { status: 400 });
-  if (!title)        return NextResponse.json({ success: false, error: "title is required."        }, { status: 400 });
-  if (!universityId) return NextResponse.json({ success: false, error: "universityId is required." }, { status: 400 });
-
-  const university = getUniversityById(universityId);
-  const universityName = university?.name ?? universityId;
-
-  // ── Optional fields ────────────────────────────────────────────────────────
-  const duration        = String(body.duration        ?? "").trim();
-  const opportunityDate = String(body.opportunityDate ?? "").trim();
-  const epName          = String(body.epName          ?? "").trim();
-  const condition       = String(body.condition       ?? "").trim();
-  const note            = String(body.note            ?? "").trim();
-  const source          = String(body.source          ?? "Admin Dashboard").trim();
+  const university = getUniversityById(sanitized.universityId);
+  const universityName = university?.name ?? sanitized.universityId;
 
   // Full opportunity object sent from the admin form (for cross-device persistence)
-  const fullOpportunity = body.opportunity as Opportunity | undefined;
+  const fullOpportunity = sanitized.opportunity as Opportunity | undefined;
 
   const errors: string[] = [];
 
@@ -44,18 +48,18 @@ export async function POST(request: NextRequest) {
   let sheetResult: Awaited<ReturnType<typeof appendOpportunitySubmission>> | null = null;
   try {
     sheetResult = await appendOpportunitySubmission({
-      product,
-      opportunityId,
-      opportunityTitle: title,
-      universityId,
+      product: sanitized.product,
+      opportunityId: sanitized.opportunityId || "",
+      opportunityTitle: sanitized.title,
+      universityId: sanitized.universityId,
       universityName,
-      country,
-      duration,
-      opportunityDate,
-      epName,
-      condition,
-      note,
-      source,
+      country: sanitized.country || "",
+      duration: sanitized.duration || "",
+      opportunityDate: sanitized.opportunityDate || "",
+      epName: sanitized.epName || "",
+      condition: sanitized.condition || "",
+      note: sanitized.note || "",
+      source: sanitized.source || "Admin Dashboard",
     });
   } catch (err) {
     errors.push(`Tracking sheet: ${err instanceof Error ? err.message : String(err)}`);
@@ -88,6 +92,13 @@ export async function POST(request: NextRequest) {
     },
     { status: 200 }
   );
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
+    }
+    console.error("[api/opportunities/submit] error:", error);
+    return NextResponse.json({ success: false, error: "Invalid request body." }, { status: 400 });
+  }
 }
 
 export async function GET() {

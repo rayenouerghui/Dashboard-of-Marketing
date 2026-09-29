@@ -5,67 +5,70 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 export type AppRole = "member" | "admin";
 
 interface AuthContextValue {
-  role:           AppRole;
-  hydrated:       boolean; // true once sessionStorage has been read
-  login:          (username: string, password: string) => boolean;
-  logout:         () => void;
-  switchToMember: () => void; // drop to member without clearing session permanently
+  role:           AppRole | null;
+  hydrated:       boolean;
+  login:          (username: string, password?: string, accessCode?: string) => Promise<boolean>;
+  logout:         () => Promise<void>;
+  switchToMember: () => void;
 }
-
-const SESSION_KEY  = "aiesec-session-role";
-const defaultRole: AppRole = "member";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<AppRole>(defaultRole);
+  const [role, setRole] = useState<AppRole | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
-  // Read saved role from sessionStorage on first mount
+  // Check session on mount
   useEffect(() => {
-    const saved = sessionStorage.getItem(SESSION_KEY);
-    if (saved === "admin") setRoleState("admin");
-    setHydrated(true);
+    async function checkSession() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            setRole(data.role);
+          }
+        }
+      } catch (error) {
+        console.error("[AuthContext] Failed to check session:", error);
+      } finally {
+        setHydrated(true);
+      }
+    }
+    checkSession();
   }, []);
 
-  // Persist role changes
-  useEffect(() => {
-    if (!hydrated) return;
-    if (role === "member") {
-      sessionStorage.removeItem(SESSION_KEY);
-    } else {
-      sessionStorage.setItem(SESSION_KEY, role);
+  const login = async (username: string, password?: string, accessCode?: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, accessCode }),
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setRole(data.role);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("[AuthContext] Login failed:", error);
+      return false;
     }
-  }, [role, hydrated]);
-
-  const login = (username: string, password: string): boolean => {
-    const u = username.trim().toLowerCase();
-    const p = password.trim();
-    const adminUser = (process.env.NEXT_PUBLIC_ADMIN_USER ?? "crispy").toLowerCase();
-    const adminPass =  process.env.NEXT_PUBLIC_ADMIN_PASS ?? "crispy";
-    if (u === adminUser && p === adminPass) {
-      setRoleState("admin");
-      return true;
-    }
-    return false;
   };
 
-  /** Full logout — clears session, goes back to member */
-  const logout = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setRoleState("member");
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setRole(null);
+    } catch (error) {
+      console.error("[AuthContext] Logout failed:", error);
+    }
   };
 
-  /**
-   * Switch to member view WITHOUT clearing the admin session.
-   * This lets the admin browse the member side and click the logo
-   * 5× to get back — or just open a new tab for the admin dashboard.
-   * We intentionally clear the session here so the member layout
-   * guard doesn't immediately bounce them back to /dashboard.
-   */
   const switchToMember = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    setRoleState("member");
+    setRole("member");
   };
 
   const value = useMemo<AuthContextValue>(

@@ -116,20 +116,11 @@ export default function MemberDashboardClient({
     return () => cancelAnimationFrame(t);
   }, []);
 
-  // Initial attractions fetch + periodic poll + event-based sync
+  // Initial attractions fetch + periodic poll
   useEffect(() => {
     fetchAttractions();
     const pollId = setInterval(fetchAttractions, 15_000);
-
-    const handleSync = () => {
-      fetchAttractions();
-    };
-
-    window.addEventListener("attractionUpdated", handleSync);
-    return () => {
-      clearInterval(pollId);
-      window.removeEventListener("attractionUpdated", handleSync);
-    };
+    return () => clearInterval(pollId);
   }, [fetchAttractions]);
 
   // Keep active tab in range when attractions change
