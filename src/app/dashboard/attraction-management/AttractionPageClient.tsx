@@ -134,20 +134,20 @@ function Legend({ color, label }: { color: string; label: string }) {
 }
 
 const UNIVERSITY_LOGOS = [
-  "ECB.png",
-  "ENS_Logo_TL.jpg",
-  "ESPRIT.jpg",
-  "ESSECT.jpg",
-  "FMT.png",
-  "FSHST.jpg",
-  "HIDE.png",
-  "ISBAT.jpg",
-  "ISG.jpg",
-  "ISMT.jpg",
-  "TBS.jpg",
+  "ecb.png",
+  "ens-logo-tl.jpg",
+  "esprit.jpg",
+  "essect.jpg",
+  "fmt.png",
+  "fshst.jpg",
+  "hide.png",
+  "isbat.jpg",
+  "isg.jpg",
+  "ismt.jpg",
+  "tbs.jpg",
   "ensit.jpg",
   "iseaht-logo.jpg",
-  "iset chargia.jpg",
+  "iset-chargia.jpg",
 ];
 
 // Must match the key used on the Timeline page so both stay in sync.
@@ -392,7 +392,7 @@ export default function AttractionPageClient() {
                 <Field label="University Logo (optional)">
                   <div className="grid grid-cols-5 gap-2 sm:grid-cols-7">
                     {UNIVERSITY_LOGOS.map((logo) => {
-                      const path = `/images/university-logos/${logo}`;
+                      const path = `/university-logos/${logo}`;
                       const selected = formData.universityLogo === path;
                       return (
                         <button

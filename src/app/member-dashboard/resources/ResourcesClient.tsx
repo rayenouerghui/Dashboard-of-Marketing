@@ -281,8 +281,8 @@ export default function ResourcesClient() {
         subtitle="Professional internships"
         accent="teal"
         images={[
-          { src: "/images/resources/GTa 1.jpg", alt: "GTa program information, page 1" },
-          { src: "/images/resources/GTa 2.jpg", alt: "GTa program information, page 2" },
+          { src: "/images/resources/gta-1.jpg", alt: "GTa program information, page 1" },
+          { src: "/images/resources/gta-2.jpg", alt: "GTa program information, page 2" },
         ]}
       />
 
@@ -293,8 +293,8 @@ export default function ResourcesClient() {
         subtitle="Volunteer projects"
         accent="red"
         images={[
-          { src: "/images/resources/GV 1.jpg", alt: "GV program information, page 1" },
-          { src: "/images/resources/GV 2.jpg", alt: "GV program information, page 2" },
+          { src: "/images/resources/gv-1.jpg", alt: "GV program information, page 1" },
+          { src: "/images/resources/gv-2.jpg", alt: "GV program information, page 2" },
         ]}
       />
 

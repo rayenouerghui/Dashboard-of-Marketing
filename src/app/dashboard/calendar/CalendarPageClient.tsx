@@ -61,20 +61,20 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
   const [formData, setFormData] = useState(() => getInitialFormData(event, mode));
 
   const universityLogos = [
-    "ECB.png",
-    "ENS_Logo_TL.jpg",
-    "ESPRIT.jpg",
-    "ESSECT.jpg",
-    "FMT.png",
-    "FSHST.jpg",
-    "HIDE.png",
-    "ISBAT.jpg",
-    "ISG.jpg",
-    "ISMT.jpg",
-    "TBS.jpg",
+    "ecb.png",
+    "ens-logo-tl.jpg",
+    "esprit.jpg",
+    "essect.jpg",
+    "fmt.png",
+    "fshst.jpg",
+    "hide.png",
+    "isbat.jpg",
+    "isg.jpg",
+    "ismt.jpg",
+    "tbs.jpg",
     "ensit.jpg",
     "iseaht-logo.jpg",
-    "iset chargia.jpg",
+    "iset-chargia.jpg",
   ];
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -142,7 +142,7 @@ const AttractionModal: React.FC<ModalProps> = ({ isOpen, onClose, onSave, onDele
             >
               <option value="">Select a logo</option>
               {universityLogos.map((logo) => (
-                <option key={logo} value={`/images/university-logos/${logo}`}>
+                <option key={logo} value={`/university-logos/${logo}`}>
                   {logo}
                 </option>
               ))}
