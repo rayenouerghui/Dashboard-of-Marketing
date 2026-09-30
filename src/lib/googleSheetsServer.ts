@@ -10,6 +10,8 @@
 // FALLBACK: If Google Sheets environment variables are not set, the functions
 // will fall back to reading from static JSON files in src/data/
 
+import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey, getOpportunityOgvSpreadsheetId, getOpportunityOgtSpreadsheetId } from "./env";
+
 function toCamelCase(header: string): string {
   // Preserve emojis and special characters, only convert spaces to camelCase
   // This keeps column names like "🌍 Type Of Abroad Internship (Volunteering Internship)" intact
@@ -72,14 +74,12 @@ function getOpportunitySpreadsheetId(product: string) {
   const normalized = product.trim().toUpperCase();
 
   if (normalized === "GV" || normalized === "OGV") {
-    const spreadsheetId =
-      process.env.OPPORTUNITY_OGV_SPREADSHEET_ID || HARDCODED_OGV_SPREADSHEET_ID;
+    const spreadsheetId = getOpportunityOgvSpreadsheetId() || HARDCODED_OGV_SPREADSHEET_ID;
     return { spreadsheetId, sheetType: "OGV" };
   }
 
   if (normalized === "GTA" || normalized === "GTE" || normalized === "OGTA" || normalized === "OGTE") {
-    const spreadsheetId =
-      process.env.OPPORTUNITY_OGT_SPREADSHEET_ID || HARDCODED_OGT_SPREADSHEET_ID;
+    const spreadsheetId = getOpportunityOgtSpreadsheetId() || HARDCODED_OGT_SPREADSHEET_ID;
     return { spreadsheetId, sheetType: "OGT" };
   }
 
@@ -212,16 +212,9 @@ export async function appendOpportunitySubmission(payload: Omit<OpportunitySubmi
 }
 
 function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
-
-  if (!sheetId) {
-    throw new Error('GOOGLE_SHEET_ID environment variable is not set');
-  }
-  if (!clientEmail || !privateKey) {
-    throw new Error('GOOGLE_SHEETS_CLIENT_EMAIL or GOOGLE_SHEETS_PRIVATE_KEY environment variable is not set');
-  }
+  const sheetId = getGoogleSheetId();
+  const clientEmail = getGoogleSheetsClientEmail();
+  const privateKey = getGoogleSheetsPrivateKey();
 
   const key = privateKey.replace(/\\n/g, "\n");
 
@@ -264,12 +257,15 @@ function formatGoogleError(err: unknown): Error {
 
 async function fetchSheetTab(tabName: string): Promise<Record<string, string>[]> {
   // Check if Google Sheets environment variables are set
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  let sheetId: string;
+  let clientEmail: string;
+  let privateKey: string;
 
-  // If env vars are not set, throw in production, fall back in development
-  if (!sheetId || !clientEmail || !privateKey) {
+  try {
+    sheetId = getGoogleSheetId();
+    clientEmail = getGoogleSheetsClientEmail();
+    privateKey = getGoogleSheetsPrivateKey();
+  } catch {
     if (process.env.NODE_ENV === "production") {
       throw new Error('Google Sheets environment variables (GOOGLE_SHEET_ID, GOOGLE_SHEETS_CLIENT_EMAIL, GOOGLE_SHEETS_PRIVATE_KEY) are required in production');
     }
@@ -372,9 +368,17 @@ export async function fetchPhysicalLeadsRaw() {
 }
 
 export async function getGoogleSheetsDebugInfo() {
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
+  let sheetId: string | undefined;
+  let clientEmail: string | undefined;
+  let privateKey: string | undefined;
+
+  try {
+    sheetId = getGoogleSheetId();
+    clientEmail = getGoogleSheetsClientEmail();
+    privateKey = getGoogleSheetsPrivateKey();
+  } catch {
+    // Variables not set
+  }
 
   const base = {
     envVarsSet: {

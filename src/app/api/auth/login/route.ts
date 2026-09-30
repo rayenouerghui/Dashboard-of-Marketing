@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { createSession, setSession, constantTimeCompare, checkRateLimit, type Role } from "@/lib/auth";
-import { env } from "@/lib/env";
+import { getAdminUser, getAdminPasswordHash } from "@/lib/env";
 import { verifyMemberAccessCode } from "@/lib/membersServer";
 import { z } from "zod";
 
@@ -48,7 +48,10 @@ export async function POST(request: NextRequest) {
 
     if (password) {
       // Admin login
-      if (!constantTimeCompare(username.toLowerCase(), env.ADMIN_USER.toLowerCase())) {
+      const adminUser = getAdminUser();
+      const adminPasswordHash = getAdminPasswordHash();
+      
+      if (!constantTimeCompare(username.toLowerCase(), adminUser.toLowerCase())) {
         await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
         return NextResponse.json(
           { success: false, error: "Invalid credentials" },
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const isValid = await bcrypt.compare(password, env.ADMIN_PASSWORD_HASH);
+      const isValid = await bcrypt.compare(password, adminPasswordHash);
       if (!isValid) {
         await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
         return NextResponse.json(

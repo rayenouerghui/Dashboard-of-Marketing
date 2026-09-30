@@ -6,9 +6,8 @@
 import "server-only";
 import { getGoogleApis } from "./googleSheetsServer";
 import bcrypt from "bcryptjs";
-import { env } from "./env";
+import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey } from "./env";
 
-const MEMBERS_SPREADSHEET_ID = env.GOOGLE_SHEET_ID;
 const MEMBERS_TAB = "Members";
 
 export interface Member {
@@ -37,18 +36,9 @@ async function getSheetsClient() {
 }
 
 function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  if (!sheetId) {
-    throw new Error("GOOGLE_SHEET_ID is not set");
-  }
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  if (!clientEmail) {
-    throw new Error("GOOGLE_SHEETS_CLIENT_EMAIL is not set");
-  }
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
-  if (!privateKey) {
-    throw new Error("GOOGLE_SHEETS_PRIVATE_KEY is not set");
-  }
+  const sheetId = getGoogleSheetId();
+  const clientEmail = getGoogleSheetsClientEmail();
+  const privateKey = getGoogleSheetsPrivateKey();
 
   const auth = new google.auth.GoogleAuth({
     credentials: {
@@ -67,10 +57,14 @@ function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
  */
 export async function loadMembersFromSheet(): Promise<Member[]> {
   // In development, use fallback if Google Sheets credentials are not set
-  if (process.env.NODE_ENV !== "production" && 
-      (!env.GOOGLE_SHEETS_CLIENT_EMAIL || !env.GOOGLE_SHEETS_PRIVATE_KEY)) {
-    console.warn("[membersServer] Using development member fallback");
-    return DEV_MEMBERS;
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      getGoogleSheetsClientEmail();
+      getGoogleSheetsPrivateKey();
+    } catch {
+      console.warn("[membersServer] Using development member fallback");
+      return DEV_MEMBERS;
+    }
   }
 
   try {
@@ -81,7 +75,7 @@ export async function loadMembersFromSheet(): Promise<Member[]> {
 
     // Fetch members from the sheet
     const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: MEMBERS_SPREADSHEET_ID,
+      spreadsheetId: getGoogleSheetId(),
       range: `'${MEMBERS_TAB}'!A:E`,
     });
 
@@ -126,7 +120,7 @@ export async function loadMembersFromSheet(): Promise<Member[]> {
 async function ensureMembersTab(sheets: any) {
   try {
     const spreadsheet = await sheets.spreadsheets.get({
-      spreadsheetId: MEMBERS_SPREADSHEET_ID,
+      spreadsheetId: getGoogleSheetId(),
     });
 
     const sheetExists = spreadsheet.data.sheets?.some(
@@ -136,7 +130,7 @@ async function ensureMembersTab(sheets: any) {
     if (!sheetExists) {
       console.log(`[membersServer] Creating ${MEMBERS_TAB} tab`);
       await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: MEMBERS_SPREADSHEET_ID,
+        spreadsheetId: getGoogleSheetId(),
         requestBody: {
           requests: [
             {
@@ -152,7 +146,7 @@ async function ensureMembersTab(sheets: any) {
 
       // Add header row
       await sheets.spreadsheets.values.update({
-        spreadsheetId: MEMBERS_SPREADSHEET_ID,
+        spreadsheetId: getGoogleSheetId(),
         range: `'${MEMBERS_TAB}'!A1:E1`,
         valueInputOption: "RAW",
         requestBody: {

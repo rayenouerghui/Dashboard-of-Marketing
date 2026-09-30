@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSession, type Role } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { jwtVerify, type JWTPayload } from "jose";
+import { getSessionSecret } from "@/lib/sessionSecret";
+
+type Role = "admin" | "member";
+
+interface SessionPayload extends JWTPayload {
+  role: Role;
+  sub: string;
+  memberId?: string;
+  name?: string;
+}
 
 /**
  * Validates a redirect URL to prevent open redirect attacks.
@@ -29,6 +40,21 @@ function isValidRedirect(url: string): boolean {
   if (/[\x00-\x1F\x7F]/.test(url)) return false;
   
   return true;
+}
+
+async function getSession(): Promise<SessionPayload | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("session")?.value;
+    
+    if (!token) return null;
+    
+    const secret = getSessionSecret();
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    return payload as unknown as SessionPayload;
+  } catch {
+    return null;
+  }
 }
 
 export async function proxy(request: NextRequest) {

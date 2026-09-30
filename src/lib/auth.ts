@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
-import { env } from "./env";
+import { getSessionSecret } from "./sessionSecret";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -22,26 +22,36 @@ let inMemoryRateLimitStore = new Map<string, { count: number; resetTime: number 
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
 
-// Initialize Upstash Redis if credentials are available
-if (env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN) {
-  try {
-    const redis = new Redis({
-      url: env.UPSTASH_REDIS_REST_URL,
-      token: env.UPSTASH_REDIS_REST_TOKEN,
-    });
-    ratelimit = new Ratelimit({
-      redis,
-      limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX_ATTEMPTS, `${RATE_LIMIT_WINDOW} ms`),
-    });
-  } catch (error) {
-    console.warn("[auth] Failed to initialize Upstash Redis, falling back to in-memory rate limiting:", error);
+// Initialize Upstash Redis if credentials are available (lazy initialization)
+function getRateLimiter(): Ratelimit | null {
+  if (ratelimit !== null) return ratelimit;
+  
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (redisUrl && redisToken) {
+    try {
+      const redis = new Redis({
+        url: redisUrl,
+        token: redisToken,
+      });
+      ratelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX_ATTEMPTS, `${RATE_LIMIT_WINDOW} ms`),
+      });
+      console.log("[auth] Upstash Redis rate limiting initialized");
+    } catch (error) {
+      console.warn("[auth] Failed to initialize Upstash Redis, falling back to in-memory rate limiting:", error);
+    }
+  } else {
+    console.warn("[auth] UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set, using in-memory rate limiting (not suitable for production)");
   }
-} else {
-  console.warn("[auth] UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set, using in-memory rate limiting (not suitable for production)");
+  
+  return ratelimit;
 }
 
 function getSecretKey() {
-  return new TextEncoder().encode(env.SESSION_SECRET);
+  return new TextEncoder().encode(getSessionSecret());
 }
 
 export async function createSession(role: Role, sub: string, memberId?: string, name?: string): Promise<string> {
@@ -121,10 +131,12 @@ export async function requireRole(requiredRole: Role): Promise<SessionPayload> {
 
 // Rate limiting helper
 export async function checkRateLimit(identifier: string): Promise<{ success: boolean; reset?: number }> {
+  const limiter = getRateLimiter();
+  
   // Use Upstash Redis if available
-  if (ratelimit) {
+  if (limiter) {
     try {
-      const { success, reset } = await ratelimit.limit(identifier);
+      const { success, reset } = await limiter.limit(identifier);
       return { success, reset };
     } catch (error) {
       console.warn("[auth] Upstash rate limit check failed, falling back to in-memory:", error);

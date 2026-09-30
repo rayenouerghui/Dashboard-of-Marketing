@@ -5,6 +5,7 @@
 
 import "server-only";
 import { getGoogleApis } from "./googleSheetsServer";
+import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey } from "./env";
 
 const RESOURCES_SPREADSHEET_ID = "1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM";
 const RESOURCES_TAB = "Resources";
@@ -27,16 +28,9 @@ async function getSheetsClient() {
 }
 
 function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY;
-
-  if (!sheetId) {
-    throw new Error('GOOGLE_SHEET_ID environment variable is not set');
-  }
-  if (!clientEmail || !privateKey) {
-    throw new Error('GOOGLE_SHEETS_CLIENT_EMAIL or GOOGLE_SHEETS_PRIVATE_KEY environment variable is not set');
-  }
+  const sheetId = getGoogleSheetId();
+  const clientEmail = getGoogleSheetsClientEmail();
+  const privateKey = getGoogleSheetsPrivateKey();
 
   const key = privateKey.replace(/\\n/g, "\n");
 

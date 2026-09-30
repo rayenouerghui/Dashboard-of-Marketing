@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { loadScheduledAttractionsFromSheet, deleteScheduledAttractionFromSheet } from "@/lib/googleSheetsServer";
-import { env } from "@/lib/env";
+import { getCronSecret } from "@/lib/env";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -8,12 +8,13 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   // Verify CRON_SECRET header with timing-safe comparison
   const authHeader = request.headers.get("authorization");
-  const cronSecret = request.headers.get("x-cron-secret");
+  const headerCronSecret = request.headers.get("x-cron-secret");
   
-  const providedSecret = authHeader?.replace("Bearer ", "") || cronSecret;
+  const providedSecret = authHeader?.replace("Bearer ", "") || headerCronSecret;
   
   // Timing-safe comparison to prevent timing attacks
-  if (!providedSecret || !timingSafeEqual(providedSecret, env.CRON_SECRET)) {
+  const cronSecret = getCronSecret();
+  if (!providedSecret || !timingSafeEqual(providedSecret, cronSecret)) {
     console.error("[api/cron/cleanup-attractions] Unauthorized access attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
