@@ -24,7 +24,7 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
   const [todayAttractions, setTodayAttractions] = useState<TodayAttraction[]>([]);
   const [hasShownPopup, setHasShownPopup]     = useState(false);
 
-  // Redirect admin away — wait for hydration so role is known
+  // Redirect non-members away — wait for hydration so role is known
   useEffect(() => {
     if (!hydrated) return;
     if (role === "admin") {
@@ -34,23 +34,20 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
 
   // Today's attractions popup
   useEffect(() => {
-    if (hasShownPopup) return;
+    if (hasShownPopup || !role) return;
 
     const check = async () => {
       const today = new Date().toISOString().slice(0, 10);
       try {
-        const [leadsRes, attractionsRes] = await Promise.all([
-          fetch("/api/leads/physical"),
-          fetch("/api/scheduled-attractions"),
-        ]);
-
-        const leads: PhysicalAttractionLead[] = await leadsRes.json();
+        const res = await fetch("/api/leads/physical");
+        const leads: PhysicalAttractionLead[] = await res.json();
         const todayLeads = leads.filter(
           (l) => new Date(l.submittedAt).toISOString().slice(0, 10) === today
         );
 
-        const allAttractions: any[] = attractionsRes.ok ? await attractionsRes.json() : [];
-        const todayCustom = allAttractions.filter((e: any) => e.start === today);
+        const saved = localStorage.getItem("customCalendarEvents");
+        const customEvents = saved ? JSON.parse(saved) : [];
+        const todayCustom = customEvents.filter((e: any) => e.start === today);
 
         const attractions: TodayAttraction[] = [
           ...todayLeads.map((l) => ({ university: l.university, type: "lead" as const })),

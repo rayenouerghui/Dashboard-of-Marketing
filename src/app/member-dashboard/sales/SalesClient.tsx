@@ -17,6 +17,33 @@ const PRODUCT_LOGOS: Record<string, string> = {
   GV: "/images/products/gv.png",
 };
 
+function ProductLogoBadge({ product, size = 32 }: { product: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+  const src = PRODUCT_LOGOS[product];
+
+  if (failed || !src) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold tracking-wide text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        style={{ width: size, height: size }}
+      >
+        {product.slice(0, 3).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={product}
+      fill
+      className="object-contain"
+      sizes={`${size}px`}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const PRODUCT_SPEECHES: Record<string, string> = {
   GTa: "Global Talent (GTa) offers professional internships abroad for students and recent graduates. Participants gain international work experience, develop professional skills, and build a global network. Programs are available in various fields including IT, Marketing, Engineering, and Business. The duration typically ranges from 6 to 78 weeks, providing flexibility for different academic schedules.",
   GTe: "Global Teacher (GTe) focuses on teaching opportunities in educational institutions worldwide. Participants can teach languages, STEM subjects, or other disciplines while experiencing new cultures. This program is ideal for education students and those passionate about teaching. Programs usually last 6-12 weeks and include accommodation and sometimes meals.",
@@ -115,13 +142,7 @@ export default function SalesClient() {
               }}
             >
               <div className="relative h-8 w-8 shrink-0">
-                <Image
-                  src={PRODUCT_LOGOS[label]}
-                  alt={label}
-                  fill
-                  className="object-contain"
-                  sizes="32px"
-                />
+                <ProductLogoBadge product={label} size={32} />
               </div>
               <span className="font-semibold">{label}</span>
             </button>
@@ -133,13 +154,7 @@ export default function SalesClient() {
           <div className="rounded-2xl border border-brand-200 bg-gradient-to-br from-brand-50 to-white p-5 shadow-sm dark:border-brand-800/50 dark:from-brand-900/20 dark:to-white/[0.03] animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="flex items-start gap-3 mb-3">
               <div className="relative h-8 w-8 shrink-0">
-                <Image
-                  src={PRODUCT_LOGOS[selectedProduct]}
-                  alt={selectedProduct}
-                  fill
-                  className="object-contain"
-                  sizes="32px"
-                />
+                <ProductLogoBadge product={selectedProduct} size={32} />
               </div>
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                 {selectedProduct} Sales Speech

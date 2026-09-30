@@ -7,6 +7,32 @@ import type { SubmissionRecord } from "@/lib/submissionsStore";
 // ─── Config ───────────────────────────────────────────────────────────────────
 export type SheetType = "OGV" | "OGT";
 
+function ProductLogoBadge({ src, alt, size = 40 }: { src: string; alt: string; size?: number }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed || !src) {
+    return (
+      <div
+        className="flex items-center justify-center rounded-lg bg-gray-100 text-[10px] font-bold tracking-wide text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+        style={{ width: size, height: size }}
+      >
+        {alt.slice(0, 3).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      className="rounded-lg object-contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 const SHEET_CONFIG: Record<SheetType, {
   label:       string;
   accent:      string;   // Tailwind text colour
@@ -133,13 +159,7 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
       <div className={`rounded-2xl border ${cfg.border} ${cfg.bg} p-5`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Image
-              src={cfg.logo}
-              alt={sheet}
-              width={40}
-              height={40}
-              className="rounded-lg object-contain"
-            />
+            <ProductLogoBadge src={cfg.logo} alt={sheet} size={40} />
             <div>
               <h1 className={`text-2xl font-bold ${cfg.accent}`}>{cfg.label}</h1>
               <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">

@@ -39,36 +39,7 @@ const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 // Only count leads submitted on or after this date — everything before is reset to zero
 const RANKING_CUTOFF = "2026-09-07";
 
-// Source labels to exclude from ranking (not actual person names)
-const SOURCE_LABELS = new Set([
-  "heard by friend",
-  "facebook",
-  "instagram",
-  "linkedin",
-  "twitter",
-  "tiktok",
-  "whatsapp",
-  "referral",
-  "walk-in",
-  "walk in",
-  "online",
-  "social media",
-  "google",
-  "youtube",
-  "snapchat",
-  "telegram",
-  "website",
-  "event",
-  "poster",
-  "flyer",
-  "banner",
-  "brochure",
-]);
-
-function isSourceLabel(name: string): boolean {
-  const lower = name.toLowerCase();
-  return SOURCE_LABELS.has(lower);
-}
+import { isSourceLabel } from "@/data/sourceLabels";
 
 // ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
 const getCachedExpaStatuses = unstable_cache(
@@ -102,12 +73,12 @@ export async function GET(request: Request) {
 
     const memberLeads = new Map<string, { total: number; today: number; expaIds: Set<string> }>();
 
+    let globalTotalLeads = 0;
+    let globalTodayLeads = 0;
+    
     for (const r of rawRows) {
       const memberName = (r["🙋Member Name"] || r.memberName || r.member_name || "").trim();
       if (!memberName) continue;
-
-      // Skip source labels (not actual person names)
-      if (isSourceLabel(memberName)) continue;
 
       const submittedAt = r["Submitted at"] || r.submittedAt || r.submitted_at || "";
       const rowDate     = dateStr(submittedAt);
@@ -125,8 +96,16 @@ export async function GET(request: Request) {
         }
       }
 
-      const expaId  = (r["EXPA ID"] || r.expaId || r.eXPAID || "").trim();
       const isToday = rowDate === today;
+      
+      // Count ALL valid leads (including "Facebook", "Friend", etc.) for the total leads metric
+      globalTotalLeads++;
+      if (isToday) globalTodayLeads++;
+
+      // Skip source labels (not actual person names) for the leaderboard
+      if (isSourceLabel(memberName)) continue;
+
+      const expaId  = (r["EXPA ID"] || r.expaId || r.eXPAID || "").trim();
 
       if (!memberLeads.has(memberName)) {
         memberLeads.set(memberName, { total: 0, today: 0, expaIds: new Set() });
@@ -181,8 +160,8 @@ export async function GET(request: Request) {
       success:       true,
       members:       stats,
       totalMembers:  stats.length,
-      totalLeads:    stats.reduce((s, m) => s + m.totalLeads,  0),
-      todayLeads:    stats.reduce((s, m) => s + m.todayLeads,  0),
+      totalLeads:    globalTotalLeads,
+      todayLeads:    globalTodayLeads,
       totalApplied:  stats.reduce((s, m) => s + m.applied,     0),
       totalRealized: stats.reduce((s, m) => s + m.realized,    0),
       generatedAt:   new Date().toISOString(),
