@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { requireRole } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -16,6 +17,7 @@ const ALLOWED_TYPES = {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireRole('admin'); // Admin only
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -58,6 +60,9 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ success: true, url, filename });
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     console.error('Upload error:', error);
     return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
   }

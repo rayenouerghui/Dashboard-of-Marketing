@@ -15,9 +15,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!hydrated) return;
-    // Only members get bounced — wait until we know the real role
-    if (role === "member") {
-      router.replace("/member-dashboard");
+    // Only admin can access dashboard
+    if (role !== "admin") {
+      router.replace("/");
     }
   }, [role, hydrated, router]);
 
@@ -28,7 +28,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     : "lg:ml-[90px]";
 
   // Block render completely until we know the role — prevents flash of admin content
-  if (!hydrated || role === "member") {
+  if (!hydrated || role !== "admin") {
     return null;
   }
 

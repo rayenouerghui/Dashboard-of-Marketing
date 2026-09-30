@@ -3,6 +3,7 @@ import { loadResourcesFromSheet, saveResourceToSheet, deleteResourceFromSheet } 
 import type { Resource } from "@/lib/resourcesServer";
 import { z } from "zod";
 import { sanitizeObject } from "@/lib/sanitize";
+import { requireRole } from "@/lib/auth";
 
 const resourceSchema = z.object({
   title: z.string().min(1).max(200),
@@ -33,6 +34,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    await requireRole('admin'); // Admin only
     const body = await request.json();
     
     // Validate with Zod
@@ -60,6 +62,9 @@ export async function POST(request: NextRequest) {
     await saveResourceToSheet(newResource);
     return NextResponse.json(newResource, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
     }
@@ -70,6 +75,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    await requireRole('admin'); // Admin only
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
 
@@ -79,6 +85,9 @@ export async function DELETE(request: NextRequest) {
     await deleteResourceFromSheet(id!);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
     }

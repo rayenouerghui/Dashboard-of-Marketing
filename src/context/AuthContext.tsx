@@ -2,14 +2,13 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-export type AppRole = "member" | "admin";
+export type AppRole = "admin";
 
 interface AuthContextValue {
   role:           AppRole | null;
   hydrated:       boolean;
-  login:          (username: string, password?: string, accessCode?: string) => Promise<boolean>;
+  login:          (username: string, password: string) => Promise<boolean>;
   logout:         () => Promise<void>;
-  switchToMember: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -38,12 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     checkSession();
   }, []);
 
-  const login = async (username: string, password?: string, accessCode?: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, accessCode }),
+        body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
       
@@ -67,12 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const switchToMember = () => {
-    setRole("member");
-  };
-
   const value = useMemo<AuthContextValue>(
-    () => ({ role, hydrated, login, logout, switchToMember }),
+    () => ({ role, hydrated, login, logout }),
     [role, hydrated],
   );
 

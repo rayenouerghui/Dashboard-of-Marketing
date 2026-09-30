@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const universityId = searchParams.get("universityId") ?? undefined;
 
   try {
-    await requireRole('member'); // Member or admin can read
+    // Public endpoint - no authentication required
     const sheetOpps = await loadOpportunitiesFromSheet(universityId);
 
     // If the sheet has data, return it — otherwise fall back to static JSON seed

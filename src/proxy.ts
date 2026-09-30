@@ -4,13 +4,11 @@ import { cookies } from "next/headers";
 import { jwtVerify, type JWTPayload } from "jose";
 import { getSessionSecret } from "@/lib/sessionSecret";
 
-type Role = "admin" | "member";
+type Role = "admin";
 
 interface SessionPayload extends JWTPayload {
   role: Role;
   sub: string;
-  memberId?: string;
-  name?: string;
 }
 
 /**
@@ -53,6 +51,7 @@ async function getSession(): Promise<SessionPayload | null> {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
     return payload as unknown as SessionPayload;
   } catch {
+    // If SESSION_SECRET is missing or invalid, treat as no session (fail closed)
     return null;
   }
 }
@@ -61,48 +60,18 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // Public routes - no auth required
-  if (pathname === "/" || pathname.startsWith("/api/auth") || pathname === "/admin-login") {
+  // /, /member-dashboard/*, /admin-login, and all API routes except admin-only ones
+  if (pathname === "/" || pathname.startsWith("/member-dashboard") || pathname === "/admin-login" || pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
-  // Check session
-  const session = await getSession();
-  
-  // If not authenticated, redirect to landing page with login flag
-  if (!session) {
-    const url = new URL("/", request.url);
-    url.searchParams.set("login", "1");
-    
-    // Check for safe redirect parameter
-    const nextParam = request.nextUrl.searchParams.get("next");
-    if (nextParam && isValidRedirect(nextParam)) {
-      url.searchParams.set("next", nextParam);
-    }
-    
-    return NextResponse.redirect(url);
-  }
-
-  const role = session.role;
-
   // Admin dashboard - requires admin role
-  // Members trying to access admin dashboard get redirected to member dashboard
   if (pathname.startsWith("/dashboard")) {
-    if (role === "member") {
-      return NextResponse.redirect(new URL("/member-dashboard", request.url));
-    }
-    if (role !== "admin") {
-      const url = new URL("/", request.url);
-      url.searchParams.set("login", "1");
-      return NextResponse.redirect(url);
-    }
-  }
-
-  // Member dashboard - requires member or admin role
-  if (pathname.startsWith("/member-dashboard")) {
-    if (role !== "member" && role !== "admin") {
-      const url = new URL("/", request.url);
-      url.searchParams.set("login", "1");
-      return NextResponse.redirect(url);
+    const session = await getSession();
+    
+    // If not authenticated or not admin, redirect to home
+    if (!session || session.role !== "admin") {
+      return NextResponse.redirect(new URL("/", request.url));
     }
   }
 

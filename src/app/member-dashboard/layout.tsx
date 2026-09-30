@@ -24,7 +24,7 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
   const [todayAttractions, setTodayAttractions] = useState<TodayAttraction[]>([]);
   const [hasShownPopup, setHasShownPopup]     = useState(false);
 
-  // Redirect non-members away — wait for hydration so role is known
+  // Redirect admin away — wait for hydration so role is known
   useEffect(() => {
     if (!hydrated) return;
     if (role === "admin") {
@@ -34,7 +34,7 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
 
   // Today's attractions popup
   useEffect(() => {
-    if (hasShownPopup || role !== "member") return;
+    if (hasShownPopup) return;
 
     const check = async () => {
       const today = new Date().toISOString().slice(0, 10);

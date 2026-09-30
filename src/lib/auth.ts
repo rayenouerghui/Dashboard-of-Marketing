@@ -4,13 +4,11 @@ import { getSessionSecret } from "./sessionSecret";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
-export type Role = "admin" | "member";
+export type Role = "admin";
 
 export interface SessionPayload extends JWTPayload {
   role: Role;
-  sub: string; // username or memberId
-  memberId?: string; // For members
-  name?: string; // For members
+  sub: string; // username
 }
 
 const SESSION_COOKIE_NAME = "session";
@@ -21,6 +19,12 @@ let ratelimit: Ratelimit | null = null;
 let inMemoryRateLimitStore = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
 const RATE_LIMIT_MAX_ATTEMPTS = 5;
+
+// Per-IP rate limiting for public write endpoints
+let ipRatelimit: Ratelimit | null = null;
+let inMemoryIpRateLimitStore = new Map<string, { count: number; resetTime: number }>();
+const IP_RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const IP_RATE_LIMIT_MAX_REQUESTS = 10;
 
 // Initialize Upstash Redis if credentials are available (lazy initialization)
 function getRateLimiter(): Ratelimit | null {
@@ -50,17 +54,43 @@ function getRateLimiter(): Ratelimit | null {
   return ratelimit;
 }
 
+// Initialize Upstash Redis for IP rate limiting (lazy initialization)
+function getIpRateLimiter(): Ratelimit | null {
+  if (ipRatelimit !== null) return ipRatelimit;
+  
+  const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  
+  if (redisUrl && redisToken) {
+    try {
+      const redis = new Redis({
+        url: redisUrl,
+        token: redisToken,
+      });
+      ipRatelimit = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(IP_RATE_LIMIT_MAX_REQUESTS, `${IP_RATE_LIMIT_WINDOW} ms`),
+      });
+      console.log("[auth] Upstash Redis IP rate limiting initialized");
+    } catch (error) {
+      console.warn("[auth] Failed to initialize Upstash Redis for IP rate limiting, falling back to in-memory:", error);
+    }
+  } else {
+    console.warn("[auth] UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN not set, using in-memory IP rate limiting (not suitable for production)");
+  }
+  
+  return ipRatelimit;
+}
+
 function getSecretKey() {
   return new TextEncoder().encode(getSessionSecret());
 }
 
-export async function createSession(role: Role, sub: string, memberId?: string, name?: string): Promise<string> {
+export async function createSession(role: Role, sub: string): Promise<string> {
   const now = Date.now();
   const payload: SessionPayload = {
     role,
     sub,
-    ...(memberId && { memberId }),
-    ...(name && { name }),
     iat: Math.floor(now / 1000),
     exp: Math.floor((now + SESSION_DURATION) / 1000),
   };
@@ -111,18 +141,7 @@ export async function requireRole(requiredRole: Role): Promise<SessionPayload> {
     throw new Error("Unauthorized");
   }
   
-  // Admin can access everything
-  if (session.role === "admin") {
-    return session;
-  }
-  
-  // Member can only access member routes
-  if (requiredRole === "member" && session.role === "member") {
-    return session;
-  }
-  
-  // Member trying to access admin routes
-  if (requiredRole === "admin" && session.role === "member") {
+  if (session.role !== requiredRole) {
     throw new Error("Forbidden");
   }
   
@@ -162,6 +181,59 @@ export async function checkRateLimit(identifier: string): Promise<{ success: boo
   
   record.count++;
   return { success: true, reset: record.resetTime };
+}
+
+// Per-IP rate limiting helper for public write endpoints
+export async function checkIpRateLimit(identifier: string): Promise<{ success: boolean; reset?: number }> {
+  const limiter = getIpRateLimiter();
+  
+  // Use Upstash Redis if available
+  if (limiter) {
+    try {
+      const { success, reset } = await limiter.limit(identifier);
+      return { success, reset };
+    } catch (error) {
+      console.warn("[auth] Upstash IP rate limit check failed, falling back to in-memory:", error);
+      // Fall through to in-memory
+    }
+  }
+  
+  // Fallback to in-memory rate limiting
+  const now = Date.now();
+  const record = inMemoryIpRateLimitStore.get(identifier);
+  
+  if (!record || now > record.resetTime) {
+    inMemoryIpRateLimitStore.set(identifier, {
+      count: 1,
+      resetTime: now + IP_RATE_LIMIT_WINDOW,
+    });
+    return { success: true, reset: now + IP_RATE_LIMIT_WINDOW };
+  }
+  
+  if (record.count >= IP_RATE_LIMIT_MAX_REQUESTS) {
+    return { success: false, reset: record.resetTime };
+  }
+  
+  record.count++;
+  return { success: true, reset: record.resetTime };
+}
+
+// Helper to extract IP from request headers
+export function getClientIp(request: Request): string {
+  const headers = request.headers as Headers;
+  const xForwardedFor = headers.get('x-forwarded-for');
+  const xRealIp = headers.get('x-real-ip');
+  
+  if (xForwardedFor) {
+    // x-forwarded-for can contain multiple IPs, take the first one
+    return xForwardedFor.split(',')[0].trim();
+  }
+  
+  if (xRealIp) {
+    return xRealIp.trim();
+  }
+  
+  return 'unknown';
 }
 
 // Constant-time comparison for passwords

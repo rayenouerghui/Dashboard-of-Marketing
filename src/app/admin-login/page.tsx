@@ -15,7 +15,6 @@ export default function AdminLoginPage() {
       <LoginModal 
         isOpen={isLoginOpen} 
         onClose={() => setIsLoginOpen(false)} 
-        isAdminLogin={true} 
       />
     </div>
   );

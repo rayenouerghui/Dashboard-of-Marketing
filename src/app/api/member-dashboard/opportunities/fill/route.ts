@@ -3,6 +3,7 @@ import { appendOpportunitySubmission } from "@/lib/googleSheetsServer";
 import { addSubmission, productToSheet } from "@/lib/submissionsStore";
 import { z } from "zod";
 import { sanitizeObject } from "@/lib/sanitize";
+import { checkIpRateLimit, getClientIp } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +20,39 @@ const fillSchema = z.object({
   condition: z.string().max(500).optional(),
   note: z.string().max(500).optional(),
   source: z.string().max(50).optional(),
+  honeypot: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
+    // Public endpoint - no authentication required
+    // Apply per-IP rate limiting
+    const ip = getClientIp(request);
+    const rateLimitResult = await checkIpRateLimit(ip);
+    if (!rateLimitResult.success) {
+      const retryAfter = rateLimitResult.reset 
+        ? Math.ceil((rateLimitResult.reset - Date.now()) / 1000)
+        : 60; // Default to 1 minute
+      return NextResponse.json(
+        { success: false, error: "Too many requests. Please try again later." },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': retryAfter.toString(),
+          },
+        }
+      );
+    }
+
     const body = await request.json();
     
     // Validate with Zod
     const validated = fillSchema.parse(body);
+    
+    // Honeypot check - if filled, it's a bot
+    if (validated.honeypot && validated.honeypot.trim() !== "") {
+      return NextResponse.json({ success: false, error: "Invalid submission" }, { status: 400 });
+    }
     
     // Sanitize user-provided strings
     const sanitized = sanitizeObject(validated, {

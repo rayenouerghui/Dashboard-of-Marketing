@@ -43,16 +43,24 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionMessage, setSubmissionMessage] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [honeypotValue, setHoneypotValue] = useState("");
 
   const handleFillForm = (opportunity: Opportunity) => {
     setSelectedOpportunity(opportunity);
     setShowFormModal(true);
     setSubmissionMessage(null);
     setSubmissionError(null);
+    setHoneypotValue("");
   };
 
   const handleSubmitForm = async () => {
     if (!selectedOpportunity) return;
+
+    // Honeypot check - if filled, it's a bot
+    if (honeypotValue.trim() !== "") {
+      setSubmissionError("Invalid submission.");
+      return;
+    }
 
     const trimmedEpName = epName.trim();
     if (!trimmedEpName) {
@@ -82,6 +90,7 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
           condition: condition.trim(),
           note: condition.trim(),
           source: "member-dashboard",
+          honeypot: honeypotValue,
         }),
       });
 
@@ -468,6 +477,15 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
                   placeholder="Add the EP condition or any note"
                 />
               </div>
+              {/* Honeypot field - hidden from humans, visible to bots */}
+              <input
+                type="text"
+                value={honeypotValue}
+                onChange={(e) => setHoneypotValue(e.target.value)}
+                className="opacity-0 absolute -translate-x-full"
+                tabIndex={-1}
+                autoComplete="off"
+              />
               {submissionError && (
                 <p className="text-sm text-error-600 dark:text-error-400">{submissionError}</p>
               )}

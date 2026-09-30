@@ -1,12 +1,17 @@
 import "server-only";
 import { NextResponse } from 'next/server';
 import { getPhysicalAttractionLeads } from '@/lib/dataUtilsServer';
+import { requireRole } from '@/lib/auth';
 
 export async function GET() {
   try {
+    await requireRole('admin'); // Admin only - contains sensitive lead data
     const leads = await getPhysicalAttractionLeads();
     return NextResponse.json(leads);
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     console.error('Error fetching physical leads:', error);
     const anyErr = error as any;
     const sheetsStatus = anyErr?.status;

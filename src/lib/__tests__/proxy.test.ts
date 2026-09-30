@@ -3,35 +3,19 @@ import { describe, it, expect } from 'vitest';
 // Pure function version of proxy logic for testing
 export function getProxyRedirect(
   pathname: string,
-  session: { role: 'admin' | 'member' | null } | null
+  session: { role: 'admin' | null } | null
 ): { redirect: string | null; statusCode: number } {
   // Public routes - no auth required
-  if (pathname === "/" || pathname.startsWith("/api/auth") || pathname === "/admin-login") {
+  // /, /member-dashboard/*, /admin-login, and all API routes
+  if (pathname === "/" || pathname.startsWith("/member-dashboard") || pathname === "/admin-login" || pathname.startsWith("/api")) {
     return { redirect: null, statusCode: 200 };
   }
 
-  // If not authenticated, redirect to landing page with login flag
-  if (!session) {
-    return { redirect: "/?login=1", statusCode: 307 };
-  }
-
-  const role = session.role;
-
   // Admin dashboard - requires admin role
-  // Members trying to access admin dashboard get redirected to member dashboard
   if (pathname.startsWith("/dashboard")) {
-    if (role === "member") {
-      return { redirect: "/member-dashboard", statusCode: 307 };
-    }
-    if (role !== "admin") {
-      return { redirect: "/?login=1", statusCode: 307 };
-    }
-  }
-
-  // Member dashboard - requires member or admin role
-  if (pathname.startsWith("/member-dashboard")) {
-    if (role !== "member" && role !== "admin") {
-      return { redirect: "/?login=1", statusCode: 307 };
+    // If not authenticated or not admin, redirect to home
+    if (!session || session.role !== "admin") {
+      return { redirect: "/", statusCode: 307 };
     }
   }
 
@@ -71,36 +55,17 @@ describe('Proxy Redirect Logic', () => {
   describe('No session', () => {
     it('should allow access to public routes', () => {
       expect(getProxyRedirect("/", null)).toEqual({ redirect: null, statusCode: 200 });
+      expect(getProxyRedirect("/member-dashboard", null)).toEqual({ redirect: null, statusCode: 200 });
+      expect(getProxyRedirect("/member-dashboard/sales", null)).toEqual({ redirect: null, statusCode: 200 });
       expect(getProxyRedirect("/api/auth/login", null)).toEqual({ redirect: null, statusCode: 200 });
-      expect(getProxyRedirect("/api/auth/logout", null)).toEqual({ redirect: null, statusCode: 200 });
+      expect(getProxyRedirect("/api/opportunities", null)).toEqual({ redirect: null, statusCode: 200 });
       expect(getProxyRedirect("/admin-login", null)).toEqual({ redirect: null, statusCode: 200 });
     });
 
-    it('should redirect to landing page with login flag for protected routes', () => {
-      expect(getProxyRedirect("/dashboard", null)).toEqual({ redirect: "/?login=1", statusCode: 307 });
-      expect(getProxyRedirect("/dashboard/leads", null)).toEqual({ redirect: "/?login=1", statusCode: 307 });
-      expect(getProxyRedirect("/member-dashboard", null)).toEqual({ redirect: "/?login=1", statusCode: 307 });
-      expect(getProxyRedirect("/member-dashboard/sales", null)).toEqual({ redirect: "/?login=1", statusCode: 307 });
-    });
-  });
-
-  describe('Member session', () => {
-    const memberSession = { role: 'member' as const };
-
-    it('should allow access to member dashboard', () => {
-      expect(getProxyRedirect("/member-dashboard", memberSession)).toEqual({ redirect: null, statusCode: 200 });
-      expect(getProxyRedirect("/member-dashboard/sales", memberSession)).toEqual({ redirect: null, statusCode: 200 });
-      expect(getProxyRedirect("/member-dashboard/ranking", memberSession)).toEqual({ redirect: null, statusCode: 200 });
-    });
-
-    it('should redirect member from admin dashboard to member dashboard', () => {
-      expect(getProxyRedirect("/dashboard", memberSession)).toEqual({ redirect: "/member-dashboard", statusCode: 307 });
-      expect(getProxyRedirect("/dashboard/leads", memberSession)).toEqual({ redirect: "/member-dashboard", statusCode: 307 });
-    });
-
-    it('should allow access to public routes', () => {
-      expect(getProxyRedirect("/", memberSession)).toEqual({ redirect: null, statusCode: 200 });
-      expect(getProxyRedirect("/api/auth/me", memberSession)).toEqual({ redirect: null, statusCode: 200 });
+    it('should redirect to home for admin dashboard', () => {
+      expect(getProxyRedirect("/dashboard", null)).toEqual({ redirect: "/", statusCode: 307 });
+      expect(getProxyRedirect("/dashboard/leads", null)).toEqual({ redirect: "/", statusCode: 307 });
+      expect(getProxyRedirect("/dashboard/ranking", null)).toEqual({ redirect: "/", statusCode: 307 });
     });
   });
 
@@ -113,13 +78,9 @@ describe('Proxy Redirect Logic', () => {
       expect(getProxyRedirect("/dashboard/ranking", adminSession)).toEqual({ redirect: null, statusCode: 200 });
     });
 
-    it('should allow access to member dashboard (admin can view both)', () => {
-      expect(getProxyRedirect("/member-dashboard", adminSession)).toEqual({ redirect: null, statusCode: 200 });
-      expect(getProxyRedirect("/member-dashboard/sales", adminSession)).toEqual({ redirect: null, statusCode: 200 });
-    });
-
     it('should allow access to public routes', () => {
       expect(getProxyRedirect("/", adminSession)).toEqual({ redirect: null, statusCode: 200 });
+      expect(getProxyRedirect("/member-dashboard", adminSession)).toEqual({ redirect: null, statusCode: 200 });
       expect(getProxyRedirect("/api/auth/me", adminSession)).toEqual({ redirect: null, statusCode: 200 });
     });
   });
@@ -127,9 +88,8 @@ describe('Proxy Redirect Logic', () => {
   describe('Invalid session (no role)', () => {
     const invalidSession = { role: null };
 
-    it('should redirect to landing page with login flag', () => {
-      expect(getProxyRedirect("/dashboard", invalidSession)).toEqual({ redirect: "/?login=1", statusCode: 307 });
-      expect(getProxyRedirect("/member-dashboard", invalidSession)).toEqual({ redirect: "/?login=1", statusCode: 307 });
+    it('should redirect to home for admin dashboard', () => {
+      expect(getProxyRedirect("/dashboard", invalidSession)).toEqual({ redirect: "/", statusCode: 307 });
     });
   });
 });

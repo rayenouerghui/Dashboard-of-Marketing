@@ -14,8 +14,6 @@ export async function GET() {
     return NextResponse.json({
       role: session.role,
       sub: session.sub,
-      ...(session.memberId && { memberId: session.memberId }),
-      ...(session.name && { name: session.name }),
     });
   } catch (error) {
     console.error("[api/auth/me] error:", error);

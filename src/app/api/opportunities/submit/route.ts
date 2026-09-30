@@ -3,6 +3,7 @@ import { appendOpportunitySubmission, saveOpportunityToSheet } from "@/lib/googl
 import { getUniversityById, type Opportunity } from "@/lib/dataUtils";
 import { z } from "zod";
 import { sanitizeObject } from "@/lib/sanitize";
+import { requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ const submitSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    await requireRole('admin'); // Admin only
     const body = await request.json();
     
     // Validate with Zod
@@ -93,6 +95,9 @@ export async function POST(request: NextRequest) {
     { status: 200 }
   );
   } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
     }

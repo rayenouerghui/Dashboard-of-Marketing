@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from 'next/server';
 import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw, getGoogleSheetsDebugInfo } from '@/lib/googleSheetsServer';
 import { debugComputeAllDashboardData } from '@/lib/dataUtilsServer';
+import { requireRole } from '@/lib/auth';
 
 // TEMPORARY DEBUG ROUTE — delete after diagnosing the blank-fields issue.
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,7 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
+    await requireRole('admin'); // Admin only - debug endpoint
     const diagnostics = await getGoogleSheetsDebugInfo();
     const [digitalResult, physicalResult, processedResult] = await Promise.allSettled([
       fetchDigitalLeadsRaw(),
@@ -48,10 +50,13 @@ export async function GET() {
         : null,
       processedError: processedResult.status === 'rejected' ? String(processedResult.reason?.message ?? processedResult.reason) : null,
     });
-  } catch (err: any) {
+  } catch (error) {
+    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
+      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
+    }
     return NextResponse.json(
       {
-        error: String(err?.message ?? err),
+        error: String((error as any)?.message ?? error),
         diagnostics: await getGoogleSheetsDebugInfo().catch(() => null),
       },
       { status: 500 }

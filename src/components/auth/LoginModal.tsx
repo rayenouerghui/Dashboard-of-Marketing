@@ -4,12 +4,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
-export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: boolean; onClose: () => void; isAdminLogin?: boolean }) {
+export function LoginModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const router = useRouter();
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState("");
 
   if (!isOpen) return null;
@@ -18,7 +17,7 @@ export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: 
     event.preventDefault();
     setError("");
     
-    const ok = await login(username, password, accessCode);
+    const ok = await login(username, password);
 
     if (!ok) {
       setError("Incorrect credentials. Please try again.");
@@ -27,15 +26,10 @@ export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: 
 
     setUsername("");
     setPassword("");
-    setAccessCode("");
     onClose();
 
-    // Redirect by role after successful login
-    if (isAdminLogin) {
-      router.push("/dashboard");
-    } else {
-      router.push("/member-dashboard");
-    }
+    // Redirect to admin dashboard after successful login
+    router.push("/dashboard");
   };
 
   return (
@@ -44,7 +38,7 @@ export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: 
         <div className="mb-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-brand-500">Access</p>
-            <h2 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">Dashboard Login</h2>
+            <h2 className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">Admin Login</h2>
           </div>
           <button
             type="button"
@@ -58,39 +52,26 @@ export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {isAdminLogin ? "Username" : "Name or Member ID"}
+              Username
             </label>
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-              placeholder={isAdminLogin ? "Username" : "Name or Member ID"}
+              placeholder="Username"
             />
           </div>
 
-          {isAdminLogin ? (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                placeholder="Password"
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Access Code</label>
-              <input
-                type="password"
-                value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                placeholder="Access Code"
-              />
-            </div>
-          )}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-gray-800 outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+              placeholder="Password"
+            />
+          </div>
 
           {error && (
             <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
@@ -102,7 +83,7 @@ export function LoginModal({ isOpen, onClose, isAdminLogin = false }: { isOpen: 
             type="submit"
             className="w-full rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600"
           >
-            {isAdminLogin ? "Admin Login" : "Member Login"}
+            Admin Login
           </button>
         </form>
       </div>

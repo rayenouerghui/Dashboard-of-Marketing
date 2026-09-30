@@ -138,7 +138,7 @@ const AppHeader: React.FC = () => {
             </svg>
           </button>
 
-          {role === "member" && (
+          {role !== "admin" && (
             <div className="hidden lg:block">
               <form>
                 <div className="relative">

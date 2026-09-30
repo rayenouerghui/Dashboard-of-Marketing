@@ -21,13 +21,10 @@ const attractionSchema = z.object({
 
 export async function GET() {
   try {
-    await requireRole('member'); // Member or admin can read
+    // Public endpoint - no authentication required
     const attractions = await loadScheduledAttractionsFromSheet();
     return NextResponse.json(attractions);
   } catch (error) {
-    if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
-      return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
-    }
     console.error('Failed to load scheduled attractions:', error);
     return NextResponse.json({ error: 'Failed to load scheduled attractions' }, { status: 500 });
   }

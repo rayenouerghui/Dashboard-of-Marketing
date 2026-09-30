@@ -90,7 +90,7 @@ const getCachedExpaStatuses = unstable_cache(
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
   try {
-    await requireRole('member'); // Member or admin can read
+    // Public endpoint - no authentication required
     const { searchParams } = new URL(request.url);
     // ?expa=0 skips EXPA lookup entirely — returns sheet data immediately
     const skipExpa = searchParams.get("expa") === "0";

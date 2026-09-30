@@ -57,11 +57,10 @@ const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
-  const { role, switchToMember } = useAuth();
+  const { role } = useAuth();
   const [openSubmenu, setOpenSubmenu] = useState<{ type: "main" | "others"; index: number } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const [isLoginOpen, setIsLoginOpen] = useState(false);
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
   const [, setLogoClicks] = useState(0);
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -102,15 +101,15 @@ const AppSidebar: React.FC = () => {
     setLogoClicks((prev) => {
       const next = prev + 1;
       if (next >= 5) {
-        router.push("/admin-login");
+        setIsLoginOpen(true);
         return 0;
       }
-      return prev;
+      return next;
     });
   };
 
-  const visibleNavItems = role === "member" ? memberNavItems : navItems;
-  const visibleOthersItems = role === "member" ? [] : othersItems;
+  const visibleNavItems = role === "admin" ? navItems : memberNavItems;
+  const visibleOthersItems = role === "admin" ? othersItems : [];
 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-4">
@@ -230,7 +229,7 @@ const AppSidebar: React.FC = () => {
         {/* Return to Member Dashboard — admin only */}
         {role === "admin" && (
           <button
-            onClick={() => { switchToMember(); router.push("/member-dashboard"); }}
+            onClick={() => router.push("/member-dashboard")}
             className={`mb-10 flex items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 transition-all hover:bg-brand-100 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300 dark:hover:bg-brand-500/20 ${
               !isExpanded && !isHovered && !isMobileOpen ? "mx-auto w-10 justify-center px-0" : "mx-auto w-full max-w-60"
             }`}
@@ -243,7 +242,7 @@ const AppSidebar: React.FC = () => {
         )}
       </div>
 
-      <LoginModal isOpen={isLoginOpen} onClose={() => { setIsLoginOpen(false); setIsAdminLogin(false); }} isAdminLogin={isAdminLogin} />
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
     </aside>
   );
 };
