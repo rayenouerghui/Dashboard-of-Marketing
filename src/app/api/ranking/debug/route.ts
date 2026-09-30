@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
+import { fetchPhysicalLeadsRaw, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 import { requireRole } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const nameCounts = new Map<string, number>();
 
     for (const r of rawRows) {
-      const memberName = (r["🙋Member Name"] || r.memberName || r.member_name || "").trim();
+      const memberName = resolveMemberNameValue(r);
       if (!memberName) continue;
 
       nameCounts.set(memberName, (nameCounts.get(memberName) ?? 0) + 1);

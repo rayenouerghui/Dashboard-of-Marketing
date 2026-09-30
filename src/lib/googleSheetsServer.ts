@@ -60,6 +60,62 @@ function normalizeHeaderName(header: string) {
   return header.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
+const MEMBER_NAME_HEADER_ALIASES = new Set([
+  "membername",
+  "fullname",
+  "full name",
+  "full_name",
+  "membernameemoji",
+]);
+
+let memberNameHeaderWarningShown = false;
+
+export function resolveMemberNameKey(row: Record<string, string> | null | undefined): string | null {
+  if (!row) return null;
+
+  const keys = Object.keys(row);
+  const canonicalKeyMap = new Map<string, string>();
+
+  for (const key of keys) {
+    const normalized = normalizeHeaderName(key);
+    if (!normalized) continue;
+    if (!canonicalKeyMap.has(normalized)) {
+      canonicalKeyMap.set(normalized, key);
+    }
+  }
+
+  for (const alias of MEMBER_NAME_HEADER_ALIASES) {
+    const exact = canonicalKeyMap.get(normalizeHeaderName(alias));
+    if (exact) return exact;
+  }
+
+  // Prefer real member-name columns over source/referral fields when the header is
+  // written with the emoji or with a slightly different casing/spacing.
+  const candidate = keys.find((key) => {
+    const normalized = normalizeHeaderName(key);
+    return (
+      normalized.includes("member") && normalized.includes("name")
+    ) || normalized === "fullname" || normalized === "full_name";
+  });
+
+  return candidate ?? null;
+}
+
+export function resolveMemberNameValue(row: Record<string, string> | null | undefined): string {
+  const key = resolveMemberNameKey(row);
+  if (!key) {
+    if (!memberNameHeaderWarningShown) {
+      const available = row ? Object.keys(row).slice(0, 12).join(", ") : "none";
+      console.warn(`[googleSheetsServer] Could not find a member-name column in the current sheet headers. Available keys: ${available}`);
+      memberNameHeaderWarningShown = true;
+    }
+    return "";
+  }
+
+  const value = row?.[key] ?? "";
+  return String(value).trim();
+}
+
 function escapeA1ColumnRange(sheetTitle: string) {
   return `'${escapeA1SheetName(sheetTitle)}'!A:Z`;
 }

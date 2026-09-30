@@ -26,6 +26,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# local inspection scripts
+scripts/inspect-sheet.mjs
+
 # local env files
 .env*.local
 

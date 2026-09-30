@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
+import { fetchPhysicalLeadsRaw, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
 import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
     let globalTodayLeads = 0;
     
     for (const r of rawRows) {
-      const memberName = (r["🙋Member Name"] || r.memberName || r.member_name || "").trim();
+      const memberName = resolveMemberNameValue(r);
       if (!memberName) continue;
 
       const submittedAt = r["Submitted at"] || r.submittedAt || r.submitted_at || "";
