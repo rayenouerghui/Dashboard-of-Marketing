@@ -13,6 +13,7 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+const STORAGE_KEY = "customCalendarEvents";
 const DEFAULT_GOAL = 30;
 const TOP_MEMBERS_LIMIT = 6;
 
@@ -31,9 +32,15 @@ interface CustomEvent {
 }
 
 /** Return ALL events scheduled for today (supports multiple per day). */
-function filterTodaysAttractions(events: CustomEvent[]): CustomEvent[] {
-  const todayStr = toLocalDateString(new Date());
-  return events.filter((e) => e.start === todayStr);
+function readTodaysAttractions(): CustomEvent[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const events: CustomEvent[] = saved ? JSON.parse(saved) : [];
+    const todayStr = toLocalDateString(new Date());
+    return events.filter((e) => e.start === todayStr);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -55,55 +62,26 @@ export default function MemberDashboardClient({
 }) {
   const leads = initialLeads; // physical leads only (server-fetched, used as initial state)
   const [mounted, setMounted] = useState(false);
-  const [allAttractions, setAllAttractions] = useState<CustomEvent[]>([]);
+  const [todaysAttractions, setTodaysAttractions] = useState<CustomEvent[]>([]);
   const [activeTab, setActiveTab] = useState(0);
-  // Live member counts per university from the ranking API — polled every 30s
-  const [liveMemberCountsByUniversity, setLiveMemberCountsByUniversity] = useState<Record<string, Record<string, number>>>({});
+  // Live member counts from the ranking API — polled every 30s
+  const [liveMemberCounts, setLiveMemberCounts] = useState<Record<string, number>>({});
 
-  // Fetch attractions from the cross-device sheet-backed API
-  const fetchAttractions = useCallback(async () => {
+  // Poll /api/ranking every 30s for real-time today's member lead counts
+  const refreshLiveCounts = useCallback(async () => {
     try {
-      const res = await fetch("/api/scheduled-attractions");
-      if (res.ok) {
-        const data = await res.json();
-        setAllAttractions(data);
+      // Use fast sheet-only endpoint for the today's leaderboard — no EXPA needed
+      const res  = await fetch("/api/ranking?expa=0");
+      const data = await res.json();
+      if (data.success) {
+        const map: Record<string, number> = {};
+        for (const m of (data.members ?? [])) {
+          map[m.name] = m.todayLeads;
+        }
+        setLiveMemberCounts(map);
       }
     } catch { /* silent */ }
   }, []);
-
-  // Derive today's attractions from the full list (same filter every render)
-  const todaysAttractions = useMemo(
-    () => filterTodaysAttractions(allAttractions),
-    [allAttractions]
-  );
-
-  // Poll /api/ranking every 30s for real-time today's member lead counts
-  // Fetches per-university rankings for each attraction
-  const refreshLiveCounts = useCallback(async () => {
-    try {
-      // For each attraction, fetch ranking filtered by its university
-      const promises = todaysAttractions.map(async (attraction) => {
-        const uniName = attraction.extendedProps.university;
-        const res = await fetch(`/api/ranking?expa=0&university=${encodeURIComponent(uniName)}`);
-        const data = await res.json();
-        if (data.success) {
-          const map: Record<string, number> = {};
-          for (const m of (data.members ?? [])) {
-            map[m.name] = m.todayLeads;
-          }
-          return { university: uniName, counts: map };
-        }
-        return { university: uniName, counts: {} };
-      });
-
-      const results = await Promise.all(promises);
-      const combinedMap: Record<string, Record<string, number>> = {};
-      for (const { university, counts } of results) {
-        combinedMap[university] = counts;
-      }
-      setLiveMemberCountsByUniversity(combinedMap);
-    } catch { /* silent */ }
-  }, [todaysAttractions]);
 
   useEffect(() => {
     refreshLiveCounts();
@@ -116,17 +94,22 @@ export default function MemberDashboardClient({
     return () => cancelAnimationFrame(t);
   }, []);
 
-  // Initial attractions fetch + periodic poll
   useEffect(() => {
-    fetchAttractions();
-    const pollId = setInterval(fetchAttractions, 15_000);
-    return () => clearInterval(pollId);
-  }, [fetchAttractions]);
+    const handleSync = () => {
+      const next = readTodaysAttractions();
+      setTodaysAttractions(next);
+      // Keep active tab in range if attractions change
+      setActiveTab((prev) => (prev < next.length ? prev : 0));
+    };
 
-  // Keep active tab in range when attractions change
-  useEffect(() => {
-    setActiveTab((prev) => (prev < todaysAttractions.length ? prev : 0));
-  }, [todaysAttractions.length]);
+    handleSync();
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("attractionUpdated", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("attractionUpdated", handleSync);
+    };
+  }, []);
 
   const today = toLocalDateString(new Date());
 
@@ -138,6 +121,8 @@ export default function MemberDashboardClient({
 
   // Per-attraction computed data — uses live API counts when available, falls back to initialLeads
   const attractionData = useMemo(() => {
+    const hasLive = Object.keys(liveMemberCounts).length > 0;
+
     return todaysAttractions.map((attraction) => {
       const uniName = attraction.extendedProps.university;
 
@@ -148,11 +133,18 @@ export default function MemberDashboardClient({
 
       const dailyGoal = attraction.extendedProps.goal ?? DEFAULT_GOAL;
 
-      // Get live counts for this specific university
-      const uniLiveCounts = liveMemberCountsByUniversity[uniName] || {};
-      const hasLive = Object.keys(uniLiveCounts).length > 0;
+      // Lead count: prefer live API total for this university's members;
+      // fall back to static initialLeads count
+      const leadCount = hasLive
+        ? uniLeads.reduce((sum, l) => {
+            const name = l.memberName?.trim();
+            // If the member is in our live map, use live count (already summed globally);
+            // we still count per-university from the static data as a cross-check
+            return sum; // we compute below
+          }, 0) || uniLeads.length
+        : uniLeads.length;
 
-      // Leaderboard: if we have live data, build it from uniLiveCounts
+      // Leaderboard: if we have live data, build it from liveMemberCounts
       // but only include members who had at least 1 lead at this university today
       // (determined from the static snapshot — university attribution still comes from there)
       let leaderboard: Array<{ name: string; leadsToday: number; rank: number }>;
@@ -164,7 +156,7 @@ export default function MemberDashboardClient({
         );
         // For each member at this uni, use live count
         const entries = Array.from(uniMemberNames)
-          .map((name) => ({ name, leadsToday: uniLiveCounts[name] ?? 0 }))
+          .map((name) => ({ name, leadsToday: liveMemberCounts[name] ?? 0 }))
           .filter((e) => e.leadsToday > 0)
           .sort((a, b) => b.leadsToday - a.leadsToday)
           .slice(0, TOP_MEMBERS_LIMIT)
@@ -188,14 +180,14 @@ export default function MemberDashboardClient({
       // Live lead count: sum of all live member counts at this uni
       const liveLeadCount = hasLive
         ? leaderboard.reduce((s, m) => s + m.leadsToday, 0)
-        : uniLeads.length;
+        : leadCount;
 
-      const finalLeadCount = hasLive ? liveLeadCount : uniLeads.length;
+      const finalLeadCount = hasLive ? liveLeadCount : leadCount;
       const goalPct = Math.min(100, Math.round((finalLeadCount / dailyGoal) * 100));
 
       return { attraction, uniLeads, leadCount: finalLeadCount, dailyGoal, goalPct, leaderboard };
     });
-  }, [todaysAttractions, todayAllLeads, liveMemberCountsByUniversity]);
+  }, [todaysAttractions, todayAllLeads, liveMemberCounts]);
 
   const hasAttractionToday = todaysAttractions.length > 0;
   const multipleAttractions = todaysAttractions.length > 1;

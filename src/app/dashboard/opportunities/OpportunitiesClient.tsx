@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Button from "@/components/ui/button/Button";
 import Badge from "@/components/ui/badge/Badge";
 import { PlusIcon, PencilIcon, TrashBinIcon, CloseIcon } from "@/icons/index";
@@ -51,6 +51,8 @@ type OpportunityDraft = {
   transportation: string;
   computer: string;
 };
+
+const STORAGE_KEY = "opportunities";
 
 const PRODUCT_OPTIONS = [
   { value: "GTa", label: "GTa" },
@@ -130,6 +132,19 @@ function draftToOpportunity(
   };
 }
 
+function readStoredOpportunities() {
+  if (typeof window === "undefined") return [] as Opportunity[];
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored) as Opportunity[];
+    } catch {
+      return getOpportunities();
+    }
+  }
+  return getOpportunities();
+}
+
 export default function OpportunitiesClient() {
   const universities = getUniversities();
   const [selectedUniversity, setSelectedUniversity] = useState<string>("");
@@ -146,38 +161,20 @@ export default function OpportunitiesClient() {
   const [expaOpportunityId, setExpaOpportunityId] = useState("");
   const [formData, setFormData] = useState<OpportunityDraft>(emptyDraft());
 
-  // Fetch opportunities from the cross-device sheet-backed API
-  const fetchOpportunities = useCallback(async () => {
-    try {
-      const url = selectedUniversity
-        ? `/api/opportunities?universityId=${encodeURIComponent(selectedUniversity)}`
-        : "/api/opportunities";
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data?.success) {
-        setOpportunities(data.opportunities ?? []);
-      }
-    } catch (error) {
-      // Fallback to static data on network error
-      setOpportunities(getOpportunities());
-    }
-  }, [selectedUniversity]);
-
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(t);
   }, []);
 
-  // Initial load + refetch when selected university changes
   useEffect(() => {
-    fetchOpportunities();
-  }, [fetchOpportunities]);
+    setOpportunities(readStoredOpportunities());
+  }, []);
 
-  // Periodic poll so changes from other devices show up
   useEffect(() => {
-    const id = setInterval(fetchOpportunities, 30_000);
-    return () => clearInterval(id);
-  }, [fetchOpportunities]);
+    if (opportunities.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(opportunities));
+    }
+  }, [opportunities]);
 
   const filteredOpportunities = useMemo(
     () => (selectedUniversity ? opportunities.filter((opp) => opp.universityId === selectedUniversity) : []),
@@ -292,23 +289,11 @@ export default function OpportunitiesClient() {
 
     setIsSubmitting(false);
     resetModalState();
-    // Refetch from the sheet-backed API so all devices see the same data
-    fetchOpportunities();
   }
 
-  async function handleDelete(opportunityId: string) {
+  function handleDelete(opportunityId: string) {
     if (!confirm("Are you sure you want to delete this opportunity?")) return;
-    // Optimistic update
     setOpportunities((current) => current.filter((opp) => opp.id !== opportunityId));
-    try {
-      await fetch(`/api/opportunities?id=${encodeURIComponent(opportunityId)}`, {
-        method: "DELETE",
-      });
-    } catch (err) {
-      console.error("Delete failed, will re-fetch:", err);
-    }
-    // Refetch to confirm state matches server
-    fetchOpportunities();
   }
 
   const inputCls = "w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300";
