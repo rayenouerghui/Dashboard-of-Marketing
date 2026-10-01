@@ -3,7 +3,7 @@
  * All date operations should use these helpers for consistency
  */
 
-import { format, toZonedTime } from "date-fns-tz";
+import { format, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { 
   startOfDay, 
   startOfWeek, 
@@ -14,7 +14,8 @@ import {
   isSameDay,
   isAfter,
   isBefore,
-  parseISO
+  parseISO,
+  isValid
 } from "date-fns";
 
 const TIMEZONE = "Africa/Tunis";
@@ -124,6 +125,72 @@ export function formatDateInTunis(date: Date | string, formatStr: string = "yyyy
  */
 export function parseDateInTunis(dateStr: string): Date {
   return toZonedTime(parseISO(dateStr), TIMEZONE);
+}
+
+function parseGoogleSheetsSerial(value: number): Date | null {
+  if (!Number.isFinite(value)) return null;
+  const ms = (value - 25569) * 86400000;
+  const date = new Date(ms);
+  return isValid(date) ? date : null;
+}
+
+function parseSlashDate(value: string): Date | null {
+  const match = value.match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?\s*$/);
+  if (!match) return null;
+
+  let part1 = Number(match[1]);
+  let part2 = Number(match[2]);
+  const year = Number(match[3]);
+  const hour = Number(match[4] ?? "0");
+  const minute = Number(match[5] ?? "0");
+  const second = Number(match[6] ?? "0");
+
+  let day: number;
+  let month: number;
+
+  if (part1 > 12 && part2 <= 12) {
+    day = part1;
+    month = part2;
+  } else if (part2 > 12 && part1 <= 12) {
+    month = part1;
+    day = part2;
+  } else {
+    day = part1;
+    month = part2;
+  }
+
+  const local = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:${String(second).padStart(2, "0")}`;
+  const parsed = fromZonedTime(local, TIMEZONE);
+  return isValid(parsed) ? parsed : null;
+}
+
+export function parseSubmittedAt(raw: unknown): Date | null {
+  if (raw == null) return null;
+
+  if (typeof raw === "number") return parseGoogleSheetsSerial(raw);
+
+  const value = String(raw).trim();
+  if (!value) return null;
+
+  if (/^\d+(?:\.\d+)?$/.test(value)) {
+    return parseGoogleSheetsSerial(Number(value));
+  }
+
+  const isoLike = value.replace(/\s+/, "T");
+  if (/^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?$/.test(value)) {
+    const normalized = value.includes("T") || value.includes(" ") ? value.replace(" ", "T") : `${value}T00:00:00`;
+    const parsed = normalized.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(normalized)
+      ? new Date(normalized)
+      : fromZonedTime(normalized, TIMEZONE);
+    return isValid(parsed) ? parsed : null;
+  }
+
+  if (value.includes("/")) {
+    return parseSlashDate(value);
+  }
+
+  const parsed = new Date(value);
+  return isValid(parsed) ? parsed : null;
 }
 
 /**

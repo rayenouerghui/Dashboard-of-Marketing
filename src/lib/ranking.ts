@@ -1,5 +1,8 @@
 import { isSourceLabel } from "@/data/sourceLabels";
+import { formatDateInTunis, parseSubmittedAt, todayInTunis } from "@/lib/dates";
 import { resolveMemberNameValue } from "@/lib/googleSheetsServer";
+
+export const RANKING_START_DATE = "2026-09-01";
 
 export interface MemberStat {
   name: string;
@@ -22,17 +25,13 @@ export interface MemberRankingBuildResult {
 }
 
 function todayLocalStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return todayInTunis();
 }
 
-function dateStr(iso: string): string {
-  if (!iso) return "";
-  const m = iso.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : "";
+function dateStr(raw: unknown): string {
+  const parsed = parseSubmittedAt(raw);
+  if (!parsed) return "";
+  return formatDateInTunis(parsed, "yyyy-MM-dd");
 }
 
 export function buildMemberRanking(
@@ -45,7 +44,7 @@ export function buildMemberRanking(
 ): MemberRankingBuildResult {
   const {
     filterUniversity = null,
-    cutoff = "2026-09-07",
+    cutoff = RANKING_START_DATE,
     todayOverride,
   } = options;
 
@@ -54,15 +53,24 @@ export function buildMemberRanking(
 
   let globalTotalLeads = 0;
   let globalTodayLeads = 0;
+  let unparseableDateRows = 0;
 
   for (const row of rawRows) {
     const memberName = resolveMemberNameValue(row).trim();
     if (!memberName) continue;
 
     const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
-    const rowDate = dateStr(submittedAt);
+    const parsedDate = parseSubmittedAt(submittedAt);
+    const rowDate = parsedDate ? formatDateInTunis(parsedDate, "yyyy-MM-dd") : "";
 
-    if (!rowDate || rowDate < cutoff) continue;
+    if (!rowDate) {
+      if (submittedAt) {
+        unparseableDateRows++;
+      }
+      continue;
+    }
+
+    if (rowDate < cutoff) continue;
 
     if (filterUniversity) {
       const university = (row["University"] || row.university || row.University || "").trim();
@@ -89,6 +97,10 @@ export function buildMemberRanking(
     entry.total++;
     if (isToday) entry.today++;
     if (expaId && /^\d+$/.test(expaId)) entry.expaIds.add(expaId);
+  }
+
+  if (unparseableDateRows > 0) {
+    console.warn(`${unparseableDateRows} rows skipped: unparseable date`);
   }
 
   const stats: MemberStat[] = [];

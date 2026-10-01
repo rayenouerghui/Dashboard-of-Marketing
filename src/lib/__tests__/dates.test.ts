@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   nowInTunis,
   todayInTunis,
@@ -14,7 +14,9 @@ import {
   formatDateInTunis,
   parseDateInTunis,
   getDateBoundsInTunis,
+  parseSubmittedAt,
 } from '../dates';
+import { buildMemberRanking, RANKING_START_DATE } from '../ranking';
 
 describe('Date Helpers (Africa/Tunis)', () => {
   describe('nowInTunis', () => {
@@ -125,6 +127,72 @@ describe('Date Helpers (Africa/Tunis)', () => {
       expect(result.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(result.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(result.monthStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+  });
+
+  describe('parseSubmittedAt', () => {
+    it('parses ISO and slash dates using Tunis rules', () => {
+      expect(parseSubmittedAt('2026-09-01T10:00:00Z')?.toISOString()).toContain('2026-09-01T10:00:00.000Z');
+      expect(parseSubmittedAt('01/09/2026 14:22')?.toISOString()).toBeTruthy();
+      expect(parseSubmittedAt('9/1/2026 14:22:10')?.toISOString()).toBeTruthy();
+      expect(parseSubmittedAt('31/08/2026')?.toISOString()).toBeTruthy();
+    });
+
+    it('resolves ambiguous dates according to Tunisia day/month precedence rules', () => {
+      const d1 = parseSubmittedAt('01/09/2026');
+      const d2 = parseSubmittedAt('31/08/2026');
+      const d3 = parseSubmittedAt('9/1/2026 14:22:10');
+
+      expect(d1).not.toBeNull();
+      expect(d2).not.toBeNull();
+      expect(d3).not.toBeNull();
+      expect(formatDateInTunis(d1!)).toBe('2026-09-01');
+      expect(formatDateInTunis(d2!)).toBe('2026-08-31');
+      expect(formatDateInTunis(d3!)).toBe('2026-01-09');
+    });
+  });
+
+  describe('ranking cutoff', () => {
+    it('only counts leads on or after 2026-09-01 in Africa/Tunis timezone', () => {
+      const rows = [
+        { 'Submitted at': '2026-08-31 23:59:00', 'Member Name': 'Alice' },
+        { 'Submitted at': '2026-09-01 00:00:00', 'Member Name': 'Alice' },
+        { 'Submitted at': '2026-09-01T00:00:00Z', 'Member Name': 'Alice' },
+        { 'Submitted at': '31/08/2026', 'Member Name': 'Bob' },
+        { 'Submitted at': '01/09/2026', 'Member Name': 'Bob' },
+      ];
+
+      const ranking = buildMemberRanking(rows, { cutoff: RANKING_START_DATE, todayOverride: '2026-09-01' });
+      expect(ranking.members.map((m) => m.name)).toEqual(['Alice', 'Bob']);
+      expect(ranking.totalLeads).toBe(3);
+      expect(ranking.entries.get('Alice')?.total).toBe(2);
+      expect(ranking.entries.get('Bob')?.total).toBe(1);
+    });
+
+    it('drops unparseable dates and warns', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      const rows = [
+        { 'Submitted at': 'not-a-date', 'Member Name': 'Alice' },
+        { 'Submitted at': '2026-09-01', 'Member Name': 'Charlie' },
+      ];
+
+      const ranking = buildMemberRanking(rows, { cutoff: RANKING_START_DATE, todayOverride: '2026-09-01' });
+
+      expect(ranking.members.map((m) => m.name)).toEqual(['Charlie']);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('1 rows skipped: unparseable date'));
+      warn.mockRestore();
+    });
+
+    it('still excludes source labels from rankings', () => {
+      const rows = [
+        { 'Submitted at': '2026-09-01', 'Member Name': 'Information' },
+        { 'Submitted at': '2026-09-02', 'Member Name': 'Classroom' },
+        { 'Submitted at': '2026-09-03', 'Member Name': 'Alice' },
+      ];
+
+      const ranking = buildMemberRanking(rows, { cutoff: RANKING_START_DATE, todayOverride: '2026-09-03' });
+      expect(ranking.members.map((m) => m.name)).toEqual(['Alice']);
+      expect(ranking.totalLeads).toBe(3);
     });
   });
 });

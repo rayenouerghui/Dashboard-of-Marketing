@@ -3,7 +3,7 @@ import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
 import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
-import { buildMemberRanking } from "@/lib/ranking";
+import { buildMemberRanking, RANKING_START_DATE } from "@/lib/ranking";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,7 @@ const APPLIED_STATUSES  = new Set(["open","accepted","approved","approved_ep_man
 const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 
 // Only count leads submitted on or after this date — everything before is reset to zero
-const RANKING_CUTOFF = "2026-09-07";
+const RANKING_CACHE_KEY = ["ranking-expa-statuses", RANKING_START_DATE];
 
 // ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
 const getCachedExpaStatuses = unstable_cache(
@@ -38,7 +38,7 @@ const getCachedExpaStatuses = unstable_cache(
     for (const a of applications) map[a.epId] = a.status;
     return map;
   },
-  ["ranking-expa-statuses"],
+  RANKING_CACHE_KEY,
   { revalidate: 900 } // 15 min
 );
 
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     const rawRows = await fetchPhysicalLeadsRaw();
     const rankingBase = buildMemberRanking(rawRows, {
       filterUniversity,
-      cutoff: RANKING_CUTOFF,
+      cutoff: RANKING_START_DATE,
     });
 
     const memberLeads = rankingBase.entries;
