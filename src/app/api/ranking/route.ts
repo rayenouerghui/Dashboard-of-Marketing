@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
+import { analyzeMemberNameColumn, fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
 import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
@@ -24,6 +24,38 @@ const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 
 // Only count leads submitted on or after this date — everything before is reset to zero
 const RANKING_CACHE_KEY = ["ranking-expa-statuses", RANKING_START_DATE];
+
+function buildRankingMeta({
+  nameColumnHeader,
+  rowsRead,
+  rowsAfterDateCutoff,
+  rowsSkippedUnparseableDate,
+  rowsSkippedSourceLabel,
+  rowsSkippedBlankName,
+  membersCounted,
+}: {
+  nameColumnHeader: string | null;
+  rowsRead: number;
+  rowsAfterDateCutoff: number;
+  rowsSkippedUnparseableDate: number;
+  rowsSkippedSourceLabel: number;
+  rowsSkippedBlankName: number;
+  membersCounted: number;
+}) {
+  return {
+    version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
+    since: new Date().toISOString(),
+    nameColumnHeader,
+    rowsRead,
+    rowsAfterDateCutoff,
+    rowsSkippedUnparseableDate,
+    rowsSkippedSourceLabel,
+    rowsSkippedBlankName,
+    membersCounted,
+    updatedAt: new Date().toISOString(),
+    source: process.env.GOOGLE_SHEET_ID ? "google-sheet" : "fallback-json",
+  };
+}
 
 // ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
 const getCachedExpaStatuses = unstable_cache(
@@ -53,6 +85,26 @@ export async function GET(request: Request) {
     const filterUniversity = searchParams.get("university")?.trim() || null;
 
     const rawRows = await fetchPhysicalLeadsRaw();
+    const nameAudit = analyzeMemberNameColumn(rawRows);
+
+    if (!nameAudit.valid || !nameAudit.nameColumnHeader) {
+      console.warn("[api/ranking] MEMBER_NAME_COLUMN_NOT_FOUND; headersSeen=" + JSON.stringify(nameAudit.headersSeen));
+      return NextResponse.json({
+        success: false,
+        error: "MEMBER_NAME_COLUMN_NOT_FOUND",
+        headersSeen: nameAudit.headersSeen,
+        meta: buildRankingMeta({
+          nameColumnHeader: null,
+          rowsRead: rawRows.length,
+          rowsAfterDateCutoff: 0,
+          rowsSkippedUnparseableDate: 0,
+          rowsSkippedSourceLabel: 0,
+          rowsSkippedBlankName: 0,
+          membersCounted: 0,
+        }),
+      }, { status: 422 });
+    }
+
     const rankingBase = buildMemberRanking(rawRows, {
       filterUniversity,
       cutoff: RANKING_START_DATE,
@@ -110,6 +162,15 @@ export async function GET(request: Request) {
       totalRealized: stats.reduce((s, m) => s + m.realized,    0),
       generatedAt:   new Date().toISOString(),
       cached:        !skipExpa,
+      meta: buildRankingMeta({
+        nameColumnHeader: rankingBase.nameColumnHeader,
+        rowsRead: rankingBase.rowsRead,
+        rowsAfterDateCutoff: rankingBase.rowsAfterDateCutoff,
+        rowsSkippedUnparseableDate: rankingBase.rowsSkippedUnparseableDate,
+        rowsSkippedSourceLabel: rankingBase.rowsSkippedSourceLabel,
+        rowsSkippedBlankName: rankingBase.rowsSkippedBlankName,
+        membersCounted: rankingBase.members.length,
+      }),
     });
   } catch (error) {
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {

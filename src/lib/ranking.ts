@@ -1,6 +1,6 @@
 import { isSourceLabel } from "@/data/sourceLabels";
 import { formatDateInTunis, parseSubmittedAt, todayInTunis } from "@/lib/dates";
-import { resolveMemberNameValue } from "@/lib/googleSheetsServer";
+import { resolveMemberNameKey, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 
 export const RANKING_START_DATE = "2026-09-01";
 
@@ -22,6 +22,12 @@ export interface MemberRankingBuildResult {
   todayLeads: number;
   totalApplied: number;
   totalRealized: number;
+  rowsRead: number;
+  rowsAfterDateCutoff: number;
+  rowsSkippedUnparseableDate: number;
+  rowsSkippedSourceLabel: number;
+  rowsSkippedBlankName: number;
+  nameColumnHeader: string | null;
 }
 
 function todayLocalStr(): string {
@@ -32,6 +38,68 @@ function dateStr(raw: unknown): string {
   const parsed = parseSubmittedAt(raw);
   if (!parsed) return "";
   return formatDateInTunis(parsed, "yyyy-MM-dd");
+}
+
+export function normalizeMemberNameValue(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function isLikelySourceLabel(value: string): boolean {
+  const normalized = normalizeMemberNameValue(value).toLowerCase();
+  if (!normalized) return false;
+
+  const exactLabels = new Set([
+    "information booth",
+    "classroom",
+    "class presentation",
+    "presentation",
+    "campus",
+    "friend",
+    "word of mouth",
+    "social media",
+    "facebook",
+    "instagram",
+    "linkedin",
+    "tiktok",
+    "event",
+    "poster",
+    "flyer",
+    "walk in",
+    "referral",
+    "website",
+    "google",
+  ]);
+
+  if (exactLabels.has(normalized)) return true;
+
+  const prefixes = [
+    "information booth",
+    "classroom",
+    "class presentation",
+    "presentation",
+    "campus",
+    "friend",
+    "word of mouth",
+    "social media",
+    "facebook",
+    "instagram",
+    "linkedin",
+    "tiktok",
+    "event",
+    "poster",
+    "flyer",
+    "walk in",
+    "referral",
+    "website",
+    "google",
+  ];
+
+  return prefixes.some((prefix) => normalized.startsWith(`${prefix} `));
 }
 
 export function buildMemberRanking(
@@ -54,10 +122,18 @@ export function buildMemberRanking(
   let globalTotalLeads = 0;
   let globalTodayLeads = 0;
   let unparseableDateRows = 0;
+  let sourceLabelSkipped = 0;
+  let blankNameSkipped = 0;
+  let rowsAfterDateCutoff = 0;
+
+  const chosenNameHeader = resolveMemberNameKey(rawRows[0] ?? null);
 
   for (const row of rawRows) {
-    const memberName = resolveMemberNameValue(row).trim();
-    if (!memberName) continue;
+    const memberName = (chosenNameHeader ? String(row[chosenNameHeader] ?? "") : resolveMemberNameValue(row)).trim();
+    if (!memberName) {
+      blankNameSkipped++;
+      continue;
+    }
 
     const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
     const parsedDate = parseSubmittedAt(submittedAt);
@@ -71,6 +147,7 @@ export function buildMemberRanking(
     }
 
     if (rowDate < cutoff) continue;
+    rowsAfterDateCutoff++;
 
     if (filterUniversity) {
       const university = (row["University"] || row.university || row.University || "").trim();
@@ -85,7 +162,10 @@ export function buildMemberRanking(
     globalTotalLeads++;
     if (isToday) globalTodayLeads++;
 
-    if (isSourceLabel(memberName)) continue;
+    if (isSourceLabel(memberName) || isLikelySourceLabel(memberName)) {
+      sourceLabelSkipped++;
+      continue;
+    }
 
     const expaId = (row["EXPA ID"] || row.expaId || row.eXPAID || "").trim();
 
@@ -126,5 +206,11 @@ export function buildMemberRanking(
     todayLeads: globalTodayLeads,
     totalApplied: 0,
     totalRealized: 0,
+    rowsRead: rawRows.length,
+    rowsAfterDateCutoff,
+    rowsSkippedUnparseableDate: unparseableDateRows,
+    rowsSkippedSourceLabel: sourceLabelSkipped,
+    rowsSkippedBlankName: blankNameSkipped,
+    nameColumnHeader: chosenNameHeader,
   };
 }

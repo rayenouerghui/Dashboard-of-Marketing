@@ -56,17 +56,127 @@ function resolveSheetTitle(requestedTabName: string, availableTitles: string[]) 
   return normalized ?? requestedTabName;
 }
 
-function normalizeHeaderName(header: string) {
-  return header.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+export function normalizeHeaderName(header: string) {
+  return header
+    .replace(/[\u{1F300}-\u{1FAFF}\uFE0F]/gu, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "")
+    .toLowerCase()
+    .trim();
 }
 
-const MEMBER_NAME_HEADER_ALIASES = new Set([
+export const MEMBER_NAME_HEADERS = [
   "membername",
+  "attractedby",
+  "attractor",
+  "epmanager",
+  "consultant",
+  "owner",
   "fullname",
-  "full name",
-  "full_name",
   "membernameemoji",
-]);
+];
+
+export const MEMBER_NAME_HEADER_BLOCKLIST = [
+  "hear",
+  "howdidyou",
+  "source",
+  "channel",
+  "referral",
+  "foundout",
+  "where",
+  "howdidyouhearaboutus",
+];
+
+function matchesMemberNameHeader(header: string): boolean {
+  const normalized = normalizeHeaderName(header);
+  if (!normalized) return false;
+  if (MEMBER_NAME_HEADER_BLOCKLIST.some((blocked) => normalized.includes(blocked))) return false;
+  return MEMBER_NAME_HEADERS.includes(normalized);
+}
+
+export function getMemberNameHeaderCandidates(headers: string[]): string[] {
+  return headers.filter((header) => matchesMemberNameHeader(header));
+}
+
+export function getMemberNameAudit(row: Record<string, string> | null | undefined) {
+  const headers = row ? Object.keys(row) : [];
+  const headersSeen = headers.map(normalizeHeaderName).filter(Boolean);
+  const candidateHeaders = getMemberNameHeaderCandidates(headers);
+  const configuredOverride = process.env.RANKING_NAME_COLUMN?.trim();
+  const nameColumnHeader = configuredOverride
+    ? headers.find((header) => normalizeHeaderName(header) === normalizeHeaderName(configuredOverride)) ?? null
+    : candidateHeaders[0] ?? null;
+
+  return {
+    headersSeen,
+    candidateHeaders,
+    nameColumnHeader,
+  };
+}
+
+export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
+  const headersSeen = Array.from(new Set(rows.flatMap((row) => Object.keys(row)).map(normalizeHeaderName).filter(Boolean)));
+  const nameColumnHeader = resolveMemberNameKey(rows[0] ?? null);
+
+  if (!nameColumnHeader) {
+    return {
+      valid: false,
+      error: "MEMBER_NAME_COLUMN_NOT_FOUND",
+      headersSeen,
+      nameColumnHeader: null,
+      reason: "no-explicit-member-name-column",
+    };
+  }
+
+  const values = rows
+    .map((row) => String(row[nameColumnHeader] ?? "").trim())
+    .filter((value) => value.length > 0);
+
+  if (values.length === 0) {
+    return {
+      valid: false,
+      error: "MEMBER_NAME_COLUMN_NOT_FOUND",
+      headersSeen,
+      nameColumnHeader,
+      reason: "member-name-column-empty",
+    };
+  }
+
+  const distinctValues = new Set(values.map((value) => value.toLowerCase().trim()));
+  const wordCounts = values.map((value) => value.trim().split(/\s+/).filter(Boolean).length);
+  const averageWords = wordCounts.reduce((sum, count) => sum + count, 0) / wordCounts.length;
+  const topValueCount = [...distinctValues].reduce((max, value) => {
+    const count = values.filter((item) => item.toLowerCase().trim() === value).length;
+    return Math.max(max, count);
+  }, 0);
+
+  const invalidBecauseTooFew = distinctValues.size < 5;
+  const invalidBecauseDominant = topValueCount / values.length > 0.5;
+  const invalidBecauseSentenceLike = averageWords > 3;
+
+  if (invalidBecauseTooFew || invalidBecauseDominant || invalidBecauseSentenceLike) {
+    return {
+      valid: false,
+      error: "MEMBER_NAME_COLUMN_NOT_FOUND",
+      headersSeen,
+      nameColumnHeader,
+      reason: invalidBecauseTooFew
+        ? "too-few-distinct-values"
+        : invalidBecauseDominant
+          ? "single-value-dominates"
+          : "sentence-like-values",
+    };
+  }
+
+  return {
+    valid: true,
+    error: null,
+    headersSeen,
+    nameColumnHeader,
+    reason: null,
+  };
+}
 
 let memberNameHeaderWarningShown = false;
 
@@ -74,30 +184,14 @@ export function resolveMemberNameKey(row: Record<string, string> | null | undefi
   if (!row) return null;
 
   const keys = Object.keys(row);
-  const canonicalKeyMap = new Map<string, string>();
+  const configuredOverride = process.env.RANKING_NAME_COLUMN?.trim();
 
-  for (const key of keys) {
-    const normalized = normalizeHeaderName(key);
-    if (!normalized) continue;
-    if (!canonicalKeyMap.has(normalized)) {
-      canonicalKeyMap.set(normalized, key);
-    }
+  if (configuredOverride) {
+    const exactMatch = keys.find((key) => normalizeHeaderName(key) === normalizeHeaderName(configuredOverride));
+    if (exactMatch) return exactMatch;
   }
 
-  for (const alias of MEMBER_NAME_HEADER_ALIASES) {
-    const exact = canonicalKeyMap.get(normalizeHeaderName(alias));
-    if (exact) return exact;
-  }
-
-  // Prefer real member-name columns over source/referral fields when the header is
-  // written with the emoji or with a slightly different casing/spacing.
-  const candidate = keys.find((key) => {
-    const normalized = normalizeHeaderName(key);
-    return (
-      normalized.includes("member") && normalized.includes("name")
-    ) || normalized === "fullname" || normalized === "full_name";
-  });
-
+  const candidate = keys.find((key) => matchesMemberNameHeader(key));
   return candidate ?? null;
 }
 
@@ -105,8 +199,8 @@ export function resolveMemberNameValue(row: Record<string, string> | null | unde
   const key = resolveMemberNameKey(row);
   if (!key) {
     if (!memberNameHeaderWarningShown) {
-      const available = row ? Object.keys(row).slice(0, 12).join(", ") : "none";
-      console.warn(`[googleSheetsServer] Could not find a member-name column in the current sheet headers. Available keys: ${available}`);
+      const available = row ? Object.keys(row).slice(0, 12).map(normalizeHeaderName).filter(Boolean).join(", ") : "none";
+      console.warn(`[googleSheetsServer] Could not find a valid member-name column in the current sheet headers. Available normalized keys: ${available}`);
       memberNameHeaderWarningShown = true;
     }
     return "";

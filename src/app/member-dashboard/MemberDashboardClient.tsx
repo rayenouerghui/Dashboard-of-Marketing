@@ -62,6 +62,7 @@ export default function MemberDashboardClient({
 }) {
   const leads = initialLeads; // physical leads only (server-fetched, used as initial state)
   const [mounted, setMounted] = useState(false);
+  const [rankingUnavailable, setRankingUnavailable] = useState(false);
   const [todaysAttractions, setTodaysAttractions] = useState<CustomEvent[]>([]);
   const [activeTab, setActiveTab] = useState(0);
   // Live member counts from the ranking API — polled every 30s
@@ -79,6 +80,9 @@ export default function MemberDashboardClient({
           map[m.name] = m.todayLeads;
         }
         setLiveMemberCounts(map);
+        setRankingUnavailable(false);
+      } else {
+        setRankingUnavailable(true);
       }
     } catch { /* silent */ }
   }, []);

@@ -32,6 +32,7 @@ function KPI({ label, value, color }: { label: string; value: number | string; c
 
 export default function RankingClient() {
   const [members, setMembers]       = useState<MemberStat[]>([]);
+  const [error, setError]           = useState<string | null>(null);
   const [totals, setTotals]         = useState({ members: 0, leads: 0, today: 0, applied: 0, realized: 0 });
   const [loading, setLoading]       = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
@@ -48,7 +49,10 @@ export default function RankingClient() {
         setMembers(data.members ?? []);
         setTotals({ members: data.totalMembers ?? 0, leads: data.totalLeads ?? 0, today: data.todayLeads ?? 0, applied: data.totalApplied ?? 0, realized: data.totalRealized ?? 0 });
         setLastUpdate(data.generatedAt);
+        setError(null);
         setLoading(false);
+      } else {
+        setError(data.error ?? "RANKING_UNAVAILABLE");
       }
 
       // Background: full data with EXPA applied/realized (cached 15 min)
@@ -58,6 +62,9 @@ export default function RankingClient() {
         setMembers(dataExpa.members ?? []);
         setTotals({ members: dataExpa.totalMembers ?? 0, leads: dataExpa.totalLeads ?? 0, today: dataExpa.todayLeads ?? 0, applied: dataExpa.totalApplied ?? 0, realized: dataExpa.totalRealized ?? 0 });
         setLastUpdate(dataExpa.generatedAt);
+        setError(null);
+      } else {
+        setError(dataExpa.error ?? "RANKING_UNAVAILABLE");
       }
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -102,6 +109,15 @@ export default function RankingClient() {
       {children}<SortIcon k={k} />
     </th>
   );
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-20 dark:border-gray-700 dark:bg-white/[0.02]">
+        <span className="text-5xl">⚠️</span>
+        <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-300">Ranking unavailable</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

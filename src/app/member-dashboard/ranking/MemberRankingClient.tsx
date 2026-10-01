@@ -25,6 +25,7 @@ const RANK_STYLES: Record<number, {
 
 export default function MemberRankingClient() {
   const [members, setMembers]       = useState<MemberStat[]>([]);
+  const [error, setError]           = useState<string | null>(null);
   const [loading, setLoading]       = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [mounted, setMounted]       = useState(false);
@@ -37,7 +38,10 @@ export default function MemberRankingClient() {
       if (data.success) {
         setMembers(data.members ?? []);
         setLastUpdate(data.generatedAt);
+        setError(null);
         setLoading(false);
+      } else {
+        setError(data.error ?? "RANKING_UNAVAILABLE");
       }
 
       // Then fetch with EXPA data in background (slow — cached 15 min on server)
@@ -46,6 +50,9 @@ export default function MemberRankingClient() {
       if (dataExpa.success) {
         setMembers(dataExpa.members ?? []);
         setLastUpdate(dataExpa.generatedAt);
+        setError(null);
+      } else {
+        setError(dataExpa.error ?? "RANKING_UNAVAILABLE");
       }
     } catch { /* silent */ }
     finally { setLoading(false); }
