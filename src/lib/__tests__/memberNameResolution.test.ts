@@ -32,4 +32,20 @@ describe('member-name resolution', () => {
     expect(resolveMemberNameKey(row)).toBeNull();
     expect(resolveMemberNameValue(row)).toBe('');
   });
+
+  it('honors the explicit RANKING_NAME_COLUMN override even when it is a referral field', () => {
+    process.env.RANKING_NAME_COLUMN = '📢Referral';
+    try {
+      const row = {
+        '📢Referral': 'Jane Doe',
+        '🙋Member Name': 'Information booth on campus',
+        'Submitted at': '2026-09-15',
+      } as Record<string, string>;
+
+      expect(resolveMemberNameKey(row)).toBe('📢Referral');
+      expect(resolveMemberNameValue(row)).toBe('Jane Doe');
+    } finally {
+      delete process.env.RANKING_NAME_COLUMN;
+    }
+  });
 });

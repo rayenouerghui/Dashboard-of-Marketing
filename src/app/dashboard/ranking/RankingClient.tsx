@@ -114,7 +114,7 @@ export default function RankingClient() {
     return (
       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-20 dark:border-gray-700 dark:bg-white/[0.02]">
         <span className="text-5xl">⚠️</span>
-        <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-300">Ranking unavailable</p>
+        <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-300">Ranking is temporarily unavailable</p>
       </div>
     );
   }
@@ -168,6 +168,11 @@ export default function RankingClient() {
       {loading && members.length === 0 ? (
         <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 dark:border-gray-700">
           <p className="text-sm text-gray-400">Loading live data from sheet…</p>
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 dark:border-gray-700">
+          <span className="text-5xl">🏆</span>
+          <p className="mt-3 text-sm text-gray-500">No leads since 1 September yet.</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">

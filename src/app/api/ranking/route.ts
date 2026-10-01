@@ -28,7 +28,9 @@ const RANKING_CACHE_KEY = ["ranking-expa-statuses", RANKING_START_DATE];
 function buildRankingMeta({
   nameColumnHeader,
   rowsRead,
+  totalRowsInSheet,
   rowsAfterDateCutoff,
+  rowsSinceCutoff,
   rowsSkippedUnparseableDate,
   rowsSkippedSourceLabel,
   rowsSkippedBlankName,
@@ -36,7 +38,9 @@ function buildRankingMeta({
 }: {
   nameColumnHeader: string | null;
   rowsRead: number;
+  totalRowsInSheet: number;
   rowsAfterDateCutoff: number;
+  rowsSinceCutoff: number;
   rowsSkippedUnparseableDate: number;
   rowsSkippedSourceLabel: number;
   rowsSkippedBlankName: number;
@@ -44,10 +48,12 @@ function buildRankingMeta({
 }) {
   return {
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
-    since: new Date().toISOString(),
+    since: RANKING_START_DATE,
     nameColumnHeader,
     rowsRead,
+    totalRowsInSheet,
     rowsAfterDateCutoff,
+    rowsSinceCutoff,
     rowsSkippedUnparseableDate,
     rowsSkippedSourceLabel,
     rowsSkippedBlankName,
@@ -85,7 +91,8 @@ export async function GET(request: Request) {
     const filterUniversity = searchParams.get("university")?.trim() || null;
 
     const rawRows = await fetchPhysicalLeadsRaw();
-    const nameAudit = analyzeMemberNameColumn(rawRows);
+    const totalRowsInSheet = rawRows.length;
+    const nameAudit = analyzeMemberNameColumn(rawRows, { cutoff: RANKING_START_DATE });
 
     if (!nameAudit.valid || !nameAudit.nameColumnHeader) {
       console.warn("[api/ranking] MEMBER_NAME_COLUMN_NOT_FOUND; headersSeen=" + JSON.stringify(nameAudit.headersSeen));
@@ -96,7 +103,9 @@ export async function GET(request: Request) {
         meta: buildRankingMeta({
           nameColumnHeader: null,
           rowsRead: rawRows.length,
+          totalRowsInSheet,
           rowsAfterDateCutoff: 0,
+          rowsSinceCutoff: nameAudit.rowsSinceCutoff ?? 0,
           rowsSkippedUnparseableDate: 0,
           rowsSkippedSourceLabel: 0,
           rowsSkippedBlankName: 0,
@@ -165,7 +174,9 @@ export async function GET(request: Request) {
       meta: buildRankingMeta({
         nameColumnHeader: rankingBase.nameColumnHeader,
         rowsRead: rankingBase.rowsRead,
+        totalRowsInSheet,
         rowsAfterDateCutoff: rankingBase.rowsAfterDateCutoff,
+        rowsSinceCutoff: rankingBase.rowsSinceCutoff,
         rowsSkippedUnparseableDate: rankingBase.rowsSkippedUnparseableDate,
         rowsSkippedSourceLabel: rankingBase.rowsSkippedSourceLabel,
         rowsSkippedBlankName: rankingBase.rowsSkippedBlankName,

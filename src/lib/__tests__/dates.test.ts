@@ -194,5 +194,18 @@ describe('Date Helpers (Africa/Tunis)', () => {
       expect(ranking.members.map((m) => m.name)).toEqual(['Alice']);
       expect(ranking.totalLeads).toBe(3);
     });
+
+    it('counts rows beyond 2000 and does not cap by the sheet page size', () => {
+      const rows = Array.from({ length: 2001 }, (_, index) => ({
+        'Submitted at': '2026-09-15T12:00:00Z',
+        'Member Name': `Member ${index + 1}`,
+      }));
+
+      const ranking = buildMemberRanking(rows, { cutoff: RANKING_START_DATE, todayOverride: '2026-09-15' });
+      expect(ranking.rowsRead).toBe(2001);
+      expect(ranking.rowsSinceCutoff).toBe(2001);
+      expect(ranking.totalLeads).toBe(2001);
+      expect(ranking.members.length).toBe(2001);
+    });
   });
 });

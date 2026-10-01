@@ -11,6 +11,7 @@
 // will fall back to reading from static JSON files in src/data/
 
 import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey, getOpportunityOgvSpreadsheetId, getOpportunityOgtSpreadsheetId } from "./env";
+import { formatDateInTunis, parseSubmittedAt } from "./dates";
 
 function toCamelCase(header: string): string {
   // Preserve emojis and special characters, only convert spaces to camelCase
@@ -58,7 +59,7 @@ function resolveSheetTitle(requestedTabName: string, availableTitles: string[]) 
 
 export function normalizeHeaderName(header: string) {
   return header
-    .replace(/[\u{1F300}-\u{1FAFF}\uFE0F]/gu, " ")
+    .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, " ")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]+/g, "")
@@ -115,7 +116,23 @@ export function getMemberNameAudit(row: Record<string, string> | null | undefine
   };
 }
 
-export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
+export function rowsSinceCutoff(rows: Record<string, string>[], cutoff: string = "2026-09-01") {
+  return rows.filter((row) => {
+    const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
+    const value = submittedAt.trim();
+    if (!value) return false;
+
+    const parsed = parseSubmittedAt(value);
+    if (!parsed) return false;
+
+    const rowDate = formatDateInTunis(parsed, "yyyy-MM-dd");
+    return rowDate >= cutoff;
+  });
+}
+
+export function analyzeMemberNameColumn(rows: Record<string, string>[], options: { cutoff?: string } = {}) {
+  const cutoff = options.cutoff ?? "2026-09-01";
+  const sinceCutoffRows = rowsSinceCutoff(rows, cutoff);
   const headersSeen = Array.from(new Set(rows.flatMap((row) => Object.keys(row)).map(normalizeHeaderName).filter(Boolean)));
   const nameColumnHeader = resolveMemberNameKey(rows[0] ?? null);
 
@@ -126,10 +143,12 @@ export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
       headersSeen,
       nameColumnHeader: null,
       reason: "no-explicit-member-name-column",
+      rowsSinceCutoff: sinceCutoffRows.length,
+      cutoff,
     };
   }
 
-  const values = rows
+  const values = sinceCutoffRows
     .map((row) => String(row[nameColumnHeader] ?? "").trim())
     .filter((value) => value.length > 0);
 
@@ -139,7 +158,9 @@ export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
       error: "MEMBER_NAME_COLUMN_NOT_FOUND",
       headersSeen,
       nameColumnHeader,
-      reason: "member-name-column-empty",
+      reason: values.length === 0 ? "no-rows-since-cutoff" : "member-name-column-empty",
+      rowsSinceCutoff: sinceCutoffRows.length,
+      cutoff,
     };
   }
 
@@ -151,7 +172,7 @@ export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
     return Math.max(max, count);
   }, 0);
 
-  const invalidBecauseTooFew = distinctValues.size < 5;
+  const invalidBecauseTooFew = distinctValues.size < 2;
   const invalidBecauseDominant = topValueCount / values.length > 0.5;
   const invalidBecauseSentenceLike = averageWords > 3;
 
@@ -166,6 +187,8 @@ export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
         : invalidBecauseDominant
           ? "single-value-dominates"
           : "sentence-like-values",
+      rowsSinceCutoff: sinceCutoffRows.length,
+      cutoff,
     };
   }
 
@@ -175,6 +198,8 @@ export function analyzeMemberNameColumn(rows: Record<string, string>[]) {
     headersSeen,
     nameColumnHeader,
     reason: null,
+    rowsSinceCutoff: sinceCutoffRows.length,
+    cutoff,
   };
 }
 

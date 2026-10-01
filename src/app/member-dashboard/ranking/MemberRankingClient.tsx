@@ -106,7 +106,7 @@ export default function MemberRankingClient() {
       ) : top5.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white py-20 dark:border-gray-700 dark:bg-white/[0.02]">
           <span className="text-5xl">🏆</span>
-          <p className="mt-3 text-sm text-gray-500">No data available yet.</p>
+          <p className="mt-3 text-sm text-gray-500">No leads since 1 September yet.</p>
         </div>
       ) : (
         <>

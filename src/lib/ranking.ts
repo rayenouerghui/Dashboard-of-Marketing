@@ -23,6 +23,7 @@ export interface MemberRankingBuildResult {
   totalApplied: number;
   totalRealized: number;
   rowsRead: number;
+  rowsSinceCutoff: number;
   rowsAfterDateCutoff: number;
   rowsSkippedUnparseableDate: number;
   rowsSkippedSourceLabel: number;
@@ -125,6 +126,7 @@ export function buildMemberRanking(
   let sourceLabelSkipped = 0;
   let blankNameSkipped = 0;
   let rowsAfterDateCutoff = 0;
+  let rowsSinceCutoff = 0;
 
   const chosenNameHeader = resolveMemberNameKey(rawRows[0] ?? null);
 
@@ -147,6 +149,7 @@ export function buildMemberRanking(
     }
 
     if (rowDate < cutoff) continue;
+    rowsSinceCutoff++;
     rowsAfterDateCutoff++;
 
     if (filterUniversity) {
@@ -207,6 +210,7 @@ export function buildMemberRanking(
     totalApplied: 0,
     totalRealized: 0,
     rowsRead: rawRows.length,
+    rowsSinceCutoff,
     rowsAfterDateCutoff,
     rowsSkippedUnparseableDate: unparseableDateRows,
     rowsSkippedSourceLabel: sourceLabelSkipped,
