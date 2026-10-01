@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { fetchApplicationsForLeads, type LeadInput } from "@/lib/server/expaApplicationsClient";
-import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
+import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +40,7 @@ function mapPhysicalLead(r: Record<string, string>): LeadInput | null {
     lastName:   r["[LN] Last Name"]  || r.lastName  || r.last_name  || "",
     email:      r["[E] Email"]       || r.email     || "",
     university: r["[UN] University Name"] || r.university || "",
-    memberName: r["🙋Member Name"]   || r.memberName || "",
+    memberName: resolveMemberNameValue(r),
     source:     "physical",
   };
 }

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { fetchPhysicalLeadsRaw, resolveMemberNameValue } from "@/lib/googleSheetsServer";
+import { fetchPhysicalLeadsRaw } from "@/lib/googleSheetsServer";
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
 import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
-import { requireRole } from "@/lib/auth";
+import { buildMemberRanking } from "@/lib/ranking";
 
 export const dynamic = "force-dynamic";
 
@@ -19,27 +19,11 @@ export interface MemberStat {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function todayLocalStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function dateStr(iso: string): string {
-  if (!iso) return "";
-  const m = iso.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : "";
-}
-
 const APPLIED_STATUSES  = new Set(["open","accepted","approved","approved_ep_manager","matched","realized","completed","finished"]);
 const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 
 // Only count leads submitted on or after this date — everything before is reset to zero
 const RANKING_CUTOFF = "2026-09-07";
-
-import { isSourceLabel } from "@/data/sourceLabels";
 
 // ─── Cache EXPA lookup for 15 min — it's the slow part ───────────────────────
 const getCachedExpaStatuses = unstable_cache(
@@ -68,53 +52,13 @@ export async function GET(request: Request) {
     // ?university=ESPRIT filters leads to only that university
     const filterUniversity = searchParams.get("university")?.trim() || null;
 
-    const today   = todayLocalStr();
     const rawRows = await fetchPhysicalLeadsRaw();
+    const rankingBase = buildMemberRanking(rawRows, {
+      filterUniversity,
+      cutoff: RANKING_CUTOFF,
+    });
 
-    const memberLeads = new Map<string, { total: number; today: number; expaIds: Set<string> }>();
-
-    let globalTotalLeads = 0;
-    let globalTodayLeads = 0;
-    
-    for (const r of rawRows) {
-      const memberName = resolveMemberNameValue(r);
-      if (!memberName) continue;
-
-      const submittedAt = r["Submitted at"] || r.submittedAt || r.submitted_at || "";
-      const rowDate     = dateStr(submittedAt);
-
-      // Skip anything before the ranking cutoff date
-      if (!rowDate || rowDate < RANKING_CUTOFF) continue;
-
-      // Filter by university if specified (fuzzy match)
-      if (filterUniversity) {
-        const university = (r["University"] || r.university || r.University || "").trim();
-        const a = university.toLowerCase();
-        const b = filterUniversity.toLowerCase();
-        if (!a || !b || !(a === b || a.includes(b) || b.includes(a))) {
-          continue;
-        }
-      }
-
-      const isToday = rowDate === today;
-      
-      // Count ALL valid leads (including "Facebook", "Friend", etc.) for the total leads metric
-      globalTotalLeads++;
-      if (isToday) globalTodayLeads++;
-
-      // Skip source labels (not actual person names) for the leaderboard
-      if (isSourceLabel(memberName)) continue;
-
-      const expaId  = (r["EXPA ID"] || r.expaId || r.eXPAID || "").trim();
-
-      if (!memberLeads.has(memberName)) {
-        memberLeads.set(memberName, { total: 0, today: 0, expaIds: new Set() });
-      }
-      const entry = memberLeads.get(memberName)!;
-      entry.total++;
-      if (isToday) entry.today++;
-      if (expaId && /^\d+$/.test(expaId)) entry.expaIds.add(expaId);
-    }
+    const memberLeads = rankingBase.entries;
 
     // EXPA lookup — use cache, skip if ?expa=0
     let expaStatusByEpId: Record<string, string> = {};
@@ -160,8 +104,8 @@ export async function GET(request: Request) {
       success:       true,
       members:       stats,
       totalMembers:  stats.length,
-      totalLeads:    globalTotalLeads,
-      todayLeads:    globalTodayLeads,
+      totalLeads:    rankingBase.totalLeads,
+      todayLeads:    rankingBase.todayLeads,
       totalApplied:  stats.reduce((s, m) => s + m.applied,     0),
       totalRealized: stats.reduce((s, m) => s + m.realized,    0),
       generatedAt:   new Date().toISOString(),

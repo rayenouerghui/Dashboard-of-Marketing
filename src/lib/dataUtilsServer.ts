@@ -16,7 +16,7 @@
 
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw } from "./googleSheetsServer";
+import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw, resolveMemberNameValue } from "./googleSheetsServer";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Shared interfaces (also re-used by route files / client props)
@@ -177,7 +177,7 @@ function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
     fieldOfStudy:      r['📚 Field of study'] || r.fieldOfStudy || r.field_of_study || "",
     internshipType:    internshipType,
     referral:          r['📢Referral'] || r.referral || "",
-    memberName:        r['🙋Member Name'] || r.memberName || r.member_name || "",
+    memberName:        resolveMemberNameValue(r),
     hackathonInterest: r['💻Are you interested to attend a hackathon ?'] || r.hackathonInterest || r.areYouInterestedToAttendAHackathon || r.hackathon_interest || "",
     accountStatus,
   };
