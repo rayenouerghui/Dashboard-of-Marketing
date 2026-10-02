@@ -48,4 +48,20 @@ describe('member-name resolution', () => {
       delete process.env.RANKING_NAME_COLUMN;
     }
   });
+
+  it('accepts a configured member-name header even when the source column is also present', () => {
+    process.env.RANKING_NAME_COLUMN = 'Member Name';
+    try {
+      const row = {
+        'Referral': 'Friend',
+        'Member Name': 'Alice Johnson',
+        'Submitted at': '2026-09-15',
+      } as Record<string, string>;
+
+      expect(resolveMemberNameKey(row)).toBe('Member Name');
+      expect(resolveMemberNameValue(row)).toBe('Alice Johnson');
+    } finally {
+      delete process.env.RANKING_NAME_COLUMN;
+    }
+  });
 });

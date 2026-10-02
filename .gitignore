@@ -28,6 +28,7 @@ yarn-error.log*
 
 # local inspection scripts
 scripts/inspect-sheet.mjs
+scripts/live-sheet-test.mjs
 
 # local env files
 .env*.local

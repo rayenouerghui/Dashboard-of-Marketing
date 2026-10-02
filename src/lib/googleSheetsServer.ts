@@ -57,6 +57,83 @@ function resolveSheetTitle(requestedTabName: string, availableTitles: string[]) 
   return normalized ?? requestedTabName;
 }
 
+function makeTabRowsSummary(rows: string[][]) {
+  const [headerRow = [], ...dataRows] = rows;
+  const normalizedHeaders = headerRow.map((value) => normalizeHeaderName(String(value ?? ""))).filter(Boolean);
+  const hasSubmittedAt = normalizedHeaders.some((header) => header.includes("submittedat") || header.includes("submittedat") || header.includes("submitted"));
+  const hasMemberName = normalizedHeaders.some((header) => header.includes("membername") || header.includes("member") && header.includes("name"));
+  const hasBusinessAi = normalizedHeaders.some((header) => {
+    const normalized = normalizeHeaderName(String(header ?? ""));
+    return normalized.includes("business") && normalized.includes("ai");
+  });
+
+  let latestSubmittedAt: Date | null = null;
+  let rowsSinceCutoff = 0;
+
+  for (const row of dataRows) {
+    if (!row.some((cell) => String(cell ?? "").trim() !== "")) continue;
+    const record = Object.fromEntries(headerRow.map((header, index) => [String(header ?? ""), String(row[index] ?? "")]));
+    const submittedAt = record["Submitted at"] ?? record["submittedAt"] ?? record["submitted_at"] ?? "";
+    const parsed = parseSubmittedAt(submittedAt);
+    if (!parsed) continue;
+    if (!latestSubmittedAt || parsed.getTime() > latestSubmittedAt.getTime()) {
+      latestSubmittedAt = parsed;
+    }
+    const day = formatDateInTunis(parsed, "yyyy-MM-dd");
+    if (day >= "2026-09-01") {
+      rowsSinceCutoff++;
+    }
+  }
+
+  return {
+    hasSubmittedAt,
+    hasMemberName,
+    hasBusinessAi,
+    latestSubmittedAt,
+    rowsSinceCutoff,
+    headerRow,
+    normalizedHeaders,
+  };
+}
+
+export function pickBestRankingSheetTab(
+  tabs: Array<{ name: string; rows: string[][] }>,
+): string | null {
+  const configuredTab = process.env.RANKING_SHEET_TAB?.trim();
+
+  if (configuredTab) {
+    const matched = tabs.find((tab) => normalizeSheetTitle(tab.name) === normalizeSheetTitle(configuredTab));
+    if (matched) return matched.name;
+    console.warn(`[googleSheetsServer] RANKING_SHEET_TAB="${configuredTab}" did not match any available sheet tab; falling back to auto-selection.`);
+  }
+
+  const candidates = tabs
+    .map((tab) => ({
+      name: tab.name,
+      ...makeTabRowsSummary(tab.rows),
+    }))
+    .filter((tab) => tab.hasSubmittedAt && tab.hasMemberName)
+    .sort((a, b) => {
+      if (b.latestSubmittedAt && a.latestSubmittedAt) {
+        const diff = b.latestSubmittedAt.getTime() - a.latestSubmittedAt.getTime();
+        if (diff !== 0) return diff;
+      }
+      if (b.hasBusinessAi !== a.hasBusinessAi) return Number(b.hasBusinessAi) - Number(a.hasBusinessAi);
+      return b.rowsSinceCutoff - a.rowsSinceCutoff;
+    });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const best = candidates[0];
+  if (!best.hasSubmittedAt || !best.hasMemberName) {
+    return null;
+  }
+
+  return best.name;
+}
+
 export function normalizeHeaderName(header: string) {
   return header
     .replace(/[\p{Extended_Pictographic}\uFE0F]/gu, " ")
@@ -538,8 +615,45 @@ export async function fetchDigitalLeadsRaw() {
   return fetchSheetTab("Digital Data");
 }
 
+export async function resolveRankingSheetTab(sheets: Awaited<ReturnType<Awaited<ReturnType<typeof getGoogleApis>>["sheets"]>>, spreadsheetId: string): Promise<string> {
+  const availableTabs = await listSpreadsheetSheetTitles(sheets as any, spreadsheetId);
+  const explicitTab = process.env.RANKING_SHEET_TAB?.trim();
+
+  if (explicitTab) {
+    const exactMatch = availableTabs.find((title) => title === explicitTab);
+    if (exactMatch) return exactMatch;
+
+    const normalizedMatch = availableTabs.find((title) => normalizeSheetTitle(title) === normalizeSheetTitle(explicitTab));
+    if (normalizedMatch) return normalizedMatch;
+
+    console.warn(`[googleSheetsServer] RANKING_SHEET_TAB="${explicitTab}" did not match any tab in the spreadsheet; auto-selecting the newest valid ranking tab.`);
+  }
+
+  const tabRows = await Promise.all(
+    availableTabs.map(async (tabName) => {
+      const rows = await sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${escapeA1SheetName(tabName)}'!A:Z`,
+      });
+      return { name: tabName, rows: rows.data.values ?? [] };
+    }),
+  );
+
+  const selected = pickBestRankingSheetTab(tabRows);
+  if (!selected) {
+    throw new Error(`No valid ranking tab found. Available tabs: ${availableTabs.join(", ") || "none"}`);
+  }
+
+  console.warn(`[googleSheetsServer] Auto-selected ranking tab "${selected}" based on Submitted at + Member Name headers and latest dates.`);
+  return selected;
+}
+
 export async function fetchPhysicalLeadsRaw() {
-  return fetchSheetTab("Physical Data");
+  const google = await getGoogleApis();
+  const { sheetId: id, auth } = getAuthClient(google);
+  const sheets = google.sheets({ version: "v4", auth });
+  const tabName = await resolveRankingSheetTab(sheets as any, id);
+  return fetchSheetTab(tabName);
 }
 
 export async function getGoogleSheetsDebugInfo() {
