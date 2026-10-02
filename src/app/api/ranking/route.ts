@@ -27,6 +27,7 @@ const RANKING_CACHE_KEY = ["ranking-expa-statuses", RANKING_START_DATE];
 
 function buildRankingMeta({
   nameColumnHeader,
+  nameColumnIndex,
   rowsRead,
   totalRowsInSheet,
   rowsAfterDateCutoff,
@@ -37,6 +38,7 @@ function buildRankingMeta({
   membersCounted,
 }: {
   nameColumnHeader: string | null;
+  nameColumnIndex: number | null;
   rowsRead: number;
   totalRowsInSheet: number;
   rowsAfterDateCutoff: number;
@@ -50,6 +52,7 @@ function buildRankingMeta({
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
     since: RANKING_START_DATE,
     nameColumnHeader,
+    nameColumnIndex,
     rowsRead,
     totalRowsInSheet,
     rowsAfterDateCutoff,
@@ -102,6 +105,7 @@ export async function GET(request: Request) {
         headersSeen: nameAudit.headersSeen,
         meta: buildRankingMeta({
           nameColumnHeader: null,
+          nameColumnIndex: null,
           rowsRead: rawRows.length,
           totalRowsInSheet,
           rowsAfterDateCutoff: 0,
@@ -173,6 +177,7 @@ export async function GET(request: Request) {
       cached:        !skipExpa,
       meta: buildRankingMeta({
         nameColumnHeader: rankingBase.nameColumnHeader,
+        nameColumnIndex: rankingBase.nameColumnIndex,
         rowsRead: rankingBase.rowsRead,
         totalRowsInSheet,
         rowsAfterDateCutoff: rankingBase.rowsAfterDateCutoff,

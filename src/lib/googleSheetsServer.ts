@@ -32,6 +32,57 @@ function normalizeSheetTitle(tabName: string) {
   return tabName.trim().toLowerCase();
 }
 
+export function getConfiguredNameColumnIndex(): number | null {
+  const value = process.env.RANKING_NAME_COLUMN_INDEX?.trim();
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1 || !Number.isInteger(parsed)) return null;
+  return parsed;
+}
+
+function getColumnHeaderAtIndex(row: Record<string, string> | null | undefined, index: number): string | null {
+  if (!row) return null;
+  const keys = Object.keys(row);
+  const header = keys[index - 1];
+  return header ?? null;
+}
+
+export function resolveMemberNameKeyForRows(
+  rows: Record<string, string>[] | null | undefined,
+  cutoff?: string,
+): string | null {
+  if (!rows || rows.length === 0) return null;
+
+  const relevantRows = cutoff
+    ? rows.filter((row) => {
+        const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
+        const parsed = parseSubmittedAt(submittedAt);
+        if (!parsed) return false;
+        return formatDateInTunis(parsed, "yyyy-MM-dd") >= cutoff;
+      })
+    : rows;
+
+  if (cutoff && relevantRows.length === 0) return null;
+
+  const firstRow = relevantRows[0] ?? rows[0];
+  const keys = Object.keys(firstRow);
+
+  const configuredIndex = getConfiguredNameColumnIndex();
+  if (configuredIndex) {
+    const header = getColumnHeaderAtIndex(firstRow, configuredIndex);
+    if (header) return header;
+  }
+
+  const configuredOverride = process.env.RANKING_NAME_COLUMN?.trim();
+  if (configuredOverride) {
+    const exactMatch = keys.find((key) => normalizeHeaderName(key) === normalizeHeaderName(configuredOverride));
+    if (exactMatch) return exactMatch;
+  }
+
+  const candidate = keys.find((key) => matchesMemberNameHeader(key));
+  return candidate ?? null;
+}
+
 async function listSpreadsheetSheetTitles(
   sheets: Awaited<ReturnType<Awaited<ReturnType<typeof getGoogleApis>>["sheets"]>>, 
   spreadsheetId: string,
@@ -211,7 +262,7 @@ export function analyzeMemberNameColumn(rows: Record<string, string>[], options:
   const cutoff = options.cutoff ?? "2026-09-01";
   const sinceCutoffRows = rowsSinceCutoff(rows, cutoff);
   const headersSeen = Array.from(new Set(rows.flatMap((row) => Object.keys(row)).map(normalizeHeaderName).filter(Boolean)));
-  const nameColumnHeader = resolveMemberNameKey(rows[0] ?? null);
+  const nameColumnHeader = resolveMemberNameKeyForRows(rows, cutoff);
 
   if (!nameColumnHeader) {
     return {
@@ -286,8 +337,13 @@ export function resolveMemberNameKey(row: Record<string, string> | null | undefi
   if (!row) return null;
 
   const keys = Object.keys(row);
-  const configuredOverride = process.env.RANKING_NAME_COLUMN?.trim();
+  const configuredIndex = getConfiguredNameColumnIndex();
+  if (configuredIndex) {
+    const header = getColumnHeaderAtIndex(row, configuredIndex);
+    if (header) return header;
+  }
 
+  const configuredOverride = process.env.RANKING_NAME_COLUMN?.trim();
   if (configuredOverride) {
     const exactMatch = keys.find((key) => normalizeHeaderName(key) === normalizeHeaderName(configuredOverride));
     if (exactMatch) return exactMatch;

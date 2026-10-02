@@ -1,6 +1,6 @@
 import { isSourceLabel } from "@/data/sourceLabels";
 import { formatDateInTunis, parseSubmittedAt, todayInTunis } from "@/lib/dates";
-import { resolveMemberNameKey, resolveMemberNameValue } from "@/lib/googleSheetsServer";
+import { getConfiguredNameColumnIndex, resolveMemberNameKeyForRows, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 
 export const RANKING_START_DATE = "2026-09-01";
 
@@ -29,6 +29,7 @@ export interface MemberRankingBuildResult {
   rowsSkippedSourceLabel: number;
   rowsSkippedBlankName: number;
   nameColumnHeader: string | null;
+  nameColumnIndex: number | null;
 }
 
 function todayLocalStr(): string {
@@ -128,7 +129,17 @@ export function buildMemberRanking(
   let rowsAfterDateCutoff = 0;
   let rowsSinceCutoff = 0;
 
-  const chosenNameHeader = resolveMemberNameKey(rawRows[0] ?? null);
+  const chosenNameHeader = resolveMemberNameKeyForRows(rawRows, cutoff);
+  const configuredNameIndex = getConfiguredNameColumnIndex();
+  const chosenNameIndex = chosenNameHeader
+    ? Object.keys(rawRows.find((row) => {
+        const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
+        const parsed = parseSubmittedAt(submittedAt);
+        if (!parsed) return false;
+        return formatDateInTunis(parsed, "yyyy-MM-dd") >= cutoff;
+      }) ?? rawRows[0] ?? {})
+      .findIndex((key) => key === chosenNameHeader) + 1
+    : configuredNameIndex ?? null;
 
   for (const row of rawRows) {
     const memberName = (chosenNameHeader ? String(row[chosenNameHeader] ?? "") : resolveMemberNameValue(row)).trim();
@@ -216,5 +227,6 @@ export function buildMemberRanking(
     rowsSkippedSourceLabel: sourceLabelSkipped,
     rowsSkippedBlankName: blankNameSkipped,
     nameColumnHeader: chosenNameHeader,
+    nameColumnIndex: chosenNameIndex,
   };
 }
