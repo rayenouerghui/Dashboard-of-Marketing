@@ -27,6 +27,7 @@ interface CustomEvent {
   start: string;
   backgroundColor: string;
   borderColor: string;
+  universityLogo?: string;
   extendedProps: {
     university: string;
     universityLogo?: string;
@@ -175,6 +176,12 @@ export default function AttractionPageClient() {
 
   const canCreateAttraction = role === "admin";
 
+  const syncLocalCalendarEvents = (events: CustomEvent[]) => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+    window.dispatchEvent(new Event("attractionUpdated"));
+  };
+
   // ---------- load / sync (all hooks run every render, before any early return) ----------
 
   useEffect(() => {
@@ -202,6 +209,7 @@ export default function AttractionPageClient() {
       if (res.ok) {
         const data = await res.json();
         setCustomEvents(data);
+        syncLocalCalendarEvents(data);
       }
     } catch (error) {
       console.error("Failed to fetch custom events", error);
@@ -223,6 +231,7 @@ export default function AttractionPageClient() {
       start: formData.date,
       backgroundColor: "#465FFF",
       borderColor: "#465FFF",
+      universityLogo: formData.universityLogo || undefined,
       extendedProps: {
         university: formData.university.trim(),
         universityLogo: formData.universityLogo || undefined,

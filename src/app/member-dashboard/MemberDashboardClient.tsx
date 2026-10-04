@@ -43,6 +43,22 @@ function readTodaysAttractions(): CustomEvent[] {
   }
 }
 
+async function fetchLiveTodaysAttractions(): Promise<CustomEvent[]> {
+  try {
+    const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
+    if (!res.ok) return [];
+    const data: CustomEvent[] = await res.json();
+    const todayStr = toLocalDateString(new Date());
+    const valid = data.filter((e) => e.start === todayStr);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+    return valid;
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Fuzzy university match: both sides are lowercased and we check if one
  * contains the other (or vice-versa). This handles cases where the lead's
@@ -100,19 +116,21 @@ export default function MemberDashboardClient({
   }, []);
 
   useEffect(() => {
-    const handleSync = () => {
-      const next = readTodaysAttractions();
+    const handleSync = async () => {
+      const live = await fetchLiveTodaysAttractions();
+      const next = live.length > 0 ? live : readTodaysAttractions();
       setTodaysAttractions(next);
-      // Keep active tab in range if attractions change
       setActiveTab((prev) => (prev < next.length ? prev : 0));
     };
 
     handleSync();
     window.addEventListener("storage", handleSync);
     window.addEventListener("attractionUpdated", handleSync);
+    const refresh = setInterval(handleSync, 15000);
     return () => {
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("attractionUpdated", handleSync);
+      clearInterval(refresh);
     };
   }, []);
 
