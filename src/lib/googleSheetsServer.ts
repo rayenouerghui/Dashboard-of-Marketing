@@ -1167,14 +1167,25 @@ export function filterVisibleScheduledAttractions(items: any[], now: Date = new 
   });
 }
 
-export function hasScheduledAttractionRow(rows: string[][], id: string): boolean {
+export function findScheduledAttractionRowIndex(rows: string[][], id: string): number {
+  const targetId = String(id ?? "").trim();
+  if (!targetId) return -1;
+
   for (let i = 1; i < rows.length; i++) {
+    const rowId = String(rows[i]?.[0] ?? "").trim();
+    if (rowId === targetId) return i;
+
     const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
-    if (parsed.ok && parsed.attraction.id === id) {
-      return true;
+    if (parsed.ok && parsed.attraction?.id === targetId) {
+      return i;
     }
   }
-  return false;
+
+  return -1;
+}
+
+export function hasScheduledAttractionRow(rows: string[][], id: string): boolean {
+  return findScheduledAttractionRowIndex(rows, id) >= 0;
 }
 
 async function getScheduledAttractionRows(): Promise<string[][]> {
@@ -1202,26 +1213,30 @@ export async function saveScheduledAttractionToSheet(attraction: any) {
   await ensureAttractionsTab(sheets);
 
   const existing = await getScheduledAttractionRows();
-  let targetRowIndex = -1;
-
-  for (let i = 1; i < existing.length; i++) {
-    const parsed = parseScheduledAttractionRow(existing[i]?.[5]);
-    if (parsed.ok && parsed.attraction.id === normalized.id) {
-      targetRowIndex = i + 1;
-      break;
-    }
-  }
+  const targetRowIndex = findScheduledAttractionRowIndex(existing, normalized.id);
 
   const rowValues = [[normalized.id, normalized.title, normalized.start, normalized.end ?? "", normalized.university, JSON.stringify(normalized)]];
 
   if (targetRowIndex > 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: getAttractionsSpreadsheetId(),
-      range: `'${ATTRACTIONS_TAB}'!A${targetRowIndex}:F${targetRowIndex}`,
+      range: `'${ATTRACTIONS_TAB}'!A${targetRowIndex + 1}:F${targetRowIndex + 1}`,
       valueInputOption: "RAW",
       requestBody: { values: rowValues },
     });
   } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: getAttractionsSpreadsheetId(),
+      range: `'${ATTRACTIONS_TAB}'!A:F`,
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values: rowValues },
+    });
+  }
+
+  const finalRows = await getScheduledAttractionRows();
+  const verifiedRowIndex = findScheduledAttractionRowIndex(finalRows, normalized.id);
+  if (verifiedRowIndex < 0) {
     await sheets.spreadsheets.values.append({
       spreadsheetId: getAttractionsSpreadsheetId(),
       range: `'${ATTRACTIONS_TAB}'!A:F`,
@@ -1303,15 +1318,13 @@ export async function deleteScheduledAttractionFromSheet(id: string) {
   await ensureAttractionsTab(sheets);
 
   const rows = await getScheduledAttractionRows();
-  for (let i = 1; i < rows.length; i++) {
-    const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
-    if (parsed.ok && parsed.attraction.id === id) {
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId: getAttractionsSpreadsheetId(),
-        range: `'${ATTRACTIONS_TAB}'!A${i + 1}:F${i + 1}`,
-      });
-      return true;
-    }
+  const rowIndex = findScheduledAttractionRowIndex(rows, id);
+  if (rowIndex >= 1) {
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: getAttractionsSpreadsheetId(),
+      range: `'${ATTRACTIONS_TAB}'!A${rowIndex + 1}:F${rowIndex + 1}`,
+    });
+    return true;
   }
 
   return false;
@@ -1322,23 +1335,19 @@ export async function archiveScheduledAttractionById(id: string) {
   await ensureAttractionsTab(sheets);
 
   const rows = await getScheduledAttractionRows();
-  for (let i = 1; i < rows.length; i++) {
-    const rowId = String(rows[i]?.[0] ?? "");
-    const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
-    if (rowId !== id && (!parsed.ok || parsed.attraction.id !== id)) continue;
+  const rowIndex = findScheduledAttractionRowIndex(rows, id);
+  if (rowIndex < 1) return false;
 
-    const attraction = parsed.ok ? parsed.attraction : null;
-    const next = attraction ? { ...attraction, status: "archived", updatedAt: new Date().toISOString() } : null;
-    if (!next) continue;
+  const parsed = parseScheduledAttractionRow(rows[rowIndex]?.[5]);
+  const attraction = parsed.ok ? parsed.attraction : null;
+  const next = attraction ? { ...attraction, status: "archived", updatedAt: new Date().toISOString() } : null;
+  if (!next) return false;
 
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: getAttractionsSpreadsheetId(),
-      range: `'${ATTRACTIONS_TAB}'!A${i + 1}:F${i + 1}`,
-      valueInputOption: "RAW",
-      requestBody: { values: [[next.id, next.title, next.start, next.end ?? "", next.university, JSON.stringify(next)]] },
-    });
-    return true;
-  }
-
-  return false;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: getAttractionsSpreadsheetId(),
+    range: `'${ATTRACTIONS_TAB}'!A${rowIndex + 1}:F${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[next.id, next.title, next.start, next.end ?? "", next.university, JSON.stringify(next)]] },
+  });
+  return true;
 }

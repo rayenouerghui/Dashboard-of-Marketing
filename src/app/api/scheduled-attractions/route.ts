@@ -74,7 +74,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid input", details: error.issues }, { status: 400 });
     }
     console.error("Failed to save scheduled attraction:", error);
-    return NextResponse.json({ error: "Failed to save scheduled attraction" }, { status: 500 });
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : "Failed to save scheduled attraction",
+    }, { status: 500 });
   }
 }
 

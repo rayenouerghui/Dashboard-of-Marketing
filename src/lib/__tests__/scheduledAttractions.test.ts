@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { dateStringToDate } from '@/lib/dates';
 import {
   filterVisibleScheduledAttractions,
+  findScheduledAttractionRowIndex,
   hasScheduledAttractionRow,
   isAttractionVisibleToMembers,
 } from '../googleSheetsServer';
@@ -68,6 +69,16 @@ describe('Scheduled attractions visibility', () => {
     expect(dayAfter.getMonth()).toBe(0);
     expect(dayAfter.getDate()).toBe(17);
     expect(dayAfter.getTime() - tomorrow.getTime()).toBeGreaterThan(0);
+  });
+
+  it('matches rows by stable attraction id even when the JSON payload is malformed', () => {
+    const rows = [
+      ['id', 'title', 'start', 'end', 'university', 'data'],
+      ['stuck-attraction', 'Stuck', '2026-10-05', '', 'Broken Uni', '{not-valid-json'],
+    ];
+
+    expect(findScheduledAttractionRowIndex(rows, 'stuck-attraction')).toBe(1);
+    expect(hasScheduledAttractionRow(rows, 'stuck-attraction')).toBe(true);
   });
 
   it('matches rows by stable attraction id instead of row index', () => {
