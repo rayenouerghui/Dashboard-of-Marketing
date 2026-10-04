@@ -45,25 +45,16 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
           (l) => new Date(l.submittedAt).toISOString().slice(0, 10) === today
         );
 
-        const scheduledRes = await fetch("/api/scheduled-attractions", { cache: "no-store" });
-        const scheduledCustom = scheduledRes.ok ? await scheduledRes.json() : [];
-        const todayCustom = scheduledCustom.filter((e: any) => e.start === today);
-
         const saved = localStorage.getItem("customCalendarEvents");
         const customEvents = saved ? JSON.parse(saved) : [];
-        const localTodayCustom = customEvents.filter((e: any) => e.start === today);
+        const todayCustom = customEvents.filter((e: any) => e.start === today);
 
         const attractions: TodayAttraction[] = [
           ...todayLeads.map((l) => ({ university: l.university, type: "lead" as const })),
           ...todayCustom.map((e: any) => ({
-            university: e.extendedProps?.university || e.university,
-            location: e.extendedProps?.note || e.note,
-            type: "scheduled" as const,
-          })),
-          ...localTodayCustom.map((e: any) => ({
-            university: e.extendedProps?.university || e.university,
-            location: e.extendedProps?.note || e.note,
-            type: "scheduled" as const,
+            university: e.extendedProps.university,
+            location:   e.extendedProps.note,
+            type:       "scheduled" as const,
           })),
         ];
 
