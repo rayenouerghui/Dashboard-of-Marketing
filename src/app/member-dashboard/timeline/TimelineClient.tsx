@@ -251,11 +251,14 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
                     size={48}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-base truncate">
+                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-100/90">
+                      ## Scheduled Attractions
+                    </p>
+                    <p className="text-white font-semibold text-base">
                       {getShortUniversityName(ev.extendedProps.university)}
                     </p>
                     {ev.extendedProps.note && (
-                      <p className="text-blue-100 text-sm truncate mt-0.5">
+                      <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-blue-100">
                         {ev.extendedProps.note}
                       </p>
                     )}

@@ -220,7 +220,14 @@ export default function AttractionPageClient() {
 
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.university.trim() || !formData.date) return;
+    if (!formData.university.trim() || !formData.date) {
+      setToast("University and date are required.");
+      return;
+    }
+    if (!formData.universityLogo.trim()) {
+      setToast("Please select a university logo before saving the attraction.");
+      return;
+    }
 
     const parsedGoal = parseInt(formData.goal, 10);
     const goal = Number.isFinite(parsedGoal) && parsedGoal > 0 ? parsedGoal : DEFAULT_GOAL;
@@ -410,7 +417,7 @@ export default function AttractionPageClient() {
                   />
                 </Field>
 
-                <Field label="University Logo (optional)">
+                <Field label="University Logo">
                   <div className="grid grid-cols-5 gap-2 sm:grid-cols-7">
                     {UNIVERSITY_LOGOS.map((logo) => {
                       const path = `/university-logos/${logo}`;
@@ -522,7 +529,10 @@ export default function AttractionPageClient() {
                           size={36}
                         />
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-gray-800 dark:text-white">
+                          <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+                            ## Scheduled Attractions
+                          </p>
+                          <p className="font-medium text-gray-800 dark:text-white">
                             {event.extendedProps.university}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -533,7 +543,7 @@ export default function AttractionPageClient() {
                             })}
                           </p>
                           {event.extendedProps.note && (
-                            <p className="mt-0.5 truncate text-xs text-gray-400 dark:text-gray-500">
+                            <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-gray-400 dark:text-gray-500">
                               {event.extendedProps.note}
                             </p>
                           )}
@@ -643,16 +653,19 @@ export default function AttractionPageClient() {
                               size={28}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-gray-800 dark:text-white">
+                              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-brand-600 dark:text-brand-400">
+                                ## Scheduled Attractions
+                              </p>
+                              <p className="text-sm font-semibold text-gray-800 dark:text-white">
                                 {attraction.extendedProps.university}
                               </p>
                               {attraction.extendedProps.note && (
-                                <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">
+                                <p className="whitespace-pre-wrap break-words text-[11px] text-gray-500 dark:text-gray-400">
                                   {attraction.extendedProps.note}
                                 </p>
                               )}
                               {typeof attraction.extendedProps.goal === "number" && (
-                                <p className="mt-0.5 truncate text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                                <p className="mt-0.5 text-[11px] font-semibold text-brand-600 dark:text-brand-400">
                                   🎯 Goal: {attraction.extendedProps.goal}
                                 </p>
                               )}
