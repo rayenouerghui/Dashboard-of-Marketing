@@ -220,7 +220,7 @@ export default function CalendarPageClient({ initialLeads }: CalendarPageClientP
   useEffect(() => {
     const fetchAttractions = async () => {
       try {
-        const res = await fetch("/api/scheduled-attractions");
+        const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           setCustomEvents(data);
@@ -322,42 +322,56 @@ Status: ${props.accountStatus || "N/A"}
   };
 
   const handleSaveEvent = async (event: CalendarEvent) => {
-    if (modalMode === "add") {
-      const newEvent = { ...event, id: `custom-${Date.now()}` };
-      setCustomEvents((previous) => [...previous, newEvent]);
-      try {
-        await fetch("/api/scheduled-attractions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(newEvent),
-        });
-        // Polling will handle the update
-      } catch (err) {
-        console.error(err);
+    try {
+      const requestBody = modalMode === "add" ? { ...event, id: `custom-${Date.now()}` } : event;
+      const response = await fetch("/api/scheduled-attractions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify(requestBody),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || payload?.success !== true) {
+        throw new Error(payload?.error ?? "Failed to save attraction");
       }
-    } else {
-      setCustomEvents((previous) => previous.map((e) => (e.id === event.id ? event : e)));
-      try {
-        await fetch("/api/scheduled-attractions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(event),
-        });
-        // Polling will handle the update
-      } catch (err) {
-        console.error(err);
-      }
+
+      const fetchAttractions = async () => {
+        const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setCustomEvents(data);
+        }
+      };
+      await fetchAttractions();
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to save attraction");
     }
   };
 
   const handleDeleteEvent = async () => {
     if (selectedEvent?.id) {
-      setCustomEvents((previous) => previous.filter((e) => e.id !== selectedEvent.id));
       try {
-        await fetch(`/api/scheduled-attractions?id=${selectedEvent.id}`, { method: "DELETE" });
-        // Polling will handle the update
+        const response = await fetch(`/api/scheduled-attractions?id=${selectedEvent.id}`, {
+          method: "DELETE",
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (!response.ok || payload?.success !== true) {
+          throw new Error(payload?.error ?? "Failed to delete attraction");
+        }
+
+        const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setCustomEvents(data);
+        }
+        setIsModalOpen(false);
       } catch (err) {
         console.error(err);
+        alert(err instanceof Error ? err.message : "Failed to delete attraction");
       }
     }
   };

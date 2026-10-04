@@ -147,7 +147,7 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
 
   const fetchAttractions = async () => {
     try {
-      const res = await fetch("/api/scheduled-attractions");
+      const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setScheduledEvents(data);

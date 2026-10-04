@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
-import { loadScheduledAttractionsFromSheet, deleteScheduledAttractionFromSheet } from "@/lib/googleSheetsServer";
-import { getCronSecret } from "@/lib/env";
+import { revalidateTag } from "next/cache";
 import crypto from "crypto";
+import { loadScheduledAttractionsFromSheet, archiveScheduledAttractionById } from "@/lib/googleSheetsServer";
+import { getCronSecret } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  // Verify CRON_SECRET header with timing-safe comparison
   const authHeader = request.headers.get("authorization");
   const headerCronSecret = request.headers.get("x-cron-secret");
-  
   const providedSecret = authHeader?.replace("Bearer ", "") || headerCronSecret;
-  
-  // Timing-safe comparison to prevent timing attacks
   const cronSecret = getCronSecret();
+
   if (!providedSecret || !timingSafeEqual(providedSecret, cronSecret)) {
     console.error("[api/cron/cleanup-attractions] Unauthorized access attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -26,36 +24,41 @@ export async function POST(request: Request) {
 
   try {
     const attractions = await loadScheduledAttractionsFromSheet();
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
-
-    const idsToDelete: string[] = [];
+    const idsToArchive: string[] = [];
 
     for (const attraction of attractions) {
-      const attractionDate = attraction.start || attraction.date;
-      if (attractionDate && attractionDate < oneWeekAgoStr) {
-        idsToDelete.push(attraction.id);
+      const visibility = (() => {
+        if (!attraction?.start) return { visible: false, reason: "missing attraction date" };
+        const dateValue = String(attraction.start).trim();
+        const date = new Date(dateValue);
+        if (Number.isNaN(date.getTime())) return { visible: false, reason: "invalid attraction date" };
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+        endOfDay.setDate(endOfDay.getDate() + 7);
+        return { visible: new Date() <= endOfDay, reason: new Date() <= endOfDay ? "within 7-day visibility window" : "date older than 7 days" };
+      })();
+
+      if (!visibility.visible) {
+        idsToArchive.push(attraction.id);
       }
     }
 
-    // Delete old attractions
-    for (const id of idsToDelete) {
-      await deleteScheduledAttractionFromSheet(id);
+    const archivedIds: string[] = [];
+    for (const id of idsToArchive) {
+      const changed = await archiveScheduledAttractionById(id);
+      if (changed) archivedIds.push(id);
     }
 
-    console.log(`[api/cron/cleanup-attractions] Deleted ${idsToDelete.length} old attractions`);
+    revalidateTag("scheduled-attractions", "api/scheduled-attractions");
+    console.log(`[api/cron/cleanup-attractions] Archived ${archivedIds.length} old attractions`);
 
     return NextResponse.json({
       success: true,
-      deleted: idsToDelete.length,
-      deletedIds: idsToDelete,
+      archived: archivedIds.length,
+      archivedIds,
     });
   } catch (error) {
     console.error("[api/cron/cleanup-attractions] error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to cleanup attractions" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to cleanup attractions" }, { status: 500 });
   }
 }

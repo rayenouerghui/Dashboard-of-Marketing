@@ -14,6 +14,7 @@ import { DEFAULT_NAME_COLUMN_INDEX, DEFAULT_REFERRAL_COLUMN_INDEX, SHEET_LAYOUT_
 import { isSourceLabel } from "@/data/sourceLabels";
 import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey, getOpportunityOgvSpreadsheetId, getOpportunityOgtSpreadsheetId } from "./env";
 import { formatDateInTunis, parseSubmittedAt } from "./dates";
+import { sanitizeString } from "./sanitize";
 
 function toCamelCase(header: string): string {
   // Preserve emojis and special characters, only convert spaces to camelCase
@@ -1002,133 +1003,342 @@ export async function deleteOpportunityFromSheet(opportunityId: string) {
 }
 
 // ─── Scheduled Attractions persistence ─────────────────────────────────────────
-const ATTRACTIONS_SPREADSHEET_ID = "1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM"; // Using OGV sheet
+const DEFAULT_ATTRACTIONS_SPREADSHEET_ID = "1gswBgo_6vrVpNcGpqqhDPidSbgMXUvaujkKmmSBzJUM";
 const ATTRACTIONS_TAB = "Scheduled Attractions";
 
+export function getAttractionsSpreadsheetId(): string {
+  return process.env.ATTRACTIONS_SPREADSHEET_ID || DEFAULT_ATTRACTIONS_SPREADSHEET_ID;
+}
+
+export function getAttractionsSpreadsheetIdHint(): string {
+  const value = getAttractionsSpreadsheetId();
+  if (value.length <= 8) return value;
+  return `${value.slice(0, 4)}…${value.slice(-4)}`;
+}
+
+export function getAttractionsSheetConfig() {
+  return { spreadsheetId: getAttractionsSpreadsheetId(), tabName: ATTRACTIONS_TAB };
+}
+
+export function normalizeScheduledAttractionRecord(raw: any): any | null {
+  if (!raw || typeof raw !== "object") return null;
+
+  const flattened = { ...raw };
+  const nested = raw.extendedProps && typeof raw.extendedProps === "object" ? raw.extendedProps : {};
+
+  const id = String(raw.id ?? nested.id ?? "").trim();
+  const title = String(raw.title ?? nested.title ?? raw.name ?? "").trim();
+  const start = String(raw.start ?? raw.date ?? nested.start ?? "").trim();
+  const end = raw.end ?? nested.end;
+  const university = String(raw.university ?? nested.university ?? "").trim();
+  const note = raw.notes ?? raw.note ?? nested.note ?? "";
+  const goal = raw.goal ?? nested.goal ?? 0;
+  const status = raw.status ?? "active";
+  const universityLogo = raw.universityLogo ?? nested.universityLogo ?? "";
+
+  if (!id || !title || !start || !university) return null;
+
+  const normalized = {
+    id,
+    title,
+    start,
+    end: end ? String(end).trim() : undefined,
+    university,
+    goal: Number.isFinite(Number(goal)) ? Number(goal) : 0,
+    notes: typeof note === "string" ? sanitizeString(note, 500) : String(note ?? ""),
+    note: typeof note === "string" ? sanitizeString(note, 500) : String(note ?? ""),
+    universityLogo: universityLogo ? sanitizeString(String(universityLogo), 200) : undefined,
+    backgroundColor: raw.backgroundColor ?? "#465FFF",
+    borderColor: raw.borderColor ?? "#465FFF",
+    status,
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    extendedProps: {
+      university,
+      universityLogo: universityLogo ? sanitizeString(String(universityLogo), 200) : undefined,
+      note: typeof note === "string" ? sanitizeString(note, 500) : String(note ?? ""),
+      goal: Number.isFinite(Number(goal)) ? Number(goal) : 0,
+    },
+  };
+
+  return normalized;
+}
+
+export function sanitizeScheduledAttractionInput(raw: any): any | null {
+  const normalized = normalizeScheduledAttractionRecord(raw);
+  if (!normalized) return null;
+
+  return {
+    ...normalized,
+    title: sanitizeString(normalized.title, 200),
+    university: sanitizeString(normalized.university, 200),
+    notes: sanitizeString(normalized.notes, 500),
+    note: sanitizeString(normalized.note, 500),
+    start: sanitizeString(normalized.start, 32),
+    end: normalized.end ? sanitizeString(normalized.end, 32) : undefined,
+    universityLogo: normalized.universityLogo ? sanitizeString(normalized.universityLogo, 200) : undefined,
+    extendedProps: {
+      ...normalized.extendedProps,
+      university: sanitizeString(normalized.university, 200),
+      note: sanitizeString(normalized.note, 500),
+      universityLogo: normalized.universityLogo ? sanitizeString(normalized.universityLogo, 200) : undefined,
+      goal: Number.isFinite(Number(normalized.goal)) ? Number(normalized.goal) : 0,
+    },
+  };
+}
+
+export function parseScheduledAttractionRow(rawRow: string | undefined): { ok: boolean; attraction?: any; reason?: string } {
+  if (!rawRow) return { ok: false, reason: "empty JSON payload" };
+
+  try {
+    const parsed = JSON.parse(rawRow);
+    const normalized = normalizeScheduledAttractionRecord(parsed);
+    if (!normalized) {
+      return { ok: false, reason: "missing required attraction fields" };
+    }
+    return { ok: true, attraction: normalized };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message : "invalid JSON" };
+  }
+}
+
+export function isAttractionVisibleToMembers(attraction: any, now: Date = new Date()): { visible: boolean; reason?: string } {
+  if (!attraction) return { visible: false, reason: "missing attraction" };
+  if (attraction.status === "archived") return { visible: false, reason: "archived" };
+
+  const rawDate = attraction.start ?? attraction.date ?? attraction.attractionDate;
+  if (!rawDate) return { visible: false, reason: "missing attraction date" };
+
+  const dateValue = String(rawDate).trim();
+  if (!dateValue) return { visible: false, reason: "missing attraction date" };
+
+  const parsedDate = parseSubmittedAt(dateValue);
+  if (!parsedDate) return { visible: false, reason: "invalid attraction date" };
+
+  const startOfDay = new Date(parsedDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(parsedDate);
+  endOfDay.setHours(23, 59, 59, 999);
+  const expiry = new Date(endOfDay);
+  expiry.setDate(expiry.getDate() + 7);
+
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  if (parsedDate > now) {
+    return { visible: true, reason: "future attraction" };
+  }
+
+  if (now > expiry) {
+    return { visible: false, reason: "date older than 7 days" };
+  }
+
+  return { visible: true, reason: "within 7-day visibility window" };
+}
+
 async function ensureAttractionsTab(sheets: any) {
+  const spreadsheetId = getAttractionsSpreadsheetId();
   const meta = await sheets.spreadsheets.get({
-    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+    spreadsheetId,
     fields: "sheets(properties(title))",
   });
-  const titles: string[] = (meta.data.sheets ?? []).map(
-    (s: any) => s?.properties?.title ?? ""
-  );
+  const titles: string[] = (meta.data.sheets ?? []).map((s: any) => s?.properties?.title ?? "");
   if (!titles.includes(ATTRACTIONS_TAB)) {
     await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
+      spreadsheetId,
       requestBody: {
         requests: [{ addSheet: { properties: { title: ATTRACTIONS_TAB } } }],
       },
     });
-    // Write header row
     await sheets.spreadsheets.values.update({
-      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-      range: `'${ATTRACTIONS_TAB}'!A1:B1`,
+      spreadsheetId,
+      range: `'${ATTRACTIONS_TAB}'!A1:F1`,
       valueInputOption: "RAW",
-      requestBody: { values: [["id", "data"]] },
+      requestBody: { values: [["id", "title", "start", "end", "university", "data"]] },
     });
   }
 }
 
+export function filterVisibleScheduledAttractions(items: any[], now: Date = new Date()): any[] {
+  return items.filter((item) => {
+    const normalized = normalizeScheduledAttractionRecord(item);
+    if (!normalized || normalized.status === "archived") return false;
+    return isAttractionVisibleToMembers(normalized, now).visible;
+  });
+}
+
+export function hasScheduledAttractionRow(rows: string[][], id: string): boolean {
+  for (let i = 1; i < rows.length; i++) {
+    const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
+    if (parsed.ok && parsed.attraction.id === id) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function getScheduledAttractionRows(): Promise<string[][]> {
+  const sheets = await getSheetsClient();
+  await ensureAttractionsTab(sheets);
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: getAttractionsSpreadsheetId(),
+    range: `'${ATTRACTIONS_TAB}'!A:F`,
+  });
+  return response.data.values ?? [];
+}
+
+async function verifyScheduledAttractionWrite(id: string) {
+  const rows = await getScheduledAttractionRows();
+  return hasScheduledAttractionRow(rows, id);
+}
+
 export async function saveScheduledAttractionToSheet(attraction: any) {
+  const normalized = sanitizeScheduledAttractionInput(attraction);
+  if (!normalized) {
+    throw new Error("Invalid scheduled attraction payload");
+  }
+
   const sheets = await getSheetsClient();
   await ensureAttractionsTab(sheets);
 
-  const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-    range: `'${ATTRACTIONS_TAB}'!A:B`,
-  });
-
-  const rows: string[][] = existing.data.values ?? [];
+  const existing = await getScheduledAttractionRows();
   let targetRowIndex = -1;
-  for (let i = 1; i < rows.length; i++) {
-    try {
-      const parsed = JSON.parse(rows[i][1] ?? "{}");
-      if (parsed.id === attraction.id) {
-        targetRowIndex = i + 1; // 1-indexed sheet row
-        break;
-      }
-    } catch {
-      // malformed row — skip
+
+  for (let i = 1; i < existing.length; i++) {
+    const parsed = parseScheduledAttractionRow(existing[i]?.[5]);
+    if (parsed.ok && parsed.attraction.id === normalized.id) {
+      targetRowIndex = i + 1;
+      break;
     }
   }
 
-  const rowValues = [[attraction.id, JSON.stringify(attraction)]];
+  const rowValues = [[normalized.id, normalized.title, normalized.start, normalized.end ?? "", normalized.university, JSON.stringify(normalized)]];
 
   if (targetRowIndex > 0) {
     await sheets.spreadsheets.values.update({
-      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-      range: `'${ATTRACTIONS_TAB}'!A${targetRowIndex}:B${targetRowIndex}`,
+      spreadsheetId: getAttractionsSpreadsheetId(),
+      range: `'${ATTRACTIONS_TAB}'!A${targetRowIndex}:F${targetRowIndex}`,
       valueInputOption: "RAW",
       requestBody: { values: rowValues },
     });
   } else {
     await sheets.spreadsheets.values.append({
-      spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-      range: `'${ATTRACTIONS_TAB}'!A:B`,
+      spreadsheetId: getAttractionsSpreadsheetId(),
+      range: `'${ATTRACTIONS_TAB}'!A:F`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: rowValues },
     });
   }
+
+  const wasVerified = await verifyScheduledAttractionWrite(normalized.id);
+  if (!wasVerified) {
+    throw new Error("Scheduled attraction write could not be verified in the Google Sheet.");
+  }
 }
 
 export async function loadScheduledAttractionsFromSheet(): Promise<any[]> {
-  const sheets = await getSheetsClient();
-  await ensureAttractionsTab(sheets);
-
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-    range: `'${ATTRACTIONS_TAB}'!A:B`,
-  });
-
-  const rows: string[][] = response.data.values ?? [];
+  const rows = await getScheduledAttractionRows();
   const results: any[] = [];
-  const oneWeekAgo = new Date();
-  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const oneWeekAgoStr = oneWeekAgo.toISOString().split('T')[0];
 
   for (let i = 1; i < rows.length; i++) {
-    const jsonBlob = rows[i]?.[1];
-    if (!jsonBlob) continue;
-    try {
-      const parsed = JSON.parse(jsonBlob);
-      const attractionDate = parsed.start || parsed.date;
+    const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
+    if (!parsed.ok || !parsed.attraction) continue;
 
-      // Filter out attractions older than one week (don't delete, just filter)
-      if (!attractionDate || attractionDate >= oneWeekAgoStr) {
-        results.push(parsed);
-      }
-    } catch {
-      // skip malformed
+    const attraction = parsed.attraction;
+    if (attraction.status === "archived") continue;
+
+    const visibility = isAttractionVisibleToMembers(attraction, new Date());
+    if (visibility.visible) {
+      results.push(attraction);
     }
   }
 
   return results;
 }
 
+export async function getScheduledAttractionsAuditRows() {
+  const rows = await getScheduledAttractionRows();
+  const entries: Array<{
+    id: string;
+    parsedOK: boolean;
+    errorReason?: string;
+    attractionDate?: string;
+    universityId?: string;
+    visibleToMembers: boolean;
+    visibilityReason?: string;
+  }> = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const jsonBlob = rows[i]?.[5];
+    const parsed = parseScheduledAttractionRow(jsonBlob);
+    if (!parsed.ok || !parsed.attraction) {
+      entries.push({
+        id: String(rows[i]?.[0] ?? ""),
+        parsedOK: false,
+        errorReason: parsed.reason ?? "invalid JSON",
+        visibleToMembers: false,
+        visibilityReason: "invalid JSON",
+      });
+      continue;
+    }
+
+    const attraction = parsed.attraction;
+    const visibility = isAttractionVisibleToMembers(attraction, new Date());
+    entries.push({
+      id: attraction.id,
+      parsedOK: true,
+      attractionDate: attraction.start,
+      universityId: attraction.university,
+      visibleToMembers: visibility.visible,
+      visibilityReason: visibility.reason,
+    });
+  }
+
+  return entries;
+}
+
 export async function deleteScheduledAttractionFromSheet(id: string) {
   const sheets = await getSheetsClient();
   await ensureAttractionsTab(sheets);
 
-  const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-    range: `'${ATTRACTIONS_TAB}'!A:B`,
-  });
-
-  const rows: string[][] = existing.data.values ?? [];
+  const rows = await getScheduledAttractionRows();
   for (let i = 1; i < rows.length; i++) {
-    try {
-      const parsed = JSON.parse(rows[i][1] ?? "{}");
-      if (parsed.id === id) {
-        await sheets.spreadsheets.values.clear({
-          spreadsheetId: ATTRACTIONS_SPREADSHEET_ID,
-          range: `'${ATTRACTIONS_TAB}'!A${i + 1}:B${i + 1}`,
-        });
-        break;
-      }
-    } catch {
-      // skip
+    const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
+    if (parsed.ok && parsed.attraction.id === id) {
+      await sheets.spreadsheets.values.clear({
+        spreadsheetId: getAttractionsSpreadsheetId(),
+        range: `'${ATTRACTIONS_TAB}'!A${i + 1}:F${i + 1}`,
+      });
+      return true;
     }
   }
+
+  return false;
+}
+
+export async function archiveScheduledAttractionById(id: string) {
+  const sheets = await getSheetsClient();
+  await ensureAttractionsTab(sheets);
+
+  const rows = await getScheduledAttractionRows();
+  for (let i = 1; i < rows.length; i++) {
+    const rowId = String(rows[i]?.[0] ?? "");
+    const parsed = parseScheduledAttractionRow(rows[i]?.[5]);
+    if (rowId !== id && (!parsed.ok || parsed.attraction.id !== id)) continue;
+
+    const attraction = parsed.ok ? parsed.attraction : null;
+    const next = attraction ? { ...attraction, status: "archived", updatedAt: new Date().toISOString() } : null;
+    if (!next) continue;
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: getAttractionsSpreadsheetId(),
+      range: `'${ATTRACTIONS_TAB}'!A${i + 1}:F${i + 1}`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[next.id, next.title, next.start, next.end ?? "", next.university, JSON.stringify(next)]] },
+    });
+    return true;
+  }
+
+  return false;
 }

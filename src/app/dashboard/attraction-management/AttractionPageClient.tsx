@@ -198,7 +198,7 @@ export default function AttractionPageClient() {
 
   async function fetchAttractions() {
     try {
-      const res = await fetch("/api/scheduled-attractions");
+      const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setCustomEvents(data);
@@ -231,38 +231,50 @@ export default function AttractionPageClient() {
       },
     };
 
-    const updated = [...customEvents, newEvent];
-    setCustomEvents(updated);
-    
     try {
-      await fetch("/api/scheduled-attractions", {
+      const response = await fetch("/api/scheduled-attractions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        cache: "no-store",
         body: JSON.stringify(newEvent),
       });
-      // Polling will handle the update
+      const payload = await response.json();
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error ?? "Failed to save attraction");
+      }
+
+      await fetchAttractions();
+      setFormData(EMPTY_FORM);
+      setToast(`Attraction added for ${newEvent.extendedProps.university} — now visible on the timeline`);
     } catch (err) {
       console.error(err);
+      setToast(err instanceof Error ? err.message : "Failed to save attraction");
     }
-
-    setFormData(EMPTY_FORM);
-    setToast(`Attraction added for ${newEvent.extendedProps.university} — now visible on the timeline`);
   };
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
-    const updated = customEvents.filter((e) => e.id !== pendingDelete.id);
-    setCustomEvents(updated);
-    
+
     try {
-      await fetch(`/api/scheduled-attractions?id=${pendingDelete.id}`, { method: 'DELETE' });
-      // Polling will handle the update
+      const response = await fetch(`/api/scheduled-attractions?id=${pendingDelete.id}`, {
+        method: "DELETE",
+        cache: "no-store",
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error ?? "Failed to delete attraction");
+      }
+
+      await fetchAttractions();
+      setToast(`Removed ${pendingDelete.extendedProps.university}`);
     } catch (err) {
       console.error(err);
+      setToast(err instanceof Error ? err.message : "Failed to delete attraction");
+    } finally {
+      setPendingDelete(null);
     }
-    
-    setToast(`Removed ${pendingDelete.extendedProps.university}`);
-    setPendingDelete(null);
   };
 
   // ---------- derived data ----------
