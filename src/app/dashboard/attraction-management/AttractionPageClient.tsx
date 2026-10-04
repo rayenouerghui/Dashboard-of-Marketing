@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { formatDateInTunis } from "@/lib/dates";
 
 // Simple placeholder for Image to avoid SSR issues
 const SafeImage = ({ src, alt, width, height, className, style }: any) => {
@@ -156,7 +157,7 @@ const STORAGE_KEY = "customCalendarEvents";
 const DEFAULT_GOAL = 10;
 
 const EMPTY_FORM = {
-  date: new Date().toISOString().split("T")[0],
+  date: formatDateInTunis(new Date()),
   university: "",
   universityLogo: "",
   note: "",
@@ -303,7 +304,7 @@ export default function AttractionPageClient() {
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().slice(0, 10);
+    const todayStr = formatDateInTunis(today);
 
     const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
     const days: DayAttraction[] = [];
@@ -313,7 +314,7 @@ export default function AttractionPageClient() {
       dayDate.setDate(monday.getDate() + i);
       dayDate.setHours(0, 0, 0, 0);
 
-      const dayStr = dayDate.toISOString().slice(0, 10);
+      const dayStr = formatDateInTunis(dayDate);
 
       days.push({
         date: dayDate,

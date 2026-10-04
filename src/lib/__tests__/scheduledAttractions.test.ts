@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { dateStringToDate } from '@/lib/dates';
 import {
   filterVisibleScheduledAttractions,
   hasScheduledAttractionRow,
@@ -54,6 +55,19 @@ describe('Scheduled attractions visibility', () => {
 
     const visible = filterVisibleScheduledAttractions(items, new Date('2025-01-15'));
     expect(visible.map((item) => item.id)).toEqual(['keep-1']);
+  });
+
+  it('keeps adjacent attraction dates distinct when they are stored as YYYY-MM-DD strings', () => {
+    const tomorrow = dateStringToDate('2025-01-16');
+    const dayAfter = dateStringToDate('2025-01-17');
+
+    expect(tomorrow.getFullYear()).toBe(2025);
+    expect(tomorrow.getMonth()).toBe(0);
+    expect(tomorrow.getDate()).toBe(16);
+    expect(dayAfter.getFullYear()).toBe(2025);
+    expect(dayAfter.getMonth()).toBe(0);
+    expect(dayAfter.getDate()).toBe(17);
+    expect(dayAfter.getTime() - tomorrow.getTime()).toBeGreaterThan(0);
   });
 
   it('matches rows by stable attraction id instead of row index', () => {

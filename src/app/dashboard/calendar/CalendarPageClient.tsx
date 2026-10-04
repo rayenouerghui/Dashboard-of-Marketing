@@ -7,6 +7,7 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg } from "@fullcalendar/core";
 import { PhysicalAttractionLead } from "@/lib/dataUtils";
 import { useAuth } from "@/context/AuthContext";
+import { formatDateInTunis, dateStringToDate } from "@/lib/dates";
 
 interface CalendarPageClientProps {
   initialLeads: PhysicalAttractionLead[];
@@ -42,7 +43,7 @@ interface ModalProps {
 const getInitialFormData = (event?: CalendarEvent, mode: "add" | "edit" = "add") => {
   if (event && mode === "edit") {
     return {
-      date: event.start || new Date().toISOString().split("T")[0],
+      date: event.start || formatDateInTunis(new Date()),
       university: event.extendedProps.university || "",
       universityLogo: event.extendedProps.universityLogo || "",
       note: event.extendedProps.note || "",
@@ -50,7 +51,7 @@ const getInitialFormData = (event?: CalendarEvent, mode: "add" | "edit" = "add")
   }
 
   return {
-    date: event?.start || new Date().toISOString().split("T")[0],
+    date: event?.start || formatDateInTunis(new Date()),
     university: "",
     universityLogo: "",
     note: "",
@@ -243,7 +244,7 @@ export default function CalendarPageClient({ initialLeads }: CalendarPageClientP
         return {
           id: `lead-${lead.expaId}`,
           title: `${lead.university.split(":")[0]?.trim() || lead.university} - ${lead.internshipType}`,
-          start: date.toISOString().split("T")[0],
+          start: formatDateInTunis(date),
           backgroundColor: lead.accountStatus.includes("✅") ? "#10B981" : "#F59E0B",
           borderColor: lead.accountStatus.includes("✅") ? "#10B981" : "#F59E0B",
           extendedProps: {
@@ -390,7 +391,7 @@ Status: ${props.accountStatus || "N/A"}
         {canCreateAttraction && (
           <button
             onClick={() => {
-              setSelectedDate(new Date().toISOString().split("T")[0]);
+              setSelectedDate(formatDateInTunis(new Date()));
               setSelectedEvent(undefined);
               setModalMode("add");
               setIsModalOpen(true);
@@ -447,7 +448,7 @@ Status: ${props.accountStatus || "N/A"}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveEvent}
         onDelete={handleDeleteEvent}
-        event={selectedEvent ? { ...selectedEvent, start: selectedDate || selectedEvent.start } : { id: undefined, title: "", start: selectedDate || new Date().toISOString().split("T")[0], backgroundColor: "#465FFF", borderColor: "#465FFF", extendedProps: { university: "" } }}
+        event={selectedEvent ? { ...selectedEvent, start: selectedDate || selectedEvent.start } : { id: undefined, title: "", start: selectedDate || formatDateInTunis(new Date()), backgroundColor: "#465FFF", borderColor: "#465FFF", extendedProps: { university: "" } }}
         mode={modalMode}
       />
     </div>

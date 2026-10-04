@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
+import { formatDateInTunis } from "@/lib/dates";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
 import { useRouter } from "next/navigation";
@@ -37,17 +38,19 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
     if (hasShownPopup || !role) return;
 
     const check = async () => {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = formatDateInTunis(new Date());
       try {
         const res = await fetch("/api/leads/physical");
         const leads: PhysicalAttractionLead[] = await res.json();
-        const todayLeads = leads.filter(
-          (l) => new Date(l.submittedAt).toISOString().slice(0, 10) === today
-        );
+        const todayLeads = leads.filter((l) => {
+          const submitted = new Date(l.submittedAt);
+          if (Number.isNaN(submitted.getTime())) return false;
+          return formatDateInTunis(submitted) === today;
+        });
 
         const saved = localStorage.getItem("customCalendarEvents");
         const customEvents = saved ? JSON.parse(saved) : [];
-        const todayCustom = customEvents.filter((e: any) => e.start === today);
+        const todayCustom = customEvents.filter((e: any) => String(e.start).slice(0, 10) === today);
 
         const attractions: TodayAttraction[] = [
           ...todayLeads.map((l) => ({ university: l.university, type: "lead" as const })),

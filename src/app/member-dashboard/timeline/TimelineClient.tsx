@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { dateStringToDate } from "@/lib/dates";
 import type { PhysicalAttractionLead } from "@/lib/dataUtilsServer";
 
 const STORAGE_KEY = "customCalendarEvents";
@@ -186,7 +187,10 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
       dayDate.setHours(0, 0, 0, 0);
       const dayStr = toLocalDateString(dayDate);
 
-      const scheduled = scheduledEvents.filter((e) => e.start === dayStr);
+      const scheduled = scheduledEvents.filter((e) => {
+        if (!e.start) return false;
+        return dateStringToDate(e.start).toISOString().slice(0, 10) === dayStr;
+      });
       const leads = initialLeads.filter((lead) => {
         const d = parseSubmittedDayStr(lead.submittedAt);
         return d === dayStr;
@@ -238,7 +242,7 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
           <EmptyState title="No attractions scheduled this week" />
         ) : (
           scheduledEvents.map((ev, idx) => {
-            const eventDate = new Date(ev.start);
+            const eventDate = dateStringToDate(ev.start);
             const dayName = eventDate.toLocaleDateString("en-US", { weekday: "long" });
             const formattedDate = eventDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
             
