@@ -10,6 +10,8 @@
 // FALLBACK: If Google Sheets environment variables are not set, the functions
 // will fall back to reading from static JSON files in src/data/
 
+import { DEFAULT_NAME_COLUMN_INDEX, DEFAULT_REFERRAL_COLUMN_INDEX, SHEET_LAYOUT_VERSION } from "@/data/sheetsConfig";
+import { isSourceLabel } from "@/data/sourceLabels";
 import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey, getOpportunityOgvSpreadsheetId, getOpportunityOgtSpreadsheetId } from "./env";
 import { formatDateInTunis, parseSubmittedAt } from "./dates";
 
@@ -47,40 +49,142 @@ function getColumnHeaderAtIndex(row: Record<string, string> | null | undefined, 
   return header ?? null;
 }
 
+function normalizePersonNameCandidate(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s'’-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function looksLikePersonNameValue(value: string): boolean {
+  const cleaned = normalizePersonNameCandidate(value);
+  if (!cleaned) return false;
+  if (isSourceLabel(cleaned)) return false;
+
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 4) return false;
+  return words.every((word) => /^[\p{L}]+(?:['’-][\p{L}]+)*$/u.test(word));
+}
+
+export function looksLikeMemberNameHeader(header: string): boolean {
+  const normalized = normalizeHeaderName(header);
+  if (!normalized) return false;
+  if (["source", "referral", "heard", "interest", "channel", "where", "how", "business", "ai"].some((block) => normalized.includes(block))) {
+    return false;
+  }
+  return ["membername", "fullname", "name", "attractedby", "attractor", "owner", "consultant", "manager", "epmanager"].some((token) => normalized.includes(token));
+}
+
+export function getColumnGuardSummary(
+  rows: Record<string, string>[],
+  header: string,
+  cutoff: string = "2026-09-01",
+) {
+  const sinceCutoffRows = rowsSinceCutoff(rows, cutoff);
+  const values = sinceCutoffRows
+    .map((row) => String(row[header] ?? "").trim())
+    .filter(Boolean)
+    .map((value) => normalizePersonNameCandidate(value))
+    .filter(Boolean);
+
+  if (values.length === 0) return { passes: false, reason: "no-values", distinctCount: 0, topValueShare: 0 };
+
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const key = value.toLowerCase();
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  const distinctCount = counts.size;
+  const topValueShare = Math.max(...Array.from(counts.values())) / values.length;
+  const validPatternRatio = values.filter((value) => looksLikePersonNameValue(value)).length / values.length;
+  const passes = values.length >= 5 && distinctCount >= 5 && topValueShare <= 0.6 && validPatternRatio >= 0.8 && values.every((value) => !isSourceLabel(value));
+
+  return {
+    passes,
+    distinctCount,
+    topValueShare,
+    validPatternRatio,
+    reason: passes ? "ok" : "guard-failed",
+  };
+}
+
+export function memberNameColumnPassesGuard(
+  rows: Record<string, string>[],
+  header: string,
+  cutoff: string = "2026-09-01",
+): boolean {
+  return getColumnGuardSummary(rows, header, cutoff).passes;
+}
+
+export function chooseMemberNameColumn(
+  rows: Record<string, string>[] | null | undefined,
+  cutoff: string = "2026-09-01",
+): { header: string | null; index: number | null; source: "env-index" | "env-header" | "default-index" | "detected" | null } {
+  if (!rows || rows.length === 0) return { header: null, index: null, source: null };
+
+  const relevantRows = rowsSinceCutoff(rows, cutoff);
+  if (cutoff && relevantRows.length === 0) return { header: null, index: null, source: null };
+
+  const referenceRow = relevantRows[0] ?? rows[0];
+  const keys = Object.keys(referenceRow);
+  const configuredIndex = getConfiguredNameColumnIndex();
+  if (configuredIndex) {
+    const header = getColumnHeaderAtIndex(referenceRow, configuredIndex) ?? keys.find((key) => normalizeHeaderName(key).includes("membername") || normalizeHeaderName(key).includes("fullname") || normalizeHeaderName(key).includes("name"));
+    if (header && memberNameColumnPassesGuard(rows, header, cutoff)) {
+      if (!looksLikeMemberNameHeader(header)) {
+        console.warn(`[googleSheetsServer] Chosen member-name column at index ${configuredIndex} does not look like a person-name header: ${header}`);
+      }
+      return { header, index: configuredIndex, source: "env-index" };
+    }
+  }
+
+  const configuredHeader = process.env.RANKING_NAME_COLUMN?.trim();
+  if (configuredHeader) {
+    const exactMatch = keys.find((key) => normalizeHeaderName(key) === normalizeHeaderName(configuredHeader));
+    if (exactMatch && memberNameColumnPassesGuard(rows, exactMatch, cutoff)) {
+      if (!looksLikeMemberNameHeader(exactMatch)) {
+        console.warn(`[googleSheetsServer] Chosen member-name column header does not look like a person-name field: ${exactMatch}`);
+      }
+      return { header: exactMatch, index: keys.findIndex((key) => key === exactMatch) + 1, source: "env-header" };
+    }
+  }
+
+  const defaultIndex = DEFAULT_NAME_COLUMN_INDEX;
+  const defaultHeader = getColumnHeaderAtIndex(referenceRow, defaultIndex) ?? keys.find((key) => normalizeHeaderName(key) === "membername" || normalizeHeaderName(key).includes("member") && normalizeHeaderName(key).includes("name"));
+  if (defaultHeader && memberNameColumnPassesGuard(rows, defaultHeader, cutoff)) {
+    if (!looksLikeMemberNameHeader(defaultHeader)) {
+      console.warn(`[googleSheetsServer] Default member-name column at index ${defaultIndex} does not look like a person-name header: ${defaultHeader}`);
+    }
+    return { header: defaultHeader, index: defaultIndex, source: "default-index" };
+  }
+
+  const positionalHeaders = Array.from({ length: Math.max(19, keys.length) }, (_, idx) => getColumnHeaderAtIndex(referenceRow, idx + 1)).filter((value): value is string => Boolean(value));
+  const fallbackHeaders = keys.filter((key) => !positionalHeaders.includes(key));
+  const orderedCandidates = [...new Set([...positionalHeaders, ...fallbackHeaders])];
+
+  for (const candidate of orderedCandidates) {
+    if (!candidate) continue;
+    const index = keys.indexOf(candidate) + 1;
+    if (memberNameColumnPassesGuard(rows, candidate, cutoff)) {
+      if (!looksLikeMemberNameHeader(candidate)) {
+        console.warn(`[googleSheetsServer] Detected member-name column at index ${index} does not look like a person-name header: ${candidate}`);
+      }
+      return { header: candidate, index: index || null, source: "detected" };
+    }
+  }
+
+  return { header: null, index: null, source: null };
+}
+
 export function resolveMemberNameKeyForRows(
   rows: Record<string, string>[] | null | undefined,
   cutoff?: string,
 ): string | null {
-  if (!rows || rows.length === 0) return null;
-
-  const relevantRows = cutoff
-    ? rows.filter((row) => {
-        const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
-        const parsed = parseSubmittedAt(submittedAt);
-        if (!parsed) return false;
-        return formatDateInTunis(parsed, "yyyy-MM-dd") >= cutoff;
-      })
-    : rows;
-
-  if (cutoff && relevantRows.length === 0) return null;
-
-  const firstRow = relevantRows[0] ?? rows[0];
-  const keys = Object.keys(firstRow);
-
-  const configuredIndex = getConfiguredNameColumnIndex();
-  if (configuredIndex) {
-    const header = getColumnHeaderAtIndex(firstRow, configuredIndex);
-    if (header) return header;
-  }
-
-  const configuredOverride = process.env.RANKING_NAME_COLUMN?.trim();
-  if (configuredOverride) {
-    const exactMatch = keys.find((key) => normalizeHeaderName(key) === normalizeHeaderName(configuredOverride));
-    if (exactMatch) return exactMatch;
-  }
-
-  const candidate = keys.find((key) => matchesMemberNameHeader(key));
-  return candidate ?? null;
+  const selected = chooseMemberNameColumn(rows, cutoff ?? "2026-09-01");
+  return selected.header;
 }
 
 async function listSpreadsheetSheetTitles(

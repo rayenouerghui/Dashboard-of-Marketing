@@ -3,6 +3,7 @@ import { analyzeMemberNameColumn, fetchPhysicalLeadsRaw } from "@/lib/googleShee
 import { fetchApplicationsForLeads } from "@/lib/server/expaApplicationsClient";
 import { unstable_cache } from "next/cache";
 import type { LeadInput } from "@/lib/server/expaApplicationsClient";
+import { SHEET_LAYOUT_VERSION } from "@/data/sheetsConfig";
 import { buildMemberRanking, RANKING_START_DATE } from "@/lib/ranking";
 
 export const dynamic = "force-dynamic";
@@ -23,11 +24,13 @@ const APPLIED_STATUSES  = new Set(["open","accepted","approved","approved_ep_man
 const REALIZED_STATUSES = new Set(["realized","completed","finished"]);
 
 // Only count leads submitted on or after this date — everything before is reset to zero
-const RANKING_CACHE_KEY = ["ranking-expa-statuses", RANKING_START_DATE];
+const RANKING_CACHE_KEY = ["ranking-expa-statuses", RANKING_START_DATE, SHEET_LAYOUT_VERSION];
 
 function buildRankingMeta({
   nameColumnHeader,
   nameColumnIndex,
+  nameColumnSource,
+  referralColumnIndex,
   rowsRead,
   totalRowsInSheet,
   rowsAfterDateCutoff,
@@ -36,9 +39,14 @@ function buildRankingMeta({
   rowsSkippedSourceLabel,
   rowsSkippedBlankName,
   membersCounted,
+  gridRowCount,
+  dataRowCount,
+  sheetGridFull,
 }: {
   nameColumnHeader: string | null;
   nameColumnIndex: number | null;
+  nameColumnSource: "env-index" | "env-header" | "default-index" | "detected" | null;
+  referralColumnIndex: number | null;
   rowsRead: number;
   totalRowsInSheet: number;
   rowsAfterDateCutoff: number;
@@ -47,12 +55,17 @@ function buildRankingMeta({
   rowsSkippedSourceLabel: number;
   rowsSkippedBlankName: number;
   membersCounted: number;
+  gridRowCount: number;
+  dataRowCount: number;
+  sheetGridFull: boolean;
 }) {
   return {
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
     since: RANKING_START_DATE,
     nameColumnHeader,
     nameColumnIndex,
+    nameColumnSource,
+    referralColumnIndex,
     rowsRead,
     totalRowsInSheet,
     rowsAfterDateCutoff,
@@ -61,6 +74,10 @@ function buildRankingMeta({
     rowsSkippedSourceLabel,
     rowsSkippedBlankName,
     membersCounted,
+    gridRowCount,
+    dataRowCount,
+    sheetGridFull,
+    warning: sheetGridFull ? "the sheet has no free rows left; new signups may be failing" : null,
     updatedAt: new Date().toISOString(),
     source: process.env.GOOGLE_SHEET_ID ? "google-sheet" : "fallback-json",
   };
@@ -106,6 +123,8 @@ export async function GET(request: Request) {
         meta: buildRankingMeta({
           nameColumnHeader: null,
           nameColumnIndex: null,
+          nameColumnSource: null,
+          referralColumnIndex: null,
           rowsRead: rawRows.length,
           totalRowsInSheet,
           rowsAfterDateCutoff: 0,
@@ -114,6 +133,9 @@ export async function GET(request: Request) {
           rowsSkippedSourceLabel: 0,
           rowsSkippedBlankName: 0,
           membersCounted: 0,
+          gridRowCount: Math.max(rawRows.length + 1, 1),
+          dataRowCount: rawRows.length,
+          sheetGridFull: rawRows.length + 1 >= Math.max(rawRows.length + 1, 1),
         }),
       }, { status: 422 });
     }
@@ -178,6 +200,8 @@ export async function GET(request: Request) {
       meta: buildRankingMeta({
         nameColumnHeader: rankingBase.nameColumnHeader,
         nameColumnIndex: rankingBase.nameColumnIndex,
+        nameColumnSource: rankingBase.nameColumnSource,
+        referralColumnIndex: rankingBase.referralColumnIndex,
         rowsRead: rankingBase.rowsRead,
         totalRowsInSheet,
         rowsAfterDateCutoff: rankingBase.rowsAfterDateCutoff,
@@ -186,6 +210,9 @@ export async function GET(request: Request) {
         rowsSkippedSourceLabel: rankingBase.rowsSkippedSourceLabel,
         rowsSkippedBlankName: rankingBase.rowsSkippedBlankName,
         membersCounted: rankingBase.members.length,
+        gridRowCount: rankingBase.gridRowCount,
+        dataRowCount: rankingBase.dataRowCount,
+        sheetGridFull: rankingBase.sheetGridFull,
       }),
     });
   } catch (error) {

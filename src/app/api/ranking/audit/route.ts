@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { analyzeMemberNameColumn, fetchPhysicalLeadsRaw, normalizeHeaderName, resolveMemberNameKeyForRows } from "@/lib/googleSheetsServer";
 import { formatDateInTunis, parseSubmittedAt } from "@/lib/dates";
-import { RANKING_START_DATE } from "@/lib/ranking";
+import { buildMemberRanking, RANKING_START_DATE } from "@/lib/ranking";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,7 @@ function summarizeValues(values: string[]) {
   };
 }
 
-function classifyAuditValues(values: string[], header: string): string {
+function classifyAuditValues(values: string[], header: string): "person names" | "referral answers" | "dates" | "yes-no" | "no data" {
   const cleaned = values.map((value) => value.trim()).filter((value) => value.length > 0 && !valueLooksLikePhoneOrEmail(value));
   if (cleaned.length === 0) return "no data";
 
@@ -48,24 +48,24 @@ function classifyAuditValues(values: string[], header: string): string {
     const yesNoValues = new Set(["yes", "no", "y", "n", "true", "false", "1", "0"]);
     const allYesNo = cleaned.every((value) => yesNoValues.has(value.toLowerCase().trim()));
     if (allYesNo) return "yes-no";
-    return "dates or availability";
+    return "dates";
   }
 
   const distinct = new Set(cleaned.map((value) => value.toLowerCase().trim()));
   const averageWords = cleaned.reduce((sum, value) => sum + value.split(/\s+/).filter(Boolean).length, 0) / cleaned.length;
   const topShare = cleaned.length > 0 ? Math.max(...Array.from(distinct).map((value) => cleaned.filter((item) => item.toLowerCase().trim() === value).length)) / cleaned.length : 0;
-  const isLikelyNames = cleaned.every((value) => /^[A-Za-z][A-Za-z' -]*$/.test(value.replace(/\s+/g, " ").trim())) && averageWords >= 1 && averageWords <= 4 && distinct.size >= 2 && topShare < 0.7;
-  if (isLikelyNames) return "looks like person names";
+  const isLikelyNames = cleaned.every((value) => /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ' -]*$/.test(value.replace(/\s+/g, " ").trim())) && averageWords >= 1 && averageWords <= 4 && distinct.size >= 2 && topShare < 0.7;
+  if (isLikelyNames) return "person names";
 
   const referralSignals = ["information booth", "friend", "classroom", "presentation", "facebook", "instagram", "event", "other", "poster", "flyer", "social media", "referral", "walk in", "google"];
   const isReferralLike = cleaned.some((value) => referralSignals.some((signal) => value.toLowerCase().includes(signal))) || averageWords > 3 || distinct.size <= 6;
   if (isReferralLike) return "referral answers";
 
   if (cleaned.some((value) => /\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|available|week|month|day|morning|afternoon|evening/i.test(value))) {
-    return "dates or availability";
+    return "dates";
   }
 
-  return "other";
+  return "referral answers";
 }
 
 function getRowsSinceCutoff(rows: Record<string, string>[]) {
@@ -131,9 +131,14 @@ export async function GET() {
       ? sinceCutoffRows.map((row) => String(row[selectedHeader] ?? "").trim()).filter(Boolean)
       : [];
     const selectedSummary = selectedHeader ? summarizeValues(selectedValues) : null;
+    const rankingBase = buildMemberRanking(rows, { cutoff: RANKING_START_DATE });
+    const topMembers = rankingBase.members.slice(0, 10).map((member) => ({
+      name: member.name,
+      count: member.totalLeads,
+    }));
     const weekly = getWeeklyBuckets(sinceCutoffRows).map(([weekStart, bucketRows]) => {
       const result: Record<string, unknown> = { weekStart };
-      const indexesToInspect = [16, 17];
+      const indexesToInspect = [17, 18];
       for (const index of indexesToInspect) {
         const header = headers[index - 1];
         if (!header) continue;
@@ -147,6 +152,7 @@ export async function GET() {
       }
       return result;
     });
+    const sheetGridFull = rankingBase.dataRowCount + 1 >= rankingBase.gridRowCount;
 
     return NextResponse.json({
       success: true,
@@ -164,10 +170,18 @@ export async function GET() {
       } : null,
       layoutCheck: summarizeLayoutColumns(rows),
       weekly,
+      topMembers,
       meta: {
         since: RANKING_START_DATE,
         rowsRead: rows.length,
         rowsSinceCutoff: sinceCutoffRows.length,
+        nameColumnIndex: rankingBase.nameColumnIndex,
+        nameColumnHeader: rankingBase.nameColumnHeader,
+        referralColumnIndex: rankingBase.referralColumnIndex,
+        gridRowCount: rankingBase.gridRowCount,
+        dataRowCount: rankingBase.dataRowCount,
+        sheetGridFull,
+        warning: sheetGridFull ? "the sheet has no free rows left; new signups may be failing" : null,
         generatedAt: new Date().toISOString(),
       },
       generatedAt: new Date().toISOString(),

@@ -1,6 +1,7 @@
+import { DEFAULT_NAME_COLUMN_INDEX, DEFAULT_REFERRAL_COLUMN_INDEX, SHEET_LAYOUT_VERSION } from "@/data/sheetsConfig";
 import { isSourceLabel } from "@/data/sourceLabels";
 import { formatDateInTunis, parseSubmittedAt, todayInTunis } from "@/lib/dates";
-import { getConfiguredNameColumnIndex, resolveMemberNameKeyForRows, resolveMemberNameValue } from "@/lib/googleSheetsServer";
+import { chooseMemberNameColumn, getConfiguredNameColumnIndex, looksLikePersonNameValue, resolveMemberNameKeyForRows, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 
 export const RANKING_START_DATE = "2026-09-01";
 
@@ -30,6 +31,11 @@ export interface MemberRankingBuildResult {
   rowsSkippedBlankName: number;
   nameColumnHeader: string | null;
   nameColumnIndex: number | null;
+  nameColumnSource: "env-index" | "env-header" | "default-index" | "detected" | null;
+  referralColumnIndex: number | null;
+  gridRowCount: number;
+  dataRowCount: number;
+  sheetGridFull: boolean;
 }
 
 function todayLocalStr(): string {
@@ -49,6 +55,23 @@ export function normalizeMemberNameValue(value: string): string {
     .replace(/[^a-zA-Z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function canonicalMemberName(value: string): string {
+  return normalizeMemberNameValue(value)
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function displayMemberName(value: string): string {
+  const cleaned = canonicalMemberName(value);
+  if (!cleaned) return "";
+  return cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
 }
 
 export function isLikelySourceLabel(value: string): boolean {
@@ -110,12 +133,14 @@ export function buildMemberRanking(
     filterUniversity?: string | null;
     cutoff?: string;
     todayOverride?: string;
+    gridRowCount?: number;
   } = {},
 ): MemberRankingBuildResult {
   const {
     filterUniversity = null,
     cutoff = RANKING_START_DATE,
     todayOverride,
+    gridRowCount: providedGridRowCount,
   } = options;
 
   const today = todayOverride ?? todayLocalStr();
@@ -129,25 +154,19 @@ export function buildMemberRanking(
   let rowsAfterDateCutoff = 0;
   let rowsSinceCutoff = 0;
 
-  const chosenNameHeader = resolveMemberNameKeyForRows(rawRows, cutoff);
+  const selectedName = chooseMemberNameColumn(rawRows, cutoff);
+  const chosenNameHeader = selectedName.header;
   const configuredNameIndex = getConfiguredNameColumnIndex();
   const chosenNameIndex = chosenNameHeader
-    ? Object.keys(rawRows.find((row) => {
-        const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
-        const parsed = parseSubmittedAt(submittedAt);
-        if (!parsed) return false;
-        return formatDateInTunis(parsed, "yyyy-MM-dd") >= cutoff;
-      }) ?? rawRows[0] ?? {})
-      .findIndex((key) => key === chosenNameHeader) + 1
+    ? Object.keys(rawRows.find((row) => Object.keys(row).some((key) => key === chosenNameHeader)) ?? rawRows[0] ?? {})
+        .findIndex((key) => key === chosenNameHeader) + 1
     : configuredNameIndex ?? null;
+  const referralColumnIndex = DEFAULT_REFERRAL_COLUMN_INDEX;
+  const dataRowCount = rawRows.length;
+  const gridRowCount = providedGridRowCount ?? Math.max(dataRowCount + 1, 1);
+  const sheetGridFull = dataRowCount + 1 >= gridRowCount;
 
   for (const row of rawRows) {
-    const memberName = (chosenNameHeader ? String(row[chosenNameHeader] ?? "") : resolveMemberNameValue(row)).trim();
-    if (!memberName) {
-      blankNameSkipped++;
-      continue;
-    }
-
     const submittedAt = row["Submitted at"] || row.submittedAt || row.submitted_at || "";
     const parsedDate = parseSubmittedAt(submittedAt);
     const rowDate = parsedDate ? formatDateInTunis(parsedDate, "yyyy-MM-dd") : "";
@@ -172,22 +191,38 @@ export function buildMemberRanking(
       }
     }
 
+    const rawMemberName = chosenNameHeader ? String(row[chosenNameHeader] ?? "") : resolveMemberNameValue(row);
+    const memberName = rawMemberName.trim();
+
     const isToday = rowDate === today;
     globalTotalLeads++;
     if (isToday) globalTodayLeads++;
+
+    if (!memberName) {
+      blankNameSkipped++;
+      continue;
+    }
 
     if (isSourceLabel(memberName) || isLikelySourceLabel(memberName)) {
       sourceLabelSkipped++;
       continue;
     }
 
-    const expaId = (row["EXPA ID"] || row.expaId || row.eXPAID || "").trim();
-
-    if (!memberLeads.has(memberName)) {
-      memberLeads.set(memberName, { total: 0, today: 0, expaIds: new Set() });
+    const normalizedMemberName = displayMemberName(memberName);
+    const dedupeKey = canonicalMemberName(normalizedMemberName);
+    if (!dedupeKey) {
+      blankNameSkipped++;
+      continue;
     }
 
-    const entry = memberLeads.get(memberName)!;
+    const expaId = (row["EXPA ID"] || row.expaId || row.eXPAID || "").trim();
+    const displayKey = normalizedMemberName || "Unknown";
+
+    if (!memberLeads.has(displayKey)) {
+      memberLeads.set(displayKey, { total: 0, today: 0, expaIds: new Set() });
+    }
+
+    const entry = memberLeads.get(displayKey)!;
     entry.total++;
     if (isToday) entry.today++;
     if (expaId && /^\d+$/.test(expaId)) entry.expaIds.add(expaId);
@@ -198,9 +233,9 @@ export function buildMemberRanking(
   }
 
   const stats: MemberStat[] = [];
-  for (const [name, data] of memberLeads.entries()) {
+  for (const [displayKey, data] of memberLeads.entries()) {
     stats.push({
-      name,
+      name: displayKey,
       totalLeads: data.total,
       todayLeads: data.today,
       applied: 0,
@@ -228,5 +263,10 @@ export function buildMemberRanking(
     rowsSkippedBlankName: blankNameSkipped,
     nameColumnHeader: chosenNameHeader,
     nameColumnIndex: chosenNameIndex,
+    nameColumnSource: selectedName.source,
+    referralColumnIndex,
+    gridRowCount,
+    dataRowCount,
+    sheetGridFull,
   };
 }
