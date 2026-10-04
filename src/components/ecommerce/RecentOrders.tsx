@@ -18,13 +18,13 @@ export default function RecentOrders({ stats, loading }: { stats: AttractionLead
         <div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Recent Leads</h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {loading ? "Loading…" : `Last ${leads.length} physical attraction leads`}
+            {loading ? "Loading…" : `Last ${leads.length} EXPA leads`}
           </p>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12 text-sm text-gray-400">Fetching from Google Sheets…</div>
+        <div className="flex items-center justify-center py-12 text-sm text-gray-400">Fetching from EXPA…</div>
       ) : leads.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-sm text-gray-400">No recent leads found.</div>
       ) : (

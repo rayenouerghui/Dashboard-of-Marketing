@@ -20,21 +20,40 @@ export default function DashboardClient() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
 
-  const [stats, setStats]       = useState<AttractionLeadStats>(EMPTY);
-  const [loading, setLoading]   = useState(true);
+  const [stats, setStats] = useState<AttractionLeadStats>(EMPTY);
+  const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (nocache = false) => {
     try {
+      setLoading(true);
+      setError(null);
       const url = `/api/attraction-leads${nocache ? "?nocache=1" : ""}`;
-      const res  = await fetch(url);
+      const res = await fetch(url);
       const data = await res.json();
-      if (data.success) {
-        setStats(data.stats);
-        setLastRefresh(new Date());
+
+      if (!res.ok || !data?.success) {
+        setStats(EMPTY);
+        setError(data?.error ?? "EXPA data unavailable (token expired or service down)");
+        return;
       }
-    } catch { /* silent */ }
-    finally { setLoading(false); }
+
+      if (data.expaStatus !== "ok") {
+        setStats(data.stats ?? EMPTY);
+        setError(data.error ?? "No EXPA lead data is available yet.");
+        return;
+      }
+
+      setStats(data.stats ?? EMPTY);
+      setLastRefresh(data.fetchedAt ? new Date(data.fetchedAt) : new Date());
+      setError(null);
+    } catch {
+      setStats(EMPTY);
+      setError("EXPA data unavailable (token expired or service down)");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -68,11 +87,19 @@ export default function DashboardClient() {
               {loading ? "Refreshing…" : "Refresh"}
             </button>
             <div className="text-sm text-white/80">
-              {lastRefresh ? `Updated ${lastRefresh.toLocaleTimeString()}` : "Loading…"}
+              {lastRefresh
+                ? `Source: EXPA · updated ${lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : "Source: EXPA · loading…"}
             </div>
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-12 gap-4 md:gap-6">
         <div className="col-span-12 space-y-6 xl:col-span-7">
