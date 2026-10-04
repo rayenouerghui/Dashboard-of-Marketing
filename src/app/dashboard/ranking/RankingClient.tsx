@@ -1,25 +1,12 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import Badge from "@/components/ui/badge/Badge";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MemberStat } from "@/app/api/ranking/route";
 
-type SortKey = "totalLeads" | "todayLeads" | "applied" | "realized" | "applicationRate" | "realizationRate" | "name";
+type SortKey = "name" | "totalLeads" | "todayLeads";
 type SortDir = "asc" | "desc";
 
-const POLL_INTERVAL = 30_000; // 30 s
-
-function RateBar({ value, color = "blue" }: { value: number; color?: "blue" | "green" | "emerald" }) {
-  const bg = color === "green" ? "bg-green-500" : color === "emerald" ? "bg-emerald-500" : "bg-blue-500";
-  return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-        <div className={`h-full rounded-full transition-all duration-500 ${bg}`} style={{ width: `${Math.min(value, 100)}%` }} />
-      </div>
-      <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{value.toFixed(1)}%</span>
-    </div>
-  );
-}
+const POLL_INTERVAL = 30_000;
 
 function KPI({ label, value, color }: { label: string; value: number | string; color?: string }) {
   return (
@@ -31,46 +18,39 @@ function KPI({ label, value, color }: { label: string; value: number | string; c
 }
 
 export default function RankingClient() {
-  const [members, setMembers]       = useState<MemberStat[]>([]);
-  const [error, setError]           = useState<string | null>(null);
-  const [totals, setTotals]         = useState({ members: 0, leads: 0, today: 0, applied: 0, realized: 0 });
-  const [loading, setLoading]       = useState(true);
+  const [members, setMembers] = useState<MemberStat[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [totals, setTotals] = useState({ members: 0, leads: 0, today: 0 });
+  const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const [search, setSearch]         = useState("");
-  const [sortKey, setSortKey]       = useState<SortKey>("totalLeads");
-  const [sortDir, setSortDir]       = useState<SortDir>("desc");
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("totalLeads");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const fetchData = useCallback(async () => {
     try {
-      // Fast first load — sheet data only
-      const res = await fetch("/api/ranking?expa=0");
+      const res = await fetch("/api/ranking");
       const data = await res.json();
+
       if (data.success) {
         setMembers(data.members ?? []);
-        setTotals({ members: data.totalMembers ?? 0, leads: data.totalLeads ?? 0, today: data.todayLeads ?? 0, applied: data.totalApplied ?? 0, realized: data.totalRealized ?? 0 });
+        setTotals({
+          members: data.totalMembers ?? 0,
+          leads: data.totalLeads ?? 0,
+          today: data.todayLeads ?? 0,
+        });
         setLastUpdate(data.generatedAt);
         setError(null);
-        setLoading(false);
       } else {
         setError(data.error ?? "RANKING_UNAVAILABLE");
       }
-
-      // Background: full data with EXPA applied/realized (cached 15 min)
-      const resExpa = await fetch("/api/ranking");
-      const dataExpa = await resExpa.json();
-      if (dataExpa.success) {
-        setMembers(dataExpa.members ?? []);
-        setTotals({ members: dataExpa.totalMembers ?? 0, leads: dataExpa.totalLeads ?? 0, today: dataExpa.todayLeads ?? 0, applied: dataExpa.totalApplied ?? 0, realized: dataExpa.totalRealized ?? 0 });
-        setLastUpdate(dataExpa.generatedAt);
-        setError(null);
-      } else {
-        setError(dataExpa.error ?? "RANKING_UNAVAILABLE");
-      }
-    } catch { /* silent */ }
-    finally { setLoading(false); }
+    } catch {
+      setError("RANKING_UNAVAILABLE");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // Initial fetch + 30 s polling
   useEffect(() => {
     fetchData();
     const id = setInterval(fetchData, POLL_INTERVAL);
@@ -86,14 +66,18 @@ export default function RankingClient() {
     return [...filtered].sort((a, b) => {
       const diff = sortKey === "name"
         ? a.name.localeCompare(b.name)
-        : (a[sortKey] as number) - (b[sortKey] as number);
+        : a[sortKey] - b[sortKey];
       return sortDir === "asc" ? diff : -diff;
     });
   }, [filtered, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("desc"); }
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDir("desc");
   }
 
   const SortIcon = ({ k }: { k: SortKey }) =>
@@ -106,7 +90,8 @@ export default function RankingClient() {
       className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none ${right ? "text-right" : "text-left"}`}
       onClick={() => toggleSort(k)}
     >
-      {children}<SortIcon k={k} />
+      {children}
+      <SortIcon k={k} />
     </th>
   );
 
@@ -121,7 +106,6 @@ export default function RankingClient() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">Member Ranking</h1>
@@ -144,16 +128,12 @@ export default function RankingClient() {
         </button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <KPI label="Members" value={totals.members} />
         <KPI label="Total Leads" value={totals.leads} />
         <KPI label="Today's Leads" value={totals.today} color="text-brand-500" />
-        <KPI label="Applied (EXPA)" value={totals.applied} color="text-blue-600 dark:text-blue-400" />
-        <KPI label="Realized (EXPA)" value={totals.realized} color="text-emerald-600 dark:text-emerald-400" />
       </div>
 
-      {/* Search */}
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
@@ -184,47 +164,19 @@ export default function RankingClient() {
                   <Th k="name">Member</Th>
                   <Th k="totalLeads" right>Total Leads</Th>
                   <Th k="todayLeads" right>Today</Th>
-                  <Th k="applied" right>Applied</Th>
-                  <Th k="realized" right>Realized</Th>
-                  <Th k="applicationRate">App. Rate</Th>
-                  <Th k="realizationRate">Real. Rate</Th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {sorted.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-10 text-center text-sm text-gray-400">No members found.</td>
-                  </tr>
-                ) : sorted.map((m, i) => {
+                {sorted.map((m, i) => {
                   const rank = i + 1;
                   const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
                   return (
                     <tr key={m.name} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3 text-sm text-gray-400">
-                        {medal ?? <span className="tabular-nums">{rank}</span>}
-                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-400">{medal ?? <span className="tabular-nums">{rank}</span>}</td>
                       <td className="px-4 py-3 font-medium text-gray-800 dark:text-white/90">{m.name}</td>
                       <td className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300 tabular-nums">{m.totalLeads}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
-                        <span className={m.todayLeads > 0 ? "font-bold text-brand-500" : "text-gray-400"}>
-                          {m.todayLeads}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-semibold text-blue-600 dark:text-blue-400 tabular-nums">{m.applied}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">{m.realized}</td>
-                      <td className="px-4 py-3"><RateBar value={m.applicationRate} color="blue" /></td>
-                      <td className="px-4 py-3"><RateBar value={m.realizationRate} color="emerald" /></td>
-                      <td className="px-4 py-3 text-center">
-                        {m.realized > 0 ? (
-                          <Badge size="sm" color="success">Realized</Badge>
-                        ) : m.applied > 0 ? (
-                          <Badge size="sm" color="primary">Applied</Badge>
-                        ) : m.totalLeads > 0 ? (
-                          <Badge size="sm" color="warning">Leads only</Badge>
-                        ) : (
-                          <Badge size="sm" color="light">Inactive</Badge>
-                        )}
+                        <span className={m.todayLeads > 0 ? "font-bold text-brand-500" : "text-gray-400"}>{m.todayLeads}</span>
                       </td>
                     </tr>
                   );

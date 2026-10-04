@@ -1,7 +1,7 @@
 import { DEFAULT_NAME_COLUMN_INDEX, DEFAULT_REFERRAL_COLUMN_INDEX, SHEET_LAYOUT_VERSION } from "@/data/sheetsConfig";
 import { isSourceLabel } from "@/data/sourceLabels";
 import { formatDateInTunis, parseSubmittedAt, todayInTunis } from "@/lib/dates";
-import { chooseMemberNameColumn, getConfiguredNameColumnIndex, looksLikePersonNameValue, resolveMemberNameKeyForRows, resolveMemberNameValue } from "@/lib/googleSheetsServer";
+import { chooseMemberNameColumn, getConfiguredNameColumnIndex, resolveMemberNameValue } from "@/lib/googleSheetsServer";
 
 export const RANKING_START_DATE = "2026-09-01";
 
@@ -9,20 +9,14 @@ export interface MemberStat {
   name: string;
   totalLeads: number;
   todayLeads: number;
-  applied: number;
-  realized: number;
-  applicationRate: number;
-  realizationRate: number;
 }
 
 export interface MemberRankingBuildResult {
-  entries: Map<string, { total: number; today: number; expaIds: Set<string> }>;
+  entries: Map<string, { total: number; today: number }>;
   members: MemberStat[];
   totalMembers: number;
   totalLeads: number;
   todayLeads: number;
-  totalApplied: number;
-  totalRealized: number;
   rowsRead: number;
   rowsSinceCutoff: number;
   rowsAfterDateCutoff: number;
@@ -40,12 +34,6 @@ export interface MemberRankingBuildResult {
 
 function todayLocalStr(): string {
   return todayInTunis();
-}
-
-function dateStr(raw: unknown): string {
-  const parsed = parseSubmittedAt(raw);
-  if (!parsed) return "";
-  return formatDateInTunis(parsed, "yyyy-MM-dd");
 }
 
 export function normalizeMemberNameValue(value: string): string {
@@ -144,7 +132,7 @@ export function buildMemberRanking(
   } = options;
 
   const today = todayOverride ?? todayLocalStr();
-  const memberLeads = new Map<string, { total: number; today: number; expaIds: Set<string> }>();
+  const memberLeads = new Map<string, { total: number; today: number }>();
 
   let globalTotalLeads = 0;
   let globalTodayLeads = 0;
@@ -215,17 +203,15 @@ export function buildMemberRanking(
       continue;
     }
 
-    const expaId = (row["EXPA ID"] || row.expaId || row.eXPAID || "").trim();
     const displayKey = normalizedMemberName || "Unknown";
 
     if (!memberLeads.has(displayKey)) {
-      memberLeads.set(displayKey, { total: 0, today: 0, expaIds: new Set() });
+      memberLeads.set(displayKey, { total: 0, today: 0 });
     }
 
     const entry = memberLeads.get(displayKey)!;
     entry.total++;
     if (isToday) entry.today++;
-    if (expaId && /^\d+$/.test(expaId)) entry.expaIds.add(expaId);
   }
 
   if (unparseableDateRows > 0) {
@@ -238,10 +224,6 @@ export function buildMemberRanking(
       name: displayKey,
       totalLeads: data.total,
       todayLeads: data.today,
-      applied: 0,
-      realized: 0,
-      applicationRate: 0,
-      realizationRate: 0,
     });
   }
 
@@ -253,8 +235,6 @@ export function buildMemberRanking(
     totalMembers: stats.length,
     totalLeads: globalTotalLeads,
     todayLeads: globalTodayLeads,
-    totalApplied: 0,
-    totalRealized: 0,
     rowsRead: rawRows.length,
     rowsSinceCutoff,
     rowsAfterDateCutoff,

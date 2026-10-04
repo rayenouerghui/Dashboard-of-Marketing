@@ -71,12 +71,11 @@ export default function MemberDashboardClient({
   // Poll /api/ranking every 30s for real-time today's member lead counts
   const refreshLiveCounts = useCallback(async () => {
     try {
-      // Use fast sheet-only endpoint for the today's leaderboard — no EXPA needed
-      const res  = await fetch("/api/ranking?expa=0");
+      const res = await fetch("/api/ranking");
       const data = await res.json();
       if (data.success) {
         const map: Record<string, number> = {};
-        for (const m of (data.members ?? [])) {
+        for (const m of data.members ?? []) {
           map[m.name] = m.todayLeads;
         }
         setLiveMemberCounts(map);
@@ -84,7 +83,9 @@ export default function MemberDashboardClient({
       } else {
         setRankingUnavailable(true);
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }, []);
 
   useEffect(() => {
