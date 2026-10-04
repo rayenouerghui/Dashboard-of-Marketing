@@ -124,7 +124,7 @@ export default function MemberRankingClient() {
                     {avatarFor(top5[1].name)}
                     <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${RANK_STYLES[2].badge} flex items-center justify-center text-[9px] font-black text-white shadow`}>2</span>
                   </div>
-                  <p className="mt-2 max-w-[70px] truncate text-center text-xs font-semibold text-white/80">{top5[1].name.split(" ")[0]}</p>
+                  <p className="mt-2 max-w-[90px] truncate text-center text-xs font-semibold text-white/80">{top5[1].name}</p>
                   <p className="text-[11px] font-bold text-slate-300 tabular-nums">{top5[1].totalLeads}</p>
                 </div>
               )}
@@ -135,7 +135,7 @@ export default function MemberRankingClient() {
                   {avatarFor(top5[0].name)}
                   <span className={`absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-gradient-to-br ${RANK_STYLES[1].badge} flex items-center justify-center text-[10px] font-black text-white shadow-lg`}>1</span>
                 </div>
-                <p className="mt-2 max-w-[80px] truncate text-center text-sm font-bold text-white">{top5[0].name.split(" ")[0]}</p>
+                <p className="mt-2 max-w-[110px] truncate text-center text-sm font-bold text-white">{top5[0].name}</p>
                 <p className="text-sm font-black text-amber-300 tabular-nums drop-shadow-[0_0_6px_rgba(251,191,36,0.5)]">{top5[0].totalLeads}</p>
                 <p className="text-[10px] text-amber-400/70 mt-0.5">leads</p>
               </div>
@@ -150,7 +150,7 @@ export default function MemberRankingClient() {
                     {avatarFor(top5[2].name)}
                     <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${RANK_STYLES[3].badge} flex items-center justify-center text-[9px] font-black text-white shadow`}>3</span>
                   </div>
-                  <p className="mt-2 max-w-[70px] truncate text-center text-xs font-semibold text-white/80">{top5[2].name.split(" ")[0]}</p>
+                  <p className="mt-2 max-w-[90px] truncate text-center text-xs font-semibold text-white/80">{top5[2].name}</p>
                   <p className="text-[11px] font-bold text-amber-600/90 tabular-nums">{top5[2].totalLeads}</p>
                 </div>
               )}
