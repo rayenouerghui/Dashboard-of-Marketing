@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { isSourceLabel } from "@/data/sourceLabels";
 import type { PhysicalAttractionLead } from "@/lib/dataUtils";
+import { formatDateInTunis } from "@/lib/dates";
 import { useEffect, useMemo, useState } from "react";
 
 const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
@@ -104,6 +105,12 @@ function buildAttractionRanking(university: string, leads: PhysicalAttractionLea
   };
 }
 
+function isLeadTodayInTunis(lead: PhysicalAttractionLead): boolean {
+  const submittedAt = new Date(lead.submittedAt);
+  if (Number.isNaN(submittedAt.getTime())) return false;
+  return formatDateInTunis(submittedAt) === formatDateInTunis(new Date());
+}
+
 export function mergeTodayAttractions(previous: CustomEvent[], next: CustomEvent[]) {
   if (next.length > 0) return next;
   if (previous.length > 0) return previous;
@@ -185,6 +192,7 @@ export default function MemberDashboardClient({
   const multipleAttractions = todaysAttractions.length > 1;
   const currentAttraction = todaysAttractions[activeTab] ?? null;
   const currentUniversity = currentAttraction?.extendedProps.university ?? "";
+  const todaysLeads = useMemo(() => initialLeads.filter(isLeadTodayInTunis), [initialLeads]);
 
   const attractionData = useMemo(
     () =>
@@ -198,8 +206,8 @@ export default function MemberDashboardClient({
   const current = attractionData[activeTab];
   const currentRanking = useMemo(() => {
     if (!currentAttraction || !currentUniversity) return undefined;
-    return buildAttractionRanking(currentUniversity, initialLeads);
-  }, [currentAttraction, currentUniversity, initialLeads]);
+    return buildAttractionRanking(currentUniversity, todaysLeads);
+  }, [currentAttraction, currentUniversity, todaysLeads]);
   const dailyGoal = currentAttraction?.extendedProps.goal ?? DEFAULT_GOAL;
   const leadCount = currentRanking?.leadCount ?? 0;
   const goalPct = currentAttraction ? Math.min(100, Math.round((leadCount / dailyGoal) * 100)) : 0;
