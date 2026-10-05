@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSupabaseAttractionPayload } from "@/app/api/scheduled-attractions/route";
-import { mergeTodayAttractions } from "@/app/member-dashboard/MemberDashboardClient";
+import { mergeTodayAttractions, normalizeLeaderboardMemberName } from "@/app/member-dashboard/MemberDashboardClient";
 
 describe("Supabase attraction payload", () => {
   it("keeps the configured goal value when saving", () => {
@@ -45,5 +45,11 @@ describe("Supabase attraction payload", () => {
     ] as any[];
 
     expect(mergeTodayAttractions(previous, [])).toEqual(previous);
+  });
+
+  it("normalizes ranking names and drops source labels from the daily leaderboard", () => {
+    expect(normalizeLeaderboardMemberName("  yosr gouja  ")).toBe("Yosr Gouja");
+    expect(normalizeLeaderboardMemberName("classroom")).toBe("");
+    expect(normalizeLeaderboardMemberName("information")).toBe("");
   });
 });

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { isSourceLabel } from "@/data/sourceLabels";
 import type { PhysicalAttractionLead } from "@/lib/dataUtils";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
 
@@ -15,6 +16,93 @@ function toLocalDateString(d: Date): string {
 
 const DEFAULT_GOAL = 30;
 const TOP_MEMBERS_LIMIT = 6;
+const ATTRACTIONS_CACHE_KEY = "member-dashboard.today-attractions.v1";
+
+type RankingMember = {
+  name: string;
+  leadsToday: number;
+  rank: number;
+};
+
+type RankingSnapshot = {
+  university: string;
+  leadCount: number;
+  leaderboard: RankingMember[];
+  generatedAt: string;
+};
+
+function readSessionCache<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeSessionCache<T>(key: string, value: T) {
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore storage failures */
+  }
+}
+
+export function normalizeLeaderboardMemberName(value: string): string {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return "";
+
+  const normalized = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+  if (!normalized) return "";
+  if (isSourceLabel(normalized) || isSourceLabel(trimmed)) return "";
+
+  return normalized;
+}
+
+function buildAttractionRanking(university: string, leads: PhysicalAttractionLead[]): RankingSnapshot {
+  const universityKey = university.trim().toLowerCase();
+  const universityLeads = leads.filter((lead) => {
+    const leadKey = (lead.university ?? "").trim().toLowerCase();
+    return leadKey === universityKey || leadKey.includes(universityKey) || universityKey.includes(leadKey);
+  });
+  const leaderboardMap = new Map<string, number>();
+
+  for (const lead of universityLeads) {
+    const memberName = normalizeLeaderboardMemberName(lead.memberName);
+    if (!memberName) continue;
+    leaderboardMap.set(memberName, (leaderboardMap.get(memberName) ?? 0) + 1);
+  }
+
+  const leaderboard = [...leaderboardMap.entries()]
+    .map(([name, leadsToday]) => ({ name, leadsToday, totalLeads: leadsToday }))
+    .sort((a, b) => b.leadsToday - a.leadsToday || b.totalLeads - a.totalLeads || a.name.localeCompare(b.name))
+    .slice(0, TOP_MEMBERS_LIMIT)
+    .map((member, index) => ({
+      name: member.name,
+      leadsToday: member.leadsToday,
+      rank: index + 1,
+    }));
+
+  return {
+    university,
+    leadCount: universityLeads.length,
+    leaderboard,
+    generatedAt: new Date().toISOString(),
+  };
+}
 
 export function mergeTodayAttractions(previous: CustomEvent[], next: CustomEvent[]) {
   if (next.length > 0) return next;
@@ -48,61 +136,27 @@ async function fetchTodaysAttractions(): Promise<CustomEvent[]> {
   }
 }
 
-/**
- * Fuzzy university match: both sides are lowercased and we check if one
- * contains the other (or vice-versa). This handles cases where the lead's
- * university string is slightly different from the calendar event title.
- */
-function universityMatches(leadUniversity: string, eventUniversity: string): boolean {
-  if (!leadUniversity || !eventUniversity) return false;
-  const a = leadUniversity.trim().toLowerCase();
-  const b = eventUniversity.trim().toLowerCase();
-  return a === b || a.includes(b) || b.includes(a);
-}
-
 export default function MemberDashboardClient({
   initialLeads = [],
 }: {
   initialLeads?: PhysicalAttractionLead[];
 }) {
-  const leads = initialLeads; // physical leads only (server-fetched, used as initial state)
   const [mounted, setMounted] = useState(false);
-  const [rankingUnavailable, setRankingUnavailable] = useState(false);
   const [todaysAttractions, setTodaysAttractions] = useState<CustomEvent[]>([]);
   const [activeTab, setActiveTab] = useState(0);
-  // Live member counts from the ranking API — polled every 30s
-  const [liveMemberCounts, setLiveMemberCounts] = useState<Record<string, number>>({});
-
-  // Poll /api/ranking every 30s for real-time today's member lead counts
-  const refreshLiveCounts = useCallback(async () => {
-    try {
-      const res = await fetch("/api/ranking");
-      const data = await res.json();
-      if (data.success) {
-        const map: Record<string, number> = {};
-        for (const m of data.members ?? []) {
-          map[m.name] = m.todayLeads;
-        }
-        setLiveMemberCounts(map);
-        setRankingUnavailable(false);
-      } else {
-        setRankingUnavailable(true);
-      }
-    } catch {
-      /* silent */
-    }
-  }, []);
 
   useEffect(() => {
-    refreshLiveCounts();
-    const id = setInterval(refreshLiveCounts, 30_000);
-    return () => clearInterval(id);
-  }, [refreshLiveCounts]);
+    setTodaysAttractions(readSessionCache<CustomEvent[]>(ATTRACTIONS_CACHE_KEY, []));
+  }, []);
 
   useEffect(() => {
     const t = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(t);
   }, []);
+
+  useEffect(() => {
+    writeSessionCache(ATTRACTIONS_CACHE_KEY, todaysAttractions);
+  }, [todaysAttractions]);
 
   useEffect(() => {
     const handleSync = async () => {
@@ -127,87 +181,29 @@ export default function MemberDashboardClient({
     };
   }, []);
 
-  const today = toLocalDateString(new Date());
-
-  // All physical leads from today across all universities
-  const todayAllLeads = useMemo(
-    () => leads.filter((l) => toLocalDateString(new Date(l.submittedAt)) === today),
-    [leads, today]
-  );
-
-  // Per-attraction computed data — uses live API counts when available, falls back to initialLeads
-  const attractionData = useMemo(() => {
-    const hasLive = Object.keys(liveMemberCounts).length > 0;
-
-    return todaysAttractions.map((attraction) => {
-      const uniName = attraction.extendedProps.university;
-
-      // Filter today's physical leads to only this university (for lead count fallback)
-      const uniLeads = todayAllLeads.filter((l) =>
-        universityMatches(l.university, uniName)
-      );
-
-      const dailyGoal = attraction.extendedProps.goal ?? DEFAULT_GOAL;
-
-      // Lead count: prefer live API total for this university's members;
-      // fall back to static initialLeads count
-      const leadCount = hasLive
-        ? uniLeads.reduce((sum, l) => {
-            const name = l.memberName?.trim();
-            // If the member is in our live map, use live count (already summed globally);
-            // we still count per-university from the static data as a cross-check
-            return sum; // we compute below
-          }, 0) || uniLeads.length
-        : uniLeads.length;
-
-      // Leaderboard: if we have live data, build it from liveMemberCounts
-      // but only include members who had at least 1 lead at this university today
-      // (determined from the static snapshot — university attribution still comes from there)
-      let leaderboard: Array<{ name: string; leadsToday: number; rank: number }>;
-
-      if (hasLive) {
-        // Get unique member names from today's uni leads
-        const uniMemberNames = new Set(
-          uniLeads.map((l) => l.memberName?.trim()).filter(Boolean) as string[]
-        );
-        // For each member at this uni, use live count
-        const entries = Array.from(uniMemberNames)
-          .map((name) => ({ name, leadsToday: liveMemberCounts[name] ?? 0 }))
-          .filter((e) => e.leadsToday > 0)
-          .sort((a, b) => b.leadsToday - a.leadsToday)
-          .slice(0, TOP_MEMBERS_LIMIT)
-          .map((m, i) => ({ ...m, rank: i + 1 }));
-        leaderboard = entries;
-      } else {
-        // Fallback: count from static leads
-        const counts = new Map<string, number>();
-        for (const lead of uniLeads) {
-          const name = lead.memberName?.trim();
-          if (!name) continue;
-          counts.set(name, (counts.get(name) || 0) + 1);
-        }
-        leaderboard = Array.from(counts.entries())
-          .map(([name, leadsToday]) => ({ name, leadsToday }))
-          .sort((a, b) => b.leadsToday - a.leadsToday)
-          .slice(0, TOP_MEMBERS_LIMIT)
-          .map((m, i) => ({ ...m, rank: i + 1 }));
-      }
-
-      // Live lead count: sum of all live member counts at this uni
-      const liveLeadCount = hasLive
-        ? leaderboard.reduce((s, m) => s + m.leadsToday, 0)
-        : leadCount;
-
-      const finalLeadCount = hasLive ? liveLeadCount : leadCount;
-      const goalPct = Math.min(100, Math.round((finalLeadCount / dailyGoal) * 100));
-
-      return { attraction, uniLeads, leadCount: finalLeadCount, dailyGoal, goalPct, leaderboard };
-    });
-  }, [todaysAttractions, todayAllLeads, liveMemberCounts]);
-
   const hasAttractionToday = todaysAttractions.length > 0;
   const multipleAttractions = todaysAttractions.length > 1;
+  const currentAttraction = todaysAttractions[activeTab] ?? null;
+  const currentUniversity = currentAttraction?.extendedProps.university ?? "";
+
+  const attractionData = useMemo(
+    () =>
+      todaysAttractions.map((attraction) => ({
+        attraction,
+        dailyGoal: attraction.extendedProps.goal ?? DEFAULT_GOAL,
+      })),
+    [todaysAttractions]
+  );
+
   const current = attractionData[activeTab];
+  const currentRanking = useMemo(() => {
+    if (!currentAttraction || !currentUniversity) return undefined;
+    return buildAttractionRanking(currentUniversity, initialLeads);
+  }, [currentAttraction, currentUniversity, initialLeads]);
+  const dailyGoal = currentAttraction?.extendedProps.goal ?? DEFAULT_GOAL;
+  const leadCount = currentRanking?.leadCount ?? 0;
+  const goalPct = currentAttraction ? Math.min(100, Math.round((leadCount / dailyGoal) * 100)) : 0;
+  const leaderboard = currentRanking?.leaderboard ?? [];
 
   const avatarFor = (name: string) => {
     let hash = 0;
@@ -279,29 +275,29 @@ export default function MemberDashboardClient({
                       Leads Today{multipleAttractions ? ` · Attraction ${activeTab + 1}` : ""}
                     </p>
                     <p className="mt-1 text-3xl font-bold text-brand-500 tabular-nums">
-                      {current.leadCount}
+                      {leadCount}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Goal</p>
                     <p className="mt-1 text-lg font-semibold text-gray-700 dark:text-gray-300 tabular-nums">
-                      {current.dailyGoal}
+                      {dailyGoal}
                     </p>
                   </div>
                 </div>
                 <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-500 transition-all duration-700 ease-out"
-                    style={{ width: mounted ? `${current.goalPct}%` : "0%" }}
+                    style={{ width: mounted ? `${goalPct}%` : "0%" }}
                   />
                 </div>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  {current.goalPct >= 100
+                  {goalPct >= 100
                     ? "Daily goal reached 🎉"
-                    : `${current.goalPct}% of today's goal · ${Math.max(0, current.dailyGoal - current.leadCount)} to go`}
+                    : `${goalPct}% of today's goal · ${Math.max(0, dailyGoal - leadCount)} to go`}
                 </p>
                 <p className="mt-2 truncate text-xs font-medium text-gray-400 dark:text-gray-500">
-                  📍 {current.attraction.extendedProps.university}
+                  📍 {currentAttraction?.extendedProps.university}
                 </p>
               </div>
 
@@ -314,16 +310,16 @@ export default function MemberDashboardClient({
                   <div>
                     <h2 className="text-base sm:text-lg font-semibold text-white">Daily leaderboard</h2>
                     <p className="text-xs text-violet-200/50 mt-0.5">
-                      {current.attraction.extendedProps.university} · physical leads
+                      {currentAttraction?.extendedProps.university} · ranking data
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur px-3 py-1.5 text-xs font-semibold text-violet-200">
                     <span>🏆</span>
-                    <span className="tabular-nums">{current.leadCount}</span>
+                    <span className="tabular-nums">{leadCount}</span>
                   </div>
                 </div>
 
-                {current.leaderboard.length === 0 ? (
+                {leaderboard.length === 0 ? (
                   <div className="relative rounded-xl border border-dashed border-white/15 py-8 text-center">
                     <p className="text-sm text-violet-200/60">No leads brought in yet today — be the first!</p>
                   </div>
@@ -331,10 +327,10 @@ export default function MemberDashboardClient({
                   <>
                     {/* Top 3 */}
                     {(() => {
-                      const first  = current.leaderboard.find((m) => m.rank === 1);
-                      const second = current.leaderboard.find((m) => m.rank === 2);
-                      const third  = current.leaderboard.find((m) => m.rank === 3);
-                      const rest   = current.leaderboard.filter((m) => m.rank > 3);
+                      const first  = leaderboard.find((m) => m.rank === 1);
+                      const second = leaderboard.find((m) => m.rank === 2);
+                      const third  = leaderboard.find((m) => m.rank === 3);
+                      const rest   = leaderboard.filter((m) => m.rank > 3);
 
                       return (
                         <>
