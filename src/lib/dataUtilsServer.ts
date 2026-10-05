@@ -16,7 +16,7 @@
 
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw, resolveMemberNameValue } from "./googleSheetsServer";
+import { fetchDigitalLeadsRaw, fetchPhysicalLeadsRaw, resolveMemberNameValue, resolveMemberNameKeyForRows } from "./googleSheetsServer";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Shared interfaces (also re-used by route files / client props)
@@ -154,7 +154,7 @@ function mapDigitalRow(r: Record<string, string>): Lead {
   };
 }
 
-function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
+function mapPhysicalRow(r: Record<string, string>, memberNameKey: string | null): PhysicalAttractionLead {
   // Google Sheets column names from actual data
   const internshipType = r['🌍 Type Of Abroad Internship'] || r.internshipType || r.typeOfAbroadInternship || r.internship_type || "";
   
@@ -177,7 +177,7 @@ function mapPhysicalRow(r: Record<string, string>): PhysicalAttractionLead {
     fieldOfStudy:      r['📚 Field of study'] || r.fieldOfStudy || r.field_of_study || "",
     internshipType:    internshipType,
     referral:          r['📢Referral'] || r.referral || "",
-    memberName:        resolveMemberNameValue(r),
+    memberName:        memberNameKey ? String(r[memberNameKey] ?? "").trim() : resolveMemberNameValue(r),
     hackathonInterest: r['💻Are you interested to attend a hackathon ?'] || r.hackathonInterest || r.areYouInterestedToAttendAHackathon || r.hackathon_interest || "",
     accountStatus,
   };
@@ -473,7 +473,8 @@ const EMPTY: DashboardData = {
 
 async function computeAll(): Promise<DashboardData> {
   const [dRaw, pRaw] = await Promise.all([fetchDigitalLeadsRaw(), fetchPhysicalLeadsRaw()]);
-  return buildDashboardData(dRaw.map(mapDigitalRow), pRaw.map(mapPhysicalRow));
+  const physicalMemberNameKey = resolveMemberNameKeyForRows(pRaw, "2026-09-01");
+  return buildDashboardData(dRaw.map(mapDigitalRow), pRaw.map((row) => mapPhysicalRow(row, physicalMemberNameKey)));
 }
 
 export async function debugComputeAllDashboardData(): Promise<DashboardData> {
