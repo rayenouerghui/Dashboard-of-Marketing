@@ -5,6 +5,7 @@ describe("supabase config detection", () => {
   it("detects a valid Supabase config from server env vars", () => {
     const previous = { ...process.env };
 
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     process.env.SUPABASE_URL = "https://example.supabase.co";
     process.env.SUPABASE_ANON_KEY = "anon-key";
 
@@ -23,6 +24,7 @@ describe("supabase config detection", () => {
 
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://public.example.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "public-anon-key";
 
@@ -41,6 +43,7 @@ describe("supabase config detection", () => {
 
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_ANON_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 

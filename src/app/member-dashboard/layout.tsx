@@ -40,24 +40,28 @@ export default function MemberDashboardLayout({ children }: { children: React.Re
     const check = async () => {
       const today = formatDateInTunis(new Date());
       try {
-        const res = await fetch("/api/leads/physical");
-        const leads: PhysicalAttractionLead[] = await res.json();
+        const [leadsRes, attractionsRes] = await Promise.all([
+          fetch("/api/leads/physical", { cache: "no-store" }),
+          fetch("/api/scheduled-attractions", { cache: "no-store" }),
+        ]);
+
+        const leads: PhysicalAttractionLead[] = leadsRes.ok ? await leadsRes.json() : [];
+        const customEvents: any[] = attractionsRes.ok ? await attractionsRes.json() : [];
+
         const todayLeads = leads.filter((l) => {
           const submitted = new Date(l.submittedAt);
           if (Number.isNaN(submitted.getTime())) return false;
           return formatDateInTunis(submitted) === today;
         });
 
-        const saved = localStorage.getItem("customCalendarEvents");
-        const customEvents = saved ? JSON.parse(saved) : [];
-        const todayCustom = customEvents.filter((e: any) => String(e.start).slice(0, 10) === today);
+        const todayCustom = customEvents.filter((e: any) => String(e.start ?? e.date ?? "").slice(0, 10) === today);
 
         const attractions: TodayAttraction[] = [
           ...todayLeads.map((l) => ({ university: l.university, type: "lead" as const })),
           ...todayCustom.map((e: any) => ({
-            university: e.extendedProps.university,
-            location:   e.extendedProps.note,
-            type:       "scheduled" as const,
+            university: e.extendedProps?.university ?? e.university,
+            location: e.extendedProps?.note ?? e.note,
+            type: "scheduled" as const,
           })),
         ];
 

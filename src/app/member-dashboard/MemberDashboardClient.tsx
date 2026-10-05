@@ -13,7 +13,6 @@ function toLocalDateString(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-const STORAGE_KEY = "customCalendarEvents";
 const DEFAULT_GOAL = 30;
 const TOP_MEMBERS_LIMIT = 6;
 
@@ -31,13 +30,13 @@ interface CustomEvent {
   };
 }
 
-/** Return ALL events scheduled for today (supports multiple per day). */
-function readTodaysAttractions(): CustomEvent[] {
+async function fetchTodaysAttractions(): Promise<CustomEvent[]> {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    const events: CustomEvent[] = saved ? JSON.parse(saved) : [];
+    const res = await fetch("/api/scheduled-attractions", { cache: "no-store" });
+    if (!res.ok) return [];
+    const events: CustomEvent[] = await res.json();
     const todayStr = toLocalDateString(new Date());
-    return events.filter((e) => e.start === todayStr);
+    return events.filter((e) => String(e.start ?? "").slice(0, 10) === todayStr);
   } catch {
     return [];
   }
@@ -100,18 +99,15 @@ export default function MemberDashboardClient({
   }, []);
 
   useEffect(() => {
-    const handleSync = () => {
-      const next = readTodaysAttractions();
+    const handleSync = async () => {
+      const next = await fetchTodaysAttractions();
       setTodaysAttractions(next);
-      // Keep active tab in range if attractions change
       setActiveTab((prev) => (prev < next.length ? prev : 0));
     };
 
     handleSync();
-    window.addEventListener("storage", handleSync);
     window.addEventListener("attractionUpdated", handleSync);
     return () => {
-      window.removeEventListener("storage", handleSync);
       window.removeEventListener("attractionUpdated", handleSync);
     };
   }, []);

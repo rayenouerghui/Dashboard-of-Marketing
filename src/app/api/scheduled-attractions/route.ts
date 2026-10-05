@@ -8,11 +8,12 @@ import {
   sanitizeScheduledAttractionInput,
 } from "@/lib/googleSheetsServer";
 import { requireRole } from "@/lib/auth";
-import { getSupabaseClient } from "@/lib/supabase";
+import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
 
-function normalizeSupabaseAttraction(row: any) {
+export function normalizeSupabaseAttraction(row: any) {
   const start = String(row?.date ?? row?.start ?? "").trim();
   const notes = row?.description ?? row?.notes ?? row?.note ?? "";
+  const goal = Number(row?.goal ?? row?.extendedProps?.goal ?? 0);
 
   return {
     id: String(row?.id ?? `custom-${Date.now()}`),
@@ -22,7 +23,7 @@ function normalizeSupabaseAttraction(row: any) {
     university: String(row?.university ?? ""),
     notes: String(notes ?? ""),
     note: String(notes ?? ""),
-    goal: Number(row?.goal ?? 0),
+    goal,
     status: row?.status ?? "published",
     createdAt: row?.created_at ?? row?.createdAt ?? new Date().toISOString(),
     updatedAt: row?.updated_at ?? row?.updatedAt ?? new Date().toISOString(),
@@ -31,8 +32,25 @@ function normalizeSupabaseAttraction(row: any) {
     extendedProps: {
       university: String(row?.university ?? ""),
       note: String(notes ?? ""),
-      goal: Number(row?.goal ?? 0),
+      goal,
     },
+  };
+}
+
+export function buildSupabaseAttractionPayload(attraction: any) {
+  const dateValue = String(attraction.start ?? "").split("T")[0] || "";
+  const goal = Number(attraction.extendedProps?.goal ?? attraction.goal ?? 0);
+
+  return {
+    id: attraction.id,
+    title: attraction.title,
+    university: attraction.university,
+    date: dateValue,
+    description: attraction.notes ?? attraction.note ?? "",
+    goal,
+    status: attraction.status ?? "published",
+    is_visible: true,
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -57,18 +75,7 @@ async function upsertSupabaseAttraction(attraction: any) {
   const supabase = getSupabaseClient();
   if (!supabase) return false;
 
-  const dateValue = String(attraction.start ?? "").split("T")[0] || "";
-
-  const payload = {
-    id: attraction.id,
-    title: attraction.title,
-    university: attraction.university,
-    date: dateValue,
-    description: attraction.notes ?? attraction.note ?? "",
-    status: attraction.status ?? "published",
-    is_visible: true,
-    updated_at: new Date().toISOString(),
-  };
+  const payload = buildSupabaseAttractionPayload(attraction);
 
   const { error } = await supabase.from("scheduled_attractions").upsert(payload, { onConflict: "id" });
 
@@ -121,17 +128,25 @@ const attractionSchema = z.preprocess((input) => {
 
 export async function GET() {
   try {
-    const supabaseAttractions = await listSupabaseAttractions().catch(() => null);
-    if (supabaseAttractions) {
-      return NextResponse.json(supabaseAttractions, {
+    if (!hasSupabaseConfig()) {
+      const attractions = await loadScheduledAttractionsFromSheet();
+      return NextResponse.json(attractions, {
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
       });
     }
 
-    const attractions = await loadScheduledAttractionsFromSheet();
-    return NextResponse.json(attractions, {
-      headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
-    });
+    try {
+      const supabaseAttractions = await listSupabaseAttractions();
+      return NextResponse.json(supabaseAttractions, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
+      });
+    } catch (error) {
+      console.warn("Supabase scheduled attractions read failed; falling back to legacy path:", error);
+      const attractions = await loadScheduledAttractionsFromSheet();
+      return NextResponse.json(attractions, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
+      });
+    }
   } catch (error) {
     console.error("Failed to load scheduled attractions:", error);
     return NextResponse.json({ error: "Failed to load scheduled attractions" }, { status: 500 });
@@ -149,13 +164,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    const supabaseSaved = await upsertSupabaseAttraction(sanitized).catch(() => false);
-    if (supabaseSaved) {
-      revalidateTag("scheduled-attractions", "api/scheduled-attractions");
-      return NextResponse.json({ success: true, attraction: sanitized }, {
-        status: 200,
-        headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
-      });
+    if (hasSupabaseConfig()) {
+      try {
+        const supabaseSaved = await upsertSupabaseAttraction(sanitized);
+        if (supabaseSaved) {
+          revalidateTag("scheduled-attractions", "api/scheduled-attractions");
+          return NextResponse.json({ success: true, attraction: sanitized }, {
+            status: 200,
+            headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
+          });
+        }
+      } catch (error) {
+        console.warn("Supabase scheduled attraction save failed; falling back to legacy path:", error);
+      }
     }
 
     await saveScheduledAttractionToSheet(sanitized);
@@ -189,10 +210,16 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Missing attraction id" }, { status: 400 });
     }
 
-    const supabaseDeleted = await deleteSupabaseAttraction(id).catch(() => false);
-    if (supabaseDeleted) {
-      revalidateTag("scheduled-attractions", "api/scheduled-attractions");
-      return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" } });
+    if (hasSupabaseConfig()) {
+      try {
+        const supabaseDeleted = await deleteSupabaseAttraction(id);
+        if (supabaseDeleted) {
+          revalidateTag("scheduled-attractions", "api/scheduled-attractions");
+          return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" } });
+        }
+      } catch (error) {
+        console.warn("Supabase scheduled attraction delete failed; falling back to legacy path:", error);
+      }
     }
 
     await deleteScheduledAttractionFromSheet(id);
