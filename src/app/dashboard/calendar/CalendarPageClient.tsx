@@ -345,6 +345,7 @@ Status: ${props.accountStatus || "N/A"}
         }
       };
       await fetchAttractions();
+      window.dispatchEvent(new Event("attractionUpdated"));
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -369,6 +370,7 @@ Status: ${props.accountStatus || "N/A"}
           const data = await res.json();
           setCustomEvents(data);
         }
+        window.dispatchEvent(new Event("attractionUpdated"));
         setIsModalOpen(false);
       } catch (err) {
         console.error(err);

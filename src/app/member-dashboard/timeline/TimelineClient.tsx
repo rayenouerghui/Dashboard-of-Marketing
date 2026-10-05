@@ -144,6 +144,7 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
 
   useEffect(() => {
     setMounted(true);
+    fetchAttractions();
   }, []);
 
   const fetchAttractions = async () => {
@@ -158,6 +159,17 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
       // ignore
     }
   };
+
+  useEffect(() => {
+    const handleRefresh = () => fetchAttractions();
+    window.addEventListener("attractionUpdated", handleRefresh);
+    window.addEventListener("storage", handleRefresh);
+
+    return () => {
+      window.removeEventListener("attractionUpdated", handleRefresh);
+      window.removeEventListener("storage", handleRefresh);
+    };
+  }, []);
 
   // Polling for updates every 15 seconds
   useEffect(() => {

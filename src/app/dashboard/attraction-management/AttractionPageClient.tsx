@@ -253,6 +253,7 @@ export default function AttractionPageClient() {
       }
 
       await fetchAttractions();
+      window.dispatchEvent(new Event("attractionUpdated"));
       setFormData(EMPTY_FORM);
       setToast(`Attraction added for ${newEvent.extendedProps.university} — now visible on the timeline`);
     } catch (err) {
@@ -276,6 +277,7 @@ export default function AttractionPageClient() {
       }
 
       await fetchAttractions();
+      window.dispatchEvent(new Event("attractionUpdated"));
       setToast(`Removed ${pendingDelete.extendedProps.university}`);
     } catch (err) {
       console.error(err);
