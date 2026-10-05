@@ -1198,9 +1198,19 @@ async function getScheduledAttractionRows(): Promise<string[][]> {
   return response.data.values ?? [];
 }
 
-async function verifyScheduledAttractionWrite(id: string) {
-  const rows = await getScheduledAttractionRows();
-  return hasScheduledAttractionRow(rows, id);
+async function verifyScheduledAttractionWrite(id: string, retries: number = 3) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const rows = await getScheduledAttractionRows();
+    if (hasScheduledAttractionRow(rows, id)) {
+      return true;
+    }
+
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+    }
+  }
+
+  return false;
 }
 
 export async function saveScheduledAttractionToSheet(attraction: any) {
@@ -1246,7 +1256,7 @@ export async function saveScheduledAttractionToSheet(attraction: any) {
     });
   }
 
-  const wasVerified = await verifyScheduledAttractionWrite(normalized.id);
+  const wasVerified = await verifyScheduledAttractionWrite(normalized.id, 3);
   if (!wasVerified) {
     throw new Error("Scheduled attraction write could not be verified in the Google Sheet.");
   }
