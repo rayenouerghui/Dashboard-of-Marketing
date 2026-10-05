@@ -10,6 +10,8 @@
 // FALLBACK: If Google Sheets environment variables are not set, the functions
 // will fall back to reading from static JSON files in src/data/
 
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { DEFAULT_NAME_COLUMN_INDEX, DEFAULT_REFERRAL_COLUMN_INDEX, SHEET_LAYOUT_VERSION } from "@/data/sheetsConfig";
 import { isSourceLabel } from "@/data/sourceLabels";
 import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey, getOpportunityOgvSpreadsheetId, getOpportunityOgtSpreadsheetId } from "./env";
@@ -1020,6 +1022,33 @@ export function getAttractionsSheetConfig() {
   return { spreadsheetId: getAttractionsSpreadsheetId(), tabName: ATTRACTIONS_TAB };
 }
 
+function shouldUseLocalAttractionFallback(): boolean {
+  const required = [
+    process.env.GOOGLE_SHEET_ID,
+    process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
+    process.env.GOOGLE_SHEETS_PRIVATE_KEY,
+  ];
+  return required.some((value) => !value || !String(value).trim());
+}
+
+async function readLocalScheduledAttractions(): Promise<any[]> {
+  const filePath = path.join(process.cwd(), ".data", "scheduled-attractions.json");
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    const raw = await fs.readFile(filePath, "utf-8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeLocalScheduledAttractions(items: any[]) {
+  const filePath = path.join(process.cwd(), ".data", "scheduled-attractions.json");
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
+}
+
 export function normalizeScheduledAttractionRecord(raw: any): any | null {
   if (!raw || typeof raw !== "object") return null;
 
@@ -1223,6 +1252,24 @@ export async function saveScheduledAttractionToSheet(attraction: any) {
     throw new Error("Invalid scheduled attraction payload");
   }
 
+  if (shouldUseLocalAttractionFallback()) {
+    const items = await readLocalScheduledAttractions();
+    const existingIndex = items.findIndex((item) => {
+      const parsed = normalizeScheduledAttractionRecord(item);
+      return parsed && parsed.id === normalized.id;
+    });
+
+    const next = { ...normalized, status: normalized.status ?? "active" };
+    if (existingIndex >= 0) {
+      items[existingIndex] = next;
+    } else {
+      items.push(next);
+    }
+
+    await writeLocalScheduledAttractions(items);
+    return;
+  }
+
   const sheets = await getSheetsClient();
   await ensureAttractionsTab(sheets);
 
@@ -1264,6 +1311,15 @@ export async function saveScheduledAttractionToSheet(attraction: any) {
 }
 
 export async function loadScheduledAttractionsFromSheet(): Promise<any[]> {
+  if (shouldUseLocalAttractionFallback()) {
+    const items = await readLocalScheduledAttractions();
+    return items.filter((item) => {
+      const normalized = normalizeScheduledAttractionRecord(item);
+      if (!normalized || normalized.status === "archived") return false;
+      return isAttractionVisibleToMembers(normalized, new Date()).visible;
+    });
+  }
+
   const rows = await getScheduledAttractionRows();
   const results: any[] = [];
 
@@ -1325,6 +1381,16 @@ export async function getScheduledAttractionsAuditRows() {
 }
 
 export async function deleteScheduledAttractionFromSheet(id: string) {
+  if (shouldUseLocalAttractionFallback()) {
+    const items = await readLocalScheduledAttractions();
+    const next = items.filter((item) => {
+      const parsed = normalizeScheduledAttractionRecord(item);
+      return !(parsed && parsed.id === id);
+    });
+    await writeLocalScheduledAttractions(next);
+    return next.length !== items.length;
+  }
+
   const sheets = await getSheetsClient();
   await ensureAttractionsTab(sheets);
 
@@ -1342,6 +1408,23 @@ export async function deleteScheduledAttractionFromSheet(id: string) {
 }
 
 export async function archiveScheduledAttractionById(id: string) {
+  if (shouldUseLocalAttractionFallback()) {
+    const items = await readLocalScheduledAttractions();
+    let changed = false;
+    const next = items.map((item) => {
+      const parsed = normalizeScheduledAttractionRecord(item);
+      if (parsed && parsed.id === id) {
+        changed = true;
+        return { ...parsed, status: "archived", updatedAt: new Date().toISOString() };
+      }
+      return item;
+    });
+
+    if (!changed) return false;
+    await writeLocalScheduledAttractions(next);
+    return true;
+  }
+
   const sheets = await getSheetsClient();
   await ensureAttractionsTab(sheets);
 
