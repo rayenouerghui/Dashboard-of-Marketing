@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSupabaseAttractionPayload } from "@/app/api/scheduled-attractions/route";
+import { mergeTodayAttractions } from "@/app/member-dashboard/MemberDashboardClient";
 
 describe("Supabase attraction payload", () => {
   it("keeps the configured goal value when saving", () => {
@@ -29,5 +30,20 @@ describe("Supabase attraction payload", () => {
     });
 
     expect(payload.goal).toBe(0);
+  });
+
+  it("keeps the previous valid attraction list when a refresh briefly returns empty", () => {
+    const previous = [
+      {
+        id: "a1",
+        title: "Today",
+        start: "2026-10-05",
+        backgroundColor: "#465FFF",
+        borderColor: "#465FFF",
+        extendedProps: { university: "AIESEC Tunisia", goal: 12 },
+      },
+    ] as any[];
+
+    expect(mergeTodayAttractions(previous, [])).toEqual(previous);
   });
 });

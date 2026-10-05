@@ -16,6 +16,12 @@ function toLocalDateString(d: Date): string {
 const DEFAULT_GOAL = 30;
 const TOP_MEMBERS_LIMIT = 6;
 
+export function mergeTodayAttractions(previous: CustomEvent[], next: CustomEvent[]) {
+  if (next.length > 0) return next;
+  if (previous.length > 0) return previous;
+  return [];
+}
+
 interface CustomEvent {
   id: string;
   title: string;
@@ -101,14 +107,23 @@ export default function MemberDashboardClient({
   useEffect(() => {
     const handleSync = async () => {
       const next = await fetchTodaysAttractions();
-      setTodaysAttractions(next);
-      setActiveTab((prev) => (prev < next.length ? prev : 0));
+      setTodaysAttractions((previous) => {
+        const merged = mergeTodayAttractions(previous, next);
+        setActiveTab((currentTab) => (currentTab < merged.length ? currentTab : 0));
+        return merged;
+      });
     };
 
     handleSync();
+    window.addEventListener("storage", handleSync);
     window.addEventListener("attractionUpdated", handleSync);
+
+    const interval = setInterval(handleSync, 10000);
+
     return () => {
+      window.removeEventListener("storage", handleSync);
       window.removeEventListener("attractionUpdated", handleSync);
+      clearInterval(interval);
     };
   }, []);
 
