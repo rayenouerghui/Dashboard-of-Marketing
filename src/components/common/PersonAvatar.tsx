@@ -4,16 +4,18 @@ import Image from "next/image";
 import { useMemo, useState } from "react";
 import { getPersonPhotoPath } from "@/data/personPhotos";
 
-function getInitials(name: string): string {
-  const parts = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+const ANIMAL_FALLBACKS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
 
-  if (parts.length === 0) return "??";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+function getAnimalFallback(name: string): string {
+  const value = name.trim();
+  if (!value) return "🐾";
 
-  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) % ANIMAL_FALLBACKS.length;
+  }
+
+  return ANIMAL_FALLBACKS[hash];
 }
 
 interface PersonAvatarProps {
@@ -24,7 +26,7 @@ interface PersonAvatarProps {
 export default function PersonAvatar({ name, className = "" }: PersonAvatarProps) {
   const [failed, setFailed] = useState(false);
   const photoPath = useMemo(() => getPersonPhotoPath(name), [name]);
-  const initials = useMemo(() => getInitials(name), [name]);
+  const fallbackAnimal = useMemo(() => getAnimalFallback(name), [name]);
 
   return (
     <div className={`relative overflow-hidden ${className}`.trim()}>
@@ -38,8 +40,8 @@ export default function PersonAvatar({ name, className = "" }: PersonAvatarProps
           onError={() => setFailed(true)}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-gray-100 text-[11px] font-bold uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-300">
-          {initials}
+        <div className="flex h-full w-full items-center justify-center bg-gray-100 text-lg dark:bg-gray-800">
+          <span aria-hidden="true">{fallbackAnimal}</span>
         </div>
       )}
     </div>
