@@ -2,15 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MemberStat } from "@/app/api/ranking/route";
+import PersonAvatar from "@/components/common/PersonAvatar";
 
 const POLL_INTERVAL = 30_000;
-
-const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
-function avatarFor(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % ANIMAL_AVATARS.length;
-  return ANIMAL_AVATARS[h];
-}
 
 const RANK_STYLES: Record<number, { ring: string; glow: string; badge: string; crown: string; barColor: string }> = {
   1: { ring: "border-amber-300/80", glow: "shadow-[0_0_32px_rgba(251,191,36,0.4)]", badge: "from-amber-400 to-yellow-300", crown: "👑", barColor: "from-amber-400 to-yellow-300" },
@@ -53,7 +47,14 @@ export default function MemberRankingClient() {
   useEffect(() => {
     fetchData();
     const id = setInterval(fetchData, POLL_INTERVAL);
-    return () => clearInterval(id);
+    window.addEventListener("focus", fetchData);
+    document.addEventListener("visibilitychange", fetchData);
+
+    return () => {
+      window.removeEventListener("focus", fetchData);
+      document.removeEventListener("visibilitychange", fetchData);
+      clearInterval(id);
+    };
   }, [fetchData]);
 
   const top5 = useMemo(
@@ -121,7 +122,7 @@ export default function MemberRankingClient() {
                 >
                   <span className="text-xl mb-2">🥈</span>
                   <div className={`relative h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white/[0.07] border-2 ${RANK_STYLES[2].ring} flex items-center justify-center text-2xl backdrop-blur ${RANK_STYLES[2].glow}`}>
-                    {avatarFor(top5[1].name)}
+                      <PersonAvatar name={top5[1].name} className="h-full w-full rounded-full" />
                     <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${RANK_STYLES[2].badge} flex items-center justify-center text-[9px] font-black text-white shadow`}>2</span>
                   </div>
                   <p className="mt-2 max-w-[90px] truncate text-center text-xs font-semibold text-white/80">{top5[1].name}</p>
@@ -132,7 +133,7 @@ export default function MemberRankingClient() {
               <div className={`flex flex-col items-center -mt-4 transition-all duration-700 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}>
                 <span className="text-3xl mb-2 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]">👑</span>
                 <div className={`relative h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-amber-500/20 to-yellow-400/20 border-2 ${RANK_STYLES[1].ring} flex items-center justify-center text-4xl backdrop-blur ${RANK_STYLES[1].glow}`}>
-                  {avatarFor(top5[0].name)}
+                  <PersonAvatar name={top5[0].name} className="h-full w-full rounded-full" />
                   <span className={`absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-gradient-to-br ${RANK_STYLES[1].badge} flex items-center justify-center text-[10px] font-black text-white shadow-lg`}>1</span>
                 </div>
                 <p className="mt-2 max-w-[110px] truncate text-center text-sm font-bold text-white">{top5[0].name}</p>
@@ -147,7 +148,7 @@ export default function MemberRankingClient() {
                 >
                   <span className="text-xl mb-2">🥉</span>
                   <div className={`relative h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white/[0.07] border-2 ${RANK_STYLES[3].ring} flex items-center justify-center text-2xl backdrop-blur ${RANK_STYLES[3].glow}`}>
-                    {avatarFor(top5[2].name)}
+                      <PersonAvatar name={top5[2].name} className="h-full w-full rounded-full" />
                     <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full bg-gradient-to-br ${RANK_STYLES[3].badge} flex items-center justify-center text-[9px] font-black text-white shadow`}>3</span>
                   </div>
                   <p className="mt-2 max-w-[90px] truncate text-center text-xs font-semibold text-white/80">{top5[2].name}</p>
@@ -190,7 +191,7 @@ export default function MemberRankingClient() {
                         {m.rank}
                       </div>
                       <div className="h-10 w-10 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xl">
-                        {avatarFor(m.name)}
+                        <PersonAvatar name={m.name} className="h-full w-full rounded-full" />
                       </div>
                       <p className="flex-1 min-w-0 truncate text-sm font-semibold text-gray-800 dark:text-white">{m.name}</p>
                       <div className="shrink-0 text-right">

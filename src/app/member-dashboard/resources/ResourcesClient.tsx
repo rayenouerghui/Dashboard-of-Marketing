@@ -137,7 +137,14 @@ export default function ResourcesClient() {
   // Auto-refresh every 2 minutes
   useEffect(() => {
     const interval = setInterval(() => loadResources(), 120000);
-    return () => clearInterval(interval);
+    window.addEventListener("focus", loadResources);
+    document.addEventListener("visibilitychange", loadResources);
+
+    return () => {
+      window.removeEventListener("focus", loadResources);
+      document.removeEventListener("visibilitychange", loadResources);
+      clearInterval(interval);
+    };
   }, [loadResources]);
 
   function renderResourceCard(resource: Resource) {

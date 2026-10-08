@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { dateStringToDate } from "@/lib/dates";
+import { getUniversities } from "@/lib/dataUtils";
 import type { PhysicalAttractionLead } from "@/lib/dataUtilsServer";
 
 const STORAGE_KEY = "customCalendarEvents";
@@ -60,6 +61,28 @@ function getShortUniversityName(name: string): string {
   return name.length > 25 ? name.substring(0, 25) + "..." : name;
 }
 
+function normalizeUniversityKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+}
+
+const UNIVERSITY_LOGOS = new Map<string, string>(
+  getUniversities()
+    .flatMap((university) => {
+      const shortName = getShortUniversityName(university.name);
+      const shortKey = shortName.includes(":") ? shortName.split(":")[0].trim() : shortName;
+      return [
+        [normalizeUniversityKey(university.name), university.logo],
+        [normalizeUniversityKey(shortName), university.logo],
+        [normalizeUniversityKey(shortKey), university.logo],
+      ] as Array<[string, string]>;
+    })
+);
+
 function getUniversityLogo(university: string): string {
   const map: Record<string, string> = {
     "FMT: Facult\u00e9 de M\u00e9decine de Tunis": "/images/logo/fmt.png",
@@ -69,7 +92,9 @@ function getUniversityLogo(university: string): string {
     "ISG: Institut Sup\u00e9rieur de Gestion": "/images/logo/isg.png",
   };
   const short = university.split(":")[0]?.trim() || university;
-  return map[university] || map[short] || "/images/logo/default-university.png";
+  const normalized = normalizeUniversityKey(university);
+  const normalizedShort = normalizeUniversityKey(short);
+  return UNIVERSITY_LOGOS.get(normalized) || UNIVERSITY_LOGOS.get(normalizedShort) || map[university] || map[short] || "/images/logo/default-university.png";
 }
 
 function LogoOrInitials({
@@ -83,30 +108,27 @@ function LogoOrInitials({
 }) {
   const alt = name || "University";
   const actualSrc = src || getUniversityLogo(name);
+  const [failed, setFailed] = useState(false);
+
   return (
     <div
       style={{ width: size, height: size }}
       className="relative shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 dark:border-gray-600 dark:bg-gray-800"
     >
-      <Image
-        src={actualSrc}
-        alt={alt}
-        fill
-        sizes={`${size}px`}
-        className="object-contain p-1"
-        onError={(e) => {
-          const target = e.currentTarget;
-          target.style.display = "none";
-          const parent = target.parentElement;
-          if (parent && !parent.querySelector(".initials-fallback")) {
-            const span = document.createElement("div");
-            span.className =
-              "initials-fallback flex h-full w-full items-center justify-center text-[11px] font-bold text-gray-500 dark:text-gray-300";
-            span.textContent = (name || "??").substring(0, 2).toUpperCase();
-            parent.appendChild(span);
-          }
-        }}
-      />
+      {actualSrc && !failed ? (
+        <Image
+          src={actualSrc}
+          alt={alt}
+          fill
+          sizes={`${size}px`}
+          className="object-contain p-1"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-gray-400 dark:text-gray-500">
+          <span className="text-lg leading-none">{Building2()}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -164,10 +186,14 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
     const handleRefresh = () => fetchAttractions();
     window.addEventListener("attractionUpdated", handleRefresh);
     window.addEventListener("storage", handleRefresh);
+    window.addEventListener("focus", handleRefresh);
+    document.addEventListener("visibilitychange", handleRefresh);
 
     return () => {
       window.removeEventListener("attractionUpdated", handleRefresh);
       window.removeEventListener("storage", handleRefresh);
+      window.removeEventListener("focus", handleRefresh);
+      document.removeEventListener("visibilitychange", handleRefresh);
     };
   }, []);
 
@@ -267,9 +293,6 @@ export default function TimelineClient({ initialLeads, initialAttractions }: Tim
                     size={48}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-blue-100/90">
-                      ## Scheduled Attractions
-                    </p>
                     <p className="text-white font-semibold text-base">
                       {getShortUniversityName(ev.extendedProps.university)}
                     </p>

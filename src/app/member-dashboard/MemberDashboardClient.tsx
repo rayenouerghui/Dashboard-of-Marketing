@@ -4,9 +4,8 @@ import Link from "next/link";
 import { isSourceLabel } from "@/data/sourceLabels";
 import type { PhysicalAttractionLead } from "@/lib/dataUtils";
 import { formatDateInTunis } from "@/lib/dates";
+import PersonAvatar from "@/components/common/PersonAvatar";
 import { useEffect, useMemo, useState } from "react";
-
-const ANIMAL_AVATARS = ["🦊", "🐼", "🦁", "🐨", "🐯", "🐰", "🦉", "🐺", "🐸", "🐻"];
 
 function toLocalDateString(d: Date): string {
   const y = d.getFullYear();
@@ -178,12 +177,16 @@ export default function MemberDashboardClient({
     handleSync();
     window.addEventListener("storage", handleSync);
     window.addEventListener("attractionUpdated", handleSync);
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
 
     const interval = setInterval(handleSync, 10000);
 
     return () => {
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("attractionUpdated", handleSync);
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
       clearInterval(interval);
     };
   }, []);
@@ -212,12 +215,6 @@ export default function MemberDashboardClient({
   const leadCount = currentRanking?.leadCount ?? 0;
   const goalPct = currentAttraction ? Math.min(100, Math.round((leadCount / dailyGoal) * 100)) : 0;
   const leaderboard = currentRanking?.leaderboard ?? [];
-
-  const avatarFor = (name: string) => {
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % ANIMAL_AVATARS.length;
-    return ANIMAL_AVATARS[hash];
-  };
 
   const podiumHeights: Record<number, string> = {
     1: "h-20 sm:h-24",
@@ -348,7 +345,7 @@ export default function MemberDashboardClient({
                                 <div className={`flex flex-col items-center transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`} style={{ transitionDelay: "80ms" }}>
                                   <span className="text-lg mb-0.5">🥈</span>
                                   <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white/[0.06] backdrop-blur border-2 border-slate-300/40 flex items-center justify-center text-2xl">
-                                    {avatarFor(second.name)}
+                                      <PersonAvatar name={second.name} className="h-full w-full rounded-full" />
                                   </div>
                                   <p className="mt-1.5 max-w-[68px] truncate text-[11px] sm:text-xs font-medium text-white text-center">{second.name.split(" ")[0]}</p>
                                   <p className="text-[10px] sm:text-[11px] text-violet-200 font-semibold tabular-nums">{second.leadsToday}</p>
@@ -357,7 +354,7 @@ export default function MemberDashboardClient({
                               <div className={`flex flex-col items-center transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
                                 <span className="text-xl mb-0.5">👑</span>
                                 <div className="h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-full bg-gradient-to-br from-violet-500/25 to-fuchsia-500/25 backdrop-blur border-2 border-violet-300/70 flex items-center justify-center text-3xl shadow-[0_0_24px_rgba(167,139,250,0.35)]">
-                                  {avatarFor(first.name)}
+                                  <PersonAvatar name={first.name} className="h-full w-full rounded-full" />
                                 </div>
                                 <p className="mt-1.5 max-w-[80px] truncate text-xs sm:text-sm font-semibold text-white text-center">{first.name.split(" ")[0]}</p>
                                 <p className="text-xs text-violet-200 font-bold tabular-nums">{first.leadsToday}</p>
@@ -366,7 +363,7 @@ export default function MemberDashboardClient({
                                 <div className={`flex flex-col items-center transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`} style={{ transitionDelay: "80ms" }}>
                                   <span className="text-lg mb-0.5">🥉</span>
                                   <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white/[0.06] backdrop-blur border-2 border-amber-300/40 flex items-center justify-center text-2xl">
-                                    {avatarFor(third.name)}
+                                      <PersonAvatar name={third.name} className="h-full w-full rounded-full" />
                                   </div>
                                   <p className="mt-1.5 max-w-[68px] truncate text-[11px] sm:text-xs font-medium text-white text-center">{third.name.split(" ")[0]}</p>
                                   <p className="text-[10px] sm:text-[11px] text-violet-200 font-semibold tabular-nums">{third.leadsToday}</p>
@@ -418,7 +415,7 @@ export default function MemberDashboardClient({
                                     {String(member.rank).padStart(2, "0")}
                                   </span>
                                   <div className="h-8 w-8 shrink-0 rounded-full bg-white/[0.05] border border-white/10 flex items-center justify-center text-base">
-                                    {avatarFor(member.name)}
+                                      <PersonAvatar name={member.name} className="h-full w-full rounded-full" />
                                   </div>
                                   <span className="truncate text-sm font-medium text-white">{member.name}</span>
                                 </div>
