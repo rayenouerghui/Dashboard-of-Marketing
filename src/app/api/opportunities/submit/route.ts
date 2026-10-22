@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendOpportunitySubmission, saveOpportunityToSheet } from "@/lib/googleSheetsServer";
+import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
+import { addSubmission, productToSheet } from "@/lib/submissionsStore";
 import { getUniversityById, type Opportunity } from "@/lib/dataUtils";
 import { z } from "zod";
 import { sanitizeObject } from "@/lib/sanitize";
@@ -46,10 +47,10 @@ export async function POST(request: NextRequest) {
 
   const errors: string[] = [];
 
-  // 1. Write summary row to the tracking sheet (OGV / OGT)
-  let sheetResult: Awaited<ReturnType<typeof appendOpportunitySubmission>> | null = null;
+  // 1. Write submission to Supabase submissions table
   try {
-    sheetResult = await appendOpportunitySubmission({
+    await addSubmission({
+      sheet: productToSheet(sanitized.product),
       product: sanitized.product,
       opportunityId: sanitized.opportunityId || "",
       opportunityTitle: sanitized.title,
@@ -64,36 +65,46 @@ export async function POST(request: NextRequest) {
       source: sanitized.source || "Admin Dashboard",
     });
   } catch (err) {
-    errors.push(`Tracking sheet: ${err instanceof Error ? err.message : String(err)}`);
-    console.error("[api/opportunities/submit] tracking sheet error:", err);
+    errors.push(`Submissions table: ${err instanceof Error ? err.message : String(err)}`);
+    console.error("[api/opportunities/submit] submissions error:", err);
   }
 
-  // 2. Persist full opportunity object to the Opportunities tab (for member reads)
-  if (fullOpportunity) {
+  // 2. Persist full opportunity object to Supabase opportunities table (for member reads)
+  if (fullOpportunity && hasSupabaseConfig()) {
     try {
-      await saveOpportunityToSheet(fullOpportunity);
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { error } = await supabase
+          .from("opportunities")
+          .upsert({
+            id: fullOpportunity.id,
+            university_id: fullOpportunity.universityId,
+            title: fullOpportunity.title,
+            product: fullOpportunity.product,
+            country: fullOpportunity.country,
+            duration: fullOpportunity.duration,
+            opportunity_date: fullOpportunity.date,
+            benefits: JSON.stringify(fullOpportunity.benefits || []),
+            requirements: JSON.stringify(fullOpportunity.requirements || []),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "id" });
+        
+        if (error) throw error;
+      }
     } catch (err) {
-      errors.push(`Opportunity store: ${err instanceof Error ? err.message : String(err)}`);
-      console.error("[api/opportunities/submit] opportunity store error:", err);
+      errors.push(`Opportunities table: ${err instanceof Error ? err.message : String(err)}`);
+      console.error("[api/opportunities/submit] opportunities error:", err);
     }
   }
 
-  if (errors.length > 0 && !sheetResult) {
-    // Both writes failed
+  if (errors.length > 0) {
     return NextResponse.json(
       { success: false, error: errors.join(" | ") },
       { status: 500 }
     );
   }
 
-  return NextResponse.json(
-    {
-      success: true,
-      ...(sheetResult ?? {}),
-      warnings: errors.length > 0 ? errors : undefined,
-    },
-    { status: 200 }
-  );
+  return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });
