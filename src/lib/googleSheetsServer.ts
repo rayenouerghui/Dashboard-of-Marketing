@@ -1005,48 +1005,72 @@ async function ensureOpportunitiesTab(sheets: any) {
 }
 
 export async function saveOpportunityToSheet(opportunity: import("@/lib/dataUtils").Opportunity) {
+  // Also save to Supabase
+  const { getSupabaseClient, hasSupabaseConfig } = await import("./supabase");
+  if (hasSupabaseConfig()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase
+          .from("opportunities")
+          .upsert({
+            id: opportunity.id,
+            university_id: opportunity.universityId,
+            title: opportunity.title,
+            product: opportunity.product,
+            country: opportunity.country,
+            duration: opportunity.duration,
+            opportunity_date: opportunity.date,
+            benefits: JSON.stringify(opportunity.benefits || []),
+            requirements: JSON.stringify(opportunity.requirements || []),
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "id" });
+      } catch (error) {
+        console.error("[googleSheetsServer] Failed to save to Supabase:", error);
+      }
+    }
+  }
+
+  // Still save to Google Sheets for backward compatibility
   const sheets = await getSheetsClient();
   await ensureOpportunitiesTab(sheets);
 
-  // Check if a row for this opportunity id already exists → update it
   const existing = await sheets.spreadsheets.values.get({
     spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
     range: `'${OPPORTUNITIES_TAB}'!A:B`,
   });
 
   const rows: string[][] = existing.data.values ?? [];
-  // rows[0] is the header; data starts at index 1
-  let targetRowIndex = -1;
+  let rowIndex = -1;
+
   for (let i = 1; i < rows.length; i++) {
     try {
       const parsed = JSON.parse(rows[i][1] ?? "{}");
       if (parsed.id === opportunity.id) {
-        targetRowIndex = i + 1; // 1-indexed sheet row
+        rowIndex = i;
         break;
       }
     } catch {
-      // malformed row — skip
+      // skip
     }
   }
 
-  const rowValues = [[opportunity.universityId, JSON.stringify(opportunity)]];
+  const rowPayload = [opportunity.id, JSON.stringify(opportunity)];
 
-  if (targetRowIndex > 0) {
-    // Update existing row
+  if (rowIndex >= 0) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
-      range: `'${OPPORTUNITIES_TAB}'!A${targetRowIndex}:B${targetRowIndex}`,
+      range: `'${OPPORTUNITIES_TAB}'!A${rowIndex + 1}:B${rowIndex + 1}`,
       valueInputOption: "RAW",
-      requestBody: { values: rowValues },
+      requestBody: { values: [rowPayload] },
     });
   } else {
-    // Append new row
     await sheets.spreadsheets.values.append({
       spreadsheetId: OPPORTUNITIES_SPREADSHEET_ID,
       range: `'${OPPORTUNITIES_TAB}'!A:B`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
-      requestBody: { values: rowValues },
+      requestBody: { values: [rowPayload] },
     });
   }
 }
@@ -1054,6 +1078,38 @@ export async function saveOpportunityToSheet(opportunity: import("@/lib/dataUtil
 export async function loadOpportunitiesFromSheet(
   universityId?: string
 ): Promise<import("@/lib/dataUtils").Opportunity[]> {
+  // Try to load from Supabase first
+  const { getSupabaseClient, hasSupabaseConfig } = await import("./supabase");
+  if (hasSupabaseConfig()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        let query = supabase.from("opportunities").select("*");
+        if (universityId) {
+          query = query.eq("university_id", universityId);
+        }
+        const { data, error } = await query;
+        
+        if (!error && data) {
+          return data.map((row: any) => ({
+            id: row.id,
+            universityId: row.university_id,
+            title: row.title,
+            product: row.product,
+            country: row.country,
+            duration: row.duration,
+            date: row.opportunity_date,
+            benefits: JSON.parse(row.benefits || "[]"),
+            requirements: JSON.parse(row.requirements || "[]"),
+          }));
+        }
+      } catch (error) {
+        console.error("[googleSheetsServer] Failed to load from Supabase, falling back to Sheets:", error);
+      }
+    }
+  }
+
+  // Fallback to Google Sheets
   const sheets = await getSheetsClient();
   await ensureOpportunitiesTab(sheets);
 
@@ -1082,6 +1138,20 @@ export async function loadOpportunitiesFromSheet(
 }
 
 export async function deleteOpportunityFromSheet(opportunityId: string) {
+  // Also delete from Supabase
+  const { getSupabaseClient, hasSupabaseConfig } = await import("./supabase");
+  if (hasSupabaseConfig()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        await supabase.from("opportunities").delete().eq("id", opportunityId);
+      } catch (error) {
+        console.error("[googleSheetsServer] Failed to delete from Supabase:", error);
+      }
+    }
+  }
+
+  // Still delete from Google Sheets for backward compatibility
   const sheets = await getSheetsClient();
   await ensureOpportunitiesTab(sheets);
 
