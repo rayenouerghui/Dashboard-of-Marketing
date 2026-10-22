@@ -36,22 +36,52 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    // Public endpoint - no authentication required
     const { searchParams } = new URL(request.url);
-    const sheet = (searchParams.get("sheet") ?? "").toUpperCase() as "OGV" | "OGT";
+    const pin = searchParams.get("pin")?.trim();
+    const sheetParam = searchParams.get("sheet")?.trim().toUpperCase() as "OGV" | "OGT";
 
-    if (sheet !== "OGV" && sheet !== "OGT") {
+    // PIN-based authentication (used by admin viewer)
+    if (pin) {
+      const SHEET_PINS: Record<string, "OGV" | "OGT"> = {
+        "12345": "OGV",
+        "012345": "OGT",
+      };
+      const sheet = SHEET_PINS[pin];
+      if (!sheet) {
+        return NextResponse.json(
+          { success: false, error: "Invalid PIN." },
+          { status: 401 }
+        );
+      }
+      const submissions = await getSubmissions(sheet);
+      return NextResponse.json({
+        success: true,
+        sheet,
+        submissions,
+      });
+    }
+
+    // Direct sheet parameter (fallback)
+    if (sheetParam && sheetParam !== "OGV" && sheetParam !== "OGT") {
       return NextResponse.json(
         { success: false, error: "sheet param must be OGV or OGT." },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      sheet,
-      submissions: getSubmissions(sheet),
-    });
+    if (sheetParam) {
+      const submissions = await getSubmissions(sheetParam);
+      return NextResponse.json({
+        success: true,
+        sheet: sheetParam,
+        submissions,
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, error: "Either pin or sheet parameter is required." },
+      { status: 400 }
+    );
   } catch (error) {
     if (error instanceof Error && (error.message === 'Unauthorized' || error.message === 'Forbidden')) {
       return NextResponse.json({ error: error.message }, { status: error.message === 'Unauthorized' ? 401 : 403 });

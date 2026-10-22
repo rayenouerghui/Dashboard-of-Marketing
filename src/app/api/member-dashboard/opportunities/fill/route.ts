@@ -63,8 +63,8 @@ export async function POST(request: NextRequest) {
       note: 500,
     });
 
-    // 1. Record in-memory so the submissions viewer can show it instantly
-    addSubmission({
+    // 1. Record in-memory and persist to file so the submissions viewer can show it instantly
+    await addSubmission({
       sheet: productToSheet(sanitized.product),
       product: sanitized.product,
       opportunityId: sanitized.opportunityId,

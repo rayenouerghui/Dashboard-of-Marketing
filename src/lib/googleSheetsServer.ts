@@ -17,6 +17,7 @@ import { isSourceLabel } from "@/data/sourceLabels";
 import { getGoogleSheetId, getGoogleSheetsClientEmail, getGoogleSheetsPrivateKey, getOpportunityOgvSpreadsheetId, getOpportunityOgtSpreadsheetId } from "./env";
 import { formatDateInTunis, parseSubmittedAt } from "./dates";
 import { sanitizeString } from "./sanitize";
+import type { SubmissionRecord } from "./submissionsStore";
 
 function toCamelCase(header: string): string {
   // Preserve emojis and special characters, only convert spaces to camelCase
@@ -624,6 +625,109 @@ export async function appendOpportunitySubmission(payload: Omit<OpportunitySubmi
     sheetType,
     appendedAt: submittedAt,
   };
+}
+
+export async function fetchOpportunitySubmissions(sheetType: "OGV" | "OGT"): Promise<SubmissionRecord[]> {
+  try {
+    // Check if Google Sheets credentials are configured
+    let spreadsheetId: string;
+    try {
+      spreadsheetId = sheetType === "OGV" 
+        ? getOpportunityOgvSpreadsheetId() || HARDCODED_OGV_SPREADSHEET_ID
+        : getOpportunityOgtSpreadsheetId() || HARDCODED_OGT_SPREADSHEET_ID;
+      
+      // Test if credentials are available
+      getGoogleSheetsClientEmail();
+      getGoogleSheetsPrivateKey();
+    } catch (error) {
+      // Google Sheets not configured, return empty
+      console.warn("[googleSheetsServer] Google Sheets credentials not configured, skipping fetch");
+      return [];
+    }
+    
+    const google = await getGoogleApis();
+    const { auth } = getAuthClient(google);
+    const sheets = google.sheets({ version: "v4", auth });
+
+    const meta = await sheets.spreadsheets.get({
+      spreadsheetId,
+      fields: "sheets(properties(title,index))",
+    });
+
+    const sheetTitle = (meta.data.sheets ?? [])
+      .map((sheet: any) => sheet?.properties?.title)
+      .find((title: unknown): title is string => typeof title === "string" && title.length > 0);
+
+    if (!sheetTitle) {
+      return [];
+    }
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: escapeA1ColumnRange(sheetTitle),
+    });
+
+    const rows = response.data.values ?? [];
+    if (rows.length <= 1) return []; // Only header row or empty
+
+    const headerRow = rows[0].map((h: any) => normalizeHeaderName(String(h)));
+    const dataRows = rows.slice(1);
+
+    const submissions: SubmissionRecord[] = [];
+    
+    for (const row of dataRows) {
+      const rowMap: Record<string, string> = {};
+      headerRow.forEach((header: string, idx: number) => {
+        rowMap[header] = String(row[idx] ?? "");
+      });
+
+      // Extract fields from row
+      const submittedAt = rowMap.submittedat || rowMap.timestamp || rowMap.date || rowMap.createdat || "";
+      const product = rowMap.product || rowMap.opportunitytype || "";
+      const opportunityTitle = rowMap.opportunity || rowMap.opportunitytitle || rowMap.title || "";
+      const opportunityId = rowMap.opportunityid || "";
+      const universityName = rowMap.university || rowMap.universityname || "";
+      const universityId = rowMap.universityid || "";
+      const country = rowMap.country || "";
+      const duration = rowMap.duration || "";
+      const opportunityDate = rowMap.opportunitydate || "";
+      const epName = rowMap.epname || rowMap.ep || "";
+      const condition = rowMap.condition || rowMap.epcondition || "";
+      const note = rowMap.note || rowMap.remarks || "";
+      const source = rowMap.source || "";
+
+      // Skip rows without essential data
+      if (!epName || !opportunityTitle) continue;
+
+      submissions.push({
+        id: `sheet-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        submittedAt,
+        sheet: sheetType,
+        product,
+        opportunityId,
+        opportunityTitle,
+        universityId,
+        universityName,
+        country,
+        duration,
+        opportunityDate,
+        epName,
+        condition,
+        note,
+        source,
+      });
+    }
+
+    // Sort by submittedAt descending (newest first)
+    return submissions.sort((a, b) => {
+      const aTime = a.submittedAt ? new Date(a.submittedAt).getTime() : 0;
+      const bTime = b.submittedAt ? new Date(b.submittedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  } catch (error) {
+    console.error(`[googleSheetsServer] Failed to fetch ${sheetType} submissions:`, error);
+    return [];
+  }
 }
 
 function getAuthClient(google: Awaited<ReturnType<typeof getGoogleApis>>) {
