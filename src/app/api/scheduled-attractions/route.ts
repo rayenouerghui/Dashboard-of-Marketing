@@ -58,9 +58,16 @@ async function listSupabaseAttractions() {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
+  // Get start of current week (Sunday)
+  const now = new Date();
+  const currentWeekStart = new Date(now);
+  currentWeekStart.setDate(now.getDate() - now.getDay()); // Go back to Sunday
+  currentWeekStart.setHours(0, 0, 0, 0);
+
   const { data, error } = await supabase
     .from("scheduled_attractions")
     .select("*")
+    .gte("date", currentWeekStart.toISOString().split('T')[0])
     .order("date", { ascending: true })
     .order("created_at", { ascending: true });
 

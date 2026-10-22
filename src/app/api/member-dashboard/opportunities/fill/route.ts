@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appendOpportunitySubmission } from "@/lib/googleSheetsServer";
 import { addSubmission, productToSheet } from "@/lib/submissionsStore";
 import { z } from "zod";
 import { sanitizeObject } from "@/lib/sanitize";
@@ -63,7 +62,7 @@ export async function POST(request: NextRequest) {
       note: 500,
     });
 
-    // 1. Record in-memory and persist to file so the submissions viewer can show it instantly
+    // Record submission to Supabase (handled in addSubmission)
     await addSubmission({
       sheet: productToSheet(sanitized.product),
       product: sanitized.product,
@@ -80,29 +79,7 @@ export async function POST(request: NextRequest) {
       source: sanitized.source || "member-dashboard",
     });
 
-    // 2. Also write to Google Sheets (best-effort — don't fail the request if sheets is down)
-    let sheetResult: Record<string, unknown> = {};
-    try {
-      sheetResult = await appendOpportunitySubmission({
-        product: sanitized.product,
-        opportunityId: sanitized.opportunityId,
-        opportunityTitle: sanitized.opportunityTitle,
-        universityId: sanitized.universityId,
-        universityName: sanitized.universityName,
-        country: sanitized.country || "",
-        duration: sanitized.duration || "",
-        opportunityDate: sanitized.opportunityDate || "",
-        epName: sanitized.epName,
-        condition: sanitized.condition || "",
-        note: sanitized.note || "",
-        source: sanitized.source || "member-dashboard",
-        submittedAt: new Date().toISOString(),
-      });
-    } catch (sheetErr) {
-      console.error("[fill] Google Sheets write failed (non-fatal):", sheetErr);
-    }
-
-    return NextResponse.json({ success: true, ...sheetResult }, { status: 200 });
+    return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
