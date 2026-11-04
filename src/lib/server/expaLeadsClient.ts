@@ -3,6 +3,16 @@ import { getExpaToken } from './expaTokenSource';
 const EXPA_GRAPHQL_URL = 'https://gis-api.aiesec.org/graphql';
 const PAGE_SIZE = 50;
 const DEFAULT_HOME_LC_ID = Number(process.env.EXPA_HOME_LC_ID ?? 1270);
+const GOOD_STATUSES = new Set([
+  'open',
+  'accepted',
+  'approved',
+  'approved_ep_manager',
+  'matched',
+  'realized',
+  'completed',
+  'finished',
+]);
 const STATUS_PRIORITY: Record<string, number> = {
   completed: 7,
   finished: 6,
@@ -98,7 +108,7 @@ function mapApplication(raw: RawApplication): ExpaLead {
     email: readString(person?.email),
     createdAt: readString(raw.created_at),
     lcName: readString(person?.home_lc?.name),
-    bestStatus: status || null,
+    bestStatus: GOOD_STATUSES.has(status) ? status : null,
     programme: readString(opportunity?.programme?.short_name_display) || null,
   };
 }
@@ -166,4 +176,3 @@ export function getLeadPriority(status: string | null | undefined): number {
   if (!status) return 0;
   return STATUS_PRIORITY[status] ?? 0;
 }
-
