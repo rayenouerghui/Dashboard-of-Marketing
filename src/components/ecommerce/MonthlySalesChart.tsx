@@ -5,9 +5,13 @@ import type { AttractionLeadStats } from "@/app/api/attraction-leads/route";
 
 const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
+// The dashboard only reports from the Feb 2026 campaign onwards.
+const MONTHLY_LEADS_START = "2026-02";
+
 export default function MonthlySalesChart({ stats }: { stats: AttractionLeadStats }) {
-  const categories = stats.byMonth.map((m) => m.label);
-  const data       = stats.byMonth.map((m) => m.count);
+  const monthly    = stats.byMonth.filter((m) => m.key >= MONTHLY_LEADS_START);
+  const categories = monthly.map((m) => m.label);
+  const data       = monthly.map((m) => m.count);
 
   const options: ApexOptions = {
     colors: ["#465fff"],

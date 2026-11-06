@@ -11,12 +11,11 @@ function Skeleton() {
 }
 
 export const EcommerceMetrics = ({ stats, loading }: Props) => {
-  const { byUniversity } = stats;
-  const universityCount = Object.keys(byUniversity).length;
-  const topUniversity = Object.entries(byUniversity)
-    .sort((a, b) => b[1].total - a[1].total)[0];
-  const topUniName = topUniversity?.[0] ?? "—";
-  const topUniCount = topUniversity?.[1].total ?? 0;
+  const { byProgramme } = stats;
+  const programmeCount = byProgramme.length;
+  const topProgramme = byProgramme[0];
+  const topProgrammeName = topProgramme?.programme ?? "—";
+  const topProgrammeCount = topProgramme?.total ?? 0;
 
   const cards = [
     {
@@ -30,17 +29,17 @@ export const EcommerceMetrics = ({ stats, loading }: Props) => {
     {
       icon:  <CheckCircleIcon className="text-cyan-600 size-6 dark:text-cyan-400" />,
       bg:    "bg-cyan-100 dark:bg-cyan-900/20",
-      label: "Universities",
-      value: universityCount,
+      label: "Programmes",
+      value: programmeCount,
       badge: "active",
       bColor: "primary" as const,
     },
     {
       icon:  <UserCircleIcon className="text-orange-600 size-6 dark:text-orange-400" />,
       bg:    "bg-orange-100 dark:bg-orange-900/20",
-      label: "Top University",
-      value: topUniName.length > 10 ? topUniName.substring(0, 10) + "..." : topUniName,
-      badge: `${topUniCount} leads`,
+      label: "Top Programme",
+      value: topProgrammeName,
+      badge: `${topProgrammeCount} leads`,
       bColor: "warning" as const,
     },
     {

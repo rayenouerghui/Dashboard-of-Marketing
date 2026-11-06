@@ -32,7 +32,7 @@ export default function RecentOrders({ stats, loading }: { stats: AttractionLead
           <Table>
             <TableHeader className="border-y border-gray-100 dark:border-gray-800">
               <TableRow>
-                {["Name", "University", "Email", "Submitted"].map((h) => (
+                {["Name", "Programme", "Email", "Submitted"].map((h) => (
                   <TableCell key={h} isHeader className="py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-start">
                     {h}
                   </TableCell>
@@ -46,7 +46,7 @@ export default function RecentOrders({ stats, loading }: { stats: AttractionLead
                     <p className="font-medium text-gray-800 text-sm dark:text-white/90">{lead.fullName || "—"}</p>
                   </TableCell>
                   <TableCell className="py-3">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">{lead.university || "—"}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{lead.programme || "—"}</p>
                   </TableCell>
                   <TableCell className="py-3">
                     <p className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-[180px]">{lead.email}</p>

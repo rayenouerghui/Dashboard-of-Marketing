@@ -38,46 +38,40 @@ describe("computeExpaAttractionStats", () => {
 
     expect(stats.totalLeads).toBe(3);
     expect(stats.recent[0]?.fullName).toBe("Cara C");
-    expect(stats.byUniversity["Lyon"]?.total).toBe(2);
-    expect(stats.byUniversity["Paris"]?.total).toBe(1);
+    expect(stats.byProgramme).toEqual([
+      { programme: "GTa", total: 1 },
+      { programme: "GV",  total: 1 },
+      { programme: "GTe", total: 1 },
+    ]);
   });
 
-  it("rejects generic source labels and empty university names", () => {
+  it("ignores leads before the Feb 2026 campaign and groups missing programmes under Other", () => {
     const stats = computeExpaAttractionStats(
       [
         {
           id: "1",
-          fullName: "Source User",
-          email: "source@example.com",
-          createdAt: "2026-09-19T12:00:00Z",
-          lcName: "Information",
+          fullName: "Old Lead",
+          email: "old@example.com",
+          createdAt: "2025-12-10T12:00:00Z",
+          lcName: "BARDO",
           bestStatus: "open",
-          programme: "GTa",
-        },
-        {
-          id: "2",
-          fullName: "Real User",
-          email: "real@example.com",
-          createdAt: "2026-09-19T15:00:00Z",
-          lcName: "Tunis",
-          bestStatus: "approved",
           programme: "GV",
         },
         {
-          id: "3",
-          fullName: "No University",
-          email: "no-university@example.com",
-          createdAt: "2026-09-19T18:00:00Z",
-          lcName: "",
-          bestStatus: "open",
-          programme: "GTe",
+          id: "2",
+          fullName: "New Lead",
+          email: "new@example.com",
+          createdAt: "2026-03-01T12:00:00Z",
+          lcName: "BARDO",
+          bestStatus: "approved",
+          programme: "",
         },
       ],
       new Date("2026-09-20T12:00:00Z")
     );
 
-    expect(Object.keys(stats.byUniversity)).not.toContain("Information");
-    expect(Object.keys(stats.byUniversity)).not.toContain("");
-    expect(stats.byUniversity["Tunis"]?.total).toBe(1);
+    expect(stats.totalLeads).toBe(2);
+    expect(stats.byProgramme).toEqual([{ programme: "Other", total: 1 }]);
+    expect(stats.recent.map((r) => r.programme)).toEqual(["—", "GV"]);
   });
 });
