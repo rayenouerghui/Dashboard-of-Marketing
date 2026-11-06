@@ -30,6 +30,7 @@ export const STATUS_PRIORITY: Record<string, number> = {
   realized:            5,
   matched:             4,
   approved_ep_manager: 3,
+  approved_tn_manager: 3,
   approved:            3,
   accepted:            2,
   open:                1,
@@ -42,6 +43,40 @@ const GOOD_STATUSES = new Set(Object.keys(STATUS_PRIORITY));
 // We batch up to BATCH_SIZE person IDs per GraphQL request using aliases.
 // EXPA accepts multiple aliased fields in one query body.
 const BATCH_SIZE = 20;
+
+// EXPA reports a missing person as a top-level GraphQL error rather than an
+// empty result, so "record not found" must be told apart from real failures.
+const NOT_FOUND = /record not found/i;
+
+// Retry only on rate-limit / server errors — backoff ~2s, 4s, 8s.
+const RETRY_DELAYS_MS = [2000, 4000, 8000];
+
+class ExpaHttpError extends Error {
+  status: number;
+  constructor(status: number) {
+    super(`EXPA HTTP ${status}`);
+    this.name = "ExpaHttpError";
+    this.status = status;
+  }
+}
+
+interface BatchInput {
+  personId: string;
+  meta: {
+    epName:           string;
+    epEmail:          string;
+    sheetFirstName?:  string;
+    sheetLastName?:   string;
+    sheetUniversity?: string;
+    sheetMemberName?: string;
+    sheetSource?:     "digital" | "physical";
+  };
+}
+
+interface BatchOutcome {
+  applications: ExpaApplication[];
+  notFound:     string[];
+}
 
 interface RawApp {
   id?:     string | number | null;
@@ -108,12 +143,10 @@ function bestApplication(apps: RawApp[]): RawApp | null {
 
 /**
  * Fetch EXPA application status for a batch of person IDs.
- * Returns a map: personId → best ExpaApplication (or null if no relevant apps).
+ * Returns the best application per person plus the person IDs EXPA reported as
+ * non-existent — those are kept apart from people who genuinely have no apps.
  */
-async function fetchBatch(
-  token: string,
-  batch: Array<{ personId: string; meta: { epName: string; epEmail: string; sheetFirstName?: string; sheetLastName?: string; sheetUniversity?: string; sheetMemberName?: string; sheetSource?: "digital" | "physical" } }>
-): Promise<ExpaApplication[]> {
+async function fetchBatch(token: string, batch: BatchInput[]): Promise<BatchOutcome> {
   const url = `${EXPA_GRAPHQL_URL}?access_token=${encodeURIComponent(token)}`;
   const ids  = batch.map((b) => b.personId);
 
@@ -124,27 +157,31 @@ async function fetchBatch(
     cache:   "no-store",
   });
 
-  if (!res.ok) throw new Error(`EXPA HTTP ${res.status}`);
+  if (!res.ok) throw new ExpaHttpError(res.status);
 
   const json = (await res.json()) as {
-    data?:   Record<string, { data?: RawApp[] }>;
+    data?:   Record<string, { data?: RawApp[] } | null>;
     errors?: Array<{ message?: string }>;
   };
 
-  if (json.errors?.length) {
-    // Non-fatal — some person IDs might not exist; log and continue
-    console.warn("[expaApplicationsClient] batch GraphQL warnings:", json.errors.map((e) => e.message).join(", "));
+  // "Requested record not found." is EXPA's per-alias reply for a person_id that
+  // doesn't exist. Anything else is a genuine failure and must not be hidden.
+  const hardErrors = (json.errors ?? []).filter((e) => !NOT_FOUND.test(e.message ?? ""));
+  if (hardErrors.length) {
+    throw new Error("EXPA GraphQL: " + hardErrors.map((e) => e.message).join("; "));
   }
+  if (!json.data) throw new Error("EXPA returned no data");
 
-  const results: ExpaApplication[] = [];
+  const applications: ExpaApplication[] = [];
+  const notFound:     string[]         = [];
 
   batch.forEach((item, i) => {
-    const alias = `p${i}`;
-    const apps  = json.data?.[alias]?.data ?? [];
-    const best  = bestApplication(apps);
-    if (!best) return; // no relevant applications for this person
+    const node = json.data![`p${i}`];
+    if (node == null) { notFound.push(item.personId); return; }  // bad ID
+    const best = bestApplication(node.data ?? []);
+    if (!best) return;                                           // real "no relevant apps"
 
-    results.push({
+    applications.push({
       applicationId:    toStr(best.id),
       status:           toStr(best.status),
       createdAt:        toStr(best.created_at),
@@ -162,7 +199,28 @@ async function fetchBatch(
     });
   });
 
-  return results;
+  return { applications, notFound };
+}
+
+function isRetriable(err: unknown): boolean {
+  return err instanceof ExpaHttpError && (err.status === 429 || err.status >= 500);
+}
+
+/** fetchBatch with bounded retry/backoff on 429 and 5xx. */
+async function fetchBatchWithRetry(token: string, batch: BatchInput[]): Promise<BatchOutcome> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fetchBatch(token, batch);
+    } catch (err) {
+      lastError = err;
+      if (!isRetriable(err) || attempt === RETRY_DELAYS_MS.length) break;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+    }
+  }
+
+  throw lastError;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -177,6 +235,13 @@ export interface LeadInput {
   source:      "digital" | "physical";
 }
 
+export interface FetchResult {
+  applications: ExpaApplication[];
+  skipped: number;            // empty / non-numeric expaId
+  notFound: string[];         // EXPA says the person doesn't exist
+  failedBatches: number;
+}
+
 /**
  * Given a list of leads from our sheets, look up each person's best EXPA
  * application status in batched GraphQL requests.
@@ -185,10 +250,11 @@ export interface LeadInput {
  * - Deduplicates by expaId before querying (one person = one request)
  * - Ignores withdrawn / rejected applications
  * - Returns only EPs who have at least one relevant application
+ * - A failing chunk no longer aborts the whole run (reported via `failedBatches`)
  */
 export async function fetchApplicationsForLeads(
   leads: LeadInput[]
-): Promise<{ applications: ExpaApplication[]; skipped: number }> {
+): Promise<FetchResult> {
   const token = getExpaToken();
   if (!token) throw new Error("EXPA API token is not configured.");
 
@@ -202,7 +268,7 @@ export async function fetchApplicationsForLeads(
     if (!seen.has(id)) seen.set(id, lead);
   }
 
-  const uniqueLeads = Array.from(seen.entries()).map(([id, lead]) => ({
+  const uniqueLeads: BatchInput[] = Array.from(seen.entries()).map(([id, lead]) => ({
     personId: id,
     meta: {
       epName:          `${lead.firstName} ${lead.lastName}`.trim(),
@@ -215,22 +281,34 @@ export async function fetchApplicationsForLeads(
     },
   }));
 
-  if (uniqueLeads.length === 0) return { applications: [], skipped };
+  if (uniqueLeads.length === 0) {
+    return { applications: [], skipped, notFound: [], failedBatches: 0 };
+  }
 
-  // Split into BATCH_SIZE chunks, run chunks in parallel groups of 10
-  const chunks: typeof uniqueLeads[] = [];
+  // Split into BATCH_SIZE chunks; run a few in parallel at a time.
+  const chunks: BatchInput[][] = [];
   for (let i = 0; i < uniqueLeads.length; i += BATCH_SIZE) {
     chunks.push(uniqueLeads.slice(i, i + BATCH_SIZE));
   }
 
-  const CONCURRENCY = 10;
-  const all: ExpaApplication[] = [];
+  const CONCURRENCY = 3;
+  const applications: ExpaApplication[] = [];
+  const notFound:     string[]         = [];
+  let failedBatches = 0;
 
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     const group   = chunks.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(group.map((chunk) => fetchBatch(token, chunk)));
-    for (const r of results) all.push(...r);
+    const settled = await Promise.allSettled(group.map((chunk) => fetchBatchWithRetry(token, chunk)));
+
+    for (const outcome of settled) {
+      if (outcome.status === "fulfilled") {
+        applications.push(...outcome.value.applications);
+        notFound.push(...outcome.value.notFound);
+      } else {
+        failedBatches++;
+      }
+    }
   }
 
-  return { applications: all, skipped };
+  return { applications, skipped, notFound, failedBatches };
 }
