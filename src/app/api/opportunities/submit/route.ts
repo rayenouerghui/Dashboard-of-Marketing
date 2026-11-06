@@ -70,7 +70,11 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Persist full opportunity object to Supabase opportunities table (for member reads)
-  if (fullOpportunity && hasSupabaseConfig()) {
+  if (!hasSupabaseConfig()) {
+    errors.push("Supabase is not configured (SUPABASE_URL / SUPABASE_ANON_KEY) — members cannot see this opportunity.");
+  } else if (!fullOpportunity) {
+    errors.push("Missing opportunity payload — nothing was stored for members.");
+  } else {
     try {
       const supabase = getSupabaseClient();
       if (supabase) {

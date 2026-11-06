@@ -137,12 +137,11 @@ export async function addSubmission(record: Omit<SubmissionRecord, "id" | "submi
         const { error } = await supabase
           .from("submissions")
           .insert(toSupabaseRow(entry));
-        
-        if (error) {
-          console.error("[submissionsStore] Failed to save to Supabase:", error);
-        }
+
+        if (error) throw error;
       } catch (error) {
         console.error("[submissionsStore] Failed to save to Supabase:", error);
+        throw error instanceof Error ? error : new Error(String(error));
       }
     }
   }

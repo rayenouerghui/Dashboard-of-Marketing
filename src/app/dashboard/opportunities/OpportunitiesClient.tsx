@@ -289,13 +289,12 @@ export default function OpportunitiesClient() {
       });
       const result = await response.json();
       if (!response.ok || !result?.success) {
-        setSubmitSuccess(`Opportunity saved locally. Sheet write failed: ${result?.error ?? "unknown error"}`);
+        setSubmitSuccess(`Could not save to the database — members will NOT see this opportunity. Reason: ${result?.error ?? "unknown error"}`);
       } else {
-        const sheetLabel = result.sheetType ? ` to the ${result.sheetType} sheet` : "";
-        setSubmitSuccess(`Opportunity saved${sheetLabel}. Members can now see it.`);
+        setSubmitSuccess("Opportunity saved to the database. Members can now see it.");
       }
     } catch (err) {
-      setSubmitSuccess(`Opportunity saved locally. Could not reach the sheet: ${err instanceof Error ? err.message : "network error"}`);
+      setSubmitSuccess(`Could not reach the server — members will NOT see this opportunity. Reason: ${err instanceof Error ? err.message : "network error"}`);
     }
 
     setIsSubmitting(false);
