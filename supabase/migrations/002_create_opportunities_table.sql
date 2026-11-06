@@ -4,9 +4,18 @@ CREATE TABLE IF NOT EXISTS opportunities (
   university_id TEXT NOT NULL,
   title TEXT NOT NULL,
   product TEXT NOT NULL,
+  opportunity_type TEXT,
+  organisation TEXT,
+  location TEXT,
+  description TEXT,
   country TEXT,
   duration TEXT,
   opportunity_date TEXT,
+  salary TEXT,
+  accommodation TEXT,
+  food TEXT,
+  transportation TEXT,
+  computer TEXT,
   benefits TEXT, -- JSON array
   requirements TEXT, -- JSON array
   created_at TIMESTAMPTZ DEFAULT NOW(),
