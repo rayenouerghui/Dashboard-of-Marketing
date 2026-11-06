@@ -37,7 +37,6 @@ function OpportunityTypeBadge({ type }: { type: OpportunityType | undefined }) {
 // ─── Stripped-down draft — only fields we actually use ────────────────────────
 type OpportunityDraft = {
   expaOpportunityId: string; // internal only, not shown in form
-  opportunityType: OpportunityType | "";
   product: string;
   title: string;
   organisation: string;
@@ -60,6 +59,14 @@ const PRODUCT_OPTIONS = [
   { value: "GV", label: "GV" },
 ];
 
+// The product fully determines the programme type:
+// GTa → Global Talent, GTe → Global Teacher, GV → Global Volunteer.
+const PRODUCT_TO_TYPE: Record<string, OpportunityType> = {
+  GTa: "professional",
+  GTe: "teaching",
+  GV:  "volunteering",
+};
+
 const DURATION_OPTIONS = [
   { value: "Short", label: "Short" },
   { value: "Mid",   label: "Mid"   },
@@ -69,7 +76,6 @@ const DURATION_OPTIONS = [
 function emptyDraft(): OpportunityDraft {
   return {
     expaOpportunityId: "",
-    opportunityType: "",
     product: "",
     title: "",
     organisation: "",
@@ -88,7 +94,6 @@ function emptyDraft(): OpportunityDraft {
 function opportunityToDraft(opportunity: Opportunity): OpportunityDraft {
   return {
     expaOpportunityId: opportunity.expaOpportunityId ?? "",
-    opportunityType: (opportunity.opportunityType as OpportunityType) ?? "",
     product: opportunity.product ?? "",
     title: opportunity.title ?? "",
     organisation: opportunity.organisation ?? "",
@@ -113,7 +118,7 @@ function draftToOpportunity(
     id: existingId ?? `opp-${Date.now()}`,
     universityId,
     expaOpportunityId: draft.expaOpportunityId.trim() || undefined,
-    opportunityType: draft.opportunityType || undefined,
+    opportunityType: PRODUCT_TO_TYPE[draft.product.trim()],
     product: draft.product.trim() || undefined,
     title: draft.title.trim(),
     organisation: draft.organisation.trim() || undefined,
@@ -152,6 +157,7 @@ export default function OpportunitiesClient() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingOpportunity, setEditingOpportunity] = useState<Opportunity | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [isFetchingExpa, setIsFetchingExpa] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [fetchSuccess, setFetchSuccess] = useState<string | null>(null);
@@ -167,14 +173,19 @@ export default function OpportunitiesClient() {
   }, []);
 
   useEffect(() => {
+    // localStorage is only readable after mount, so this post-mount read is the
+    // one place where a synchronous setState in an effect is intended.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOpportunities(readStoredOpportunities());
+    setHydrated(true);
   }, []);
 
+  // Persist even an empty list — otherwise deleting the last opportunity leaves
+  // the stale copy in localStorage and it reappears on the next reload.
   useEffect(() => {
-    if (opportunities.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(opportunities));
-    }
-  }, [opportunities]);
+    if (!hydrated) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(opportunities));
+  }, [opportunities, hydrated]);
 
   const filteredOpportunities = useMemo(
     () => (selectedUniversity ? opportunities.filter((opp) => opp.universityId === selectedUniversity) : []),
@@ -444,7 +455,7 @@ export default function OpportunitiesClient() {
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Product *
-                    {formData.opportunityType && <span className="ml-2"><OpportunityTypeBadge type={formData.opportunityType as OpportunityType} /></span>}
+                    {formData.product && <span className="ml-2"><OpportunityTypeBadge type={PRODUCT_TO_TYPE[formData.product]} /></span>}
                   </label>
                   <select value={formData.product} onChange={(e) => setFormData({ ...formData, product: e.target.value })} className={inputCls} required>
                     <option value="">-- Select product --</option>
