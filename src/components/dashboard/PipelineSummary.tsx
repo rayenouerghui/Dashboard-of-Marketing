@@ -28,14 +28,25 @@ const EMPTY: Stats = {
   byProgramme: [], approvalRate: 0, realizationRate: 0, fetchedAt: null,
 };
 
+interface Diagnostics {
+  notFound:        number; // leads whose EXPA ID doesn't exist
+  failedBatches:   number; // EXPA chunks that failed after retries
+  brokenApprovals: number; // applications dropped (approval_broken)
+  degraded:        boolean;// all batches failed — figures unusable
+}
+
+const NO_DIAGNOSTICS: Diagnostics = { notFound: 0, failedBatches: 0, brokenApprovals: 0, degraded: false };
+
 export default function PipelineSummary() {
   const [stats, setStats]   = useState<Stats>(EMPTY);
+  const [diag, setDiag]     = useState<Diagnostics>(NO_DIAGNOSTICS);
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setDiag(NO_DIAGNOSTICS);
     try {
       // Fetch EXPA applications + ranking totals in parallel
       const [expaRes, rankRes] = await Promise.all([
@@ -49,6 +60,13 @@ export default function PipelineSummary() {
 
       const apps: ExpaApplication[] = expaData.applications ?? [];
       const totalLeads: number = rankData.success ? (rankData.totalLeads ?? 0) : 0;
+
+      setDiag({
+        notFound:        (expaData.notFound ?? []).length,
+        failedBatches:   expaData.failedBatches ?? 0,
+        brokenApprovals: expaData.brokenApprovals ?? 0,
+        degraded:        expaData.degraded === true,
+      });
 
       // Per-programme map
       const progMap = new Map<string, { total: number; open: number; approved: number; realized: number }>();
@@ -88,6 +106,20 @@ export default function PipelineSummary() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Diagnostics the user must see — otherwise a broken run looks like zeros.
+  const warnings: string[] = [];
+  if (diag.degraded) {
+    warnings.push("All EXPA lookups failed — the figures below are incomplete.");
+  } else if (diag.failedBatches > 0) {
+    warnings.push(`${diag.failedBatches} EXPA batch${diag.failedBatches > 1 ? "es" : ""} failed — figures may be incomplete.`);
+  }
+  if (diag.notFound > 0) {
+    warnings.push(`${diag.notFound} lead${diag.notFound > 1 ? "s" : ""} have an EXPA ID that doesn't exist.`);
+  }
+  if (diag.brokenApprovals > 0) {
+    warnings.push(`${diag.brokenApprovals} application${diag.brokenApprovals > 1 ? "s" : ""} ignored (status approval_broken).`);
+  }
 
   const kpis = [
     { label: "Total Leads",      value: stats.totalLeads.toLocaleString(), sub: "from sheet",                            color: "text-gray-800 dark:text-white",           bg: "bg-gray-50 dark:bg-white/[0.04]",           border: "border-gray-200 dark:border-gray-700" },
@@ -144,6 +176,15 @@ export default function PipelineSummary() {
       {error && (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           {error}
+        </div>
+      )}
+
+      {/* Data-quality warnings */}
+      {!loading && !error && warnings.length > 0 && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-900/20">
+          <ul className="list-disc space-y-0.5 pl-4 text-xs text-amber-700 dark:text-amber-400">
+            {warnings.map((w) => <li key={w}>{w}</li>)}
+          </ul>
         </div>
       )}
 

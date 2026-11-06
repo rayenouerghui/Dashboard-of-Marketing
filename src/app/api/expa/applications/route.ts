@@ -93,6 +93,9 @@ export async function GET(request: Request) {
         })()
       : await getCached();
 
+    // `success` means the request completed; `degraded` flags a completed run
+    // whose EXPA lookups all failed, so consumers can show an error state
+    // instead of rendering the empty result as zeros.
     return NextResponse.json({ success: true, ...data }, { status: 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch EP statuses.";
