@@ -39,6 +39,10 @@ export const STATUS_PRIORITY: Record<string, number> = {
 // Statuses we care about — withdrawn and rejected are ignored
 const GOOD_STATUSES = new Set(Object.keys(STATUS_PRIORITY));
 
+// Deliberately NOT in STATUS_PRIORITY, but counted so the drop stays visible
+// instead of silently disappearing (it matches a non-trivial share of apps).
+const BROKEN_APPROVAL_STATUS = "approval_broken";
+
 // ─── Batched person lookup ────────────────────────────────────────────────────
 // We batch up to BATCH_SIZE person IDs per GraphQL request using aliases.
 // EXPA accepts multiple aliased fields in one query body.
@@ -76,6 +80,7 @@ interface BatchInput {
 interface BatchOutcome {
   applications: ExpaApplication[];
   notFound:     string[];
+  brokenApprovals: number;
 }
 
 interface RawApp {
@@ -123,13 +128,18 @@ function buildBatchQuery(personIds: string[]): string {
   return `{ ${fields} }`;
 }
 
-/** Pick the best application for a person (highest priority, skip rejected/withdrawn) */
-function bestApplication(apps: RawApp[]): RawApp | null {
+/**
+ * Pick the best application for a person (highest priority, skip
+ * rejected/withdrawn) and count how many were dropped as broken approvals.
+ */
+function bestApplication(apps: RawApp[]): { best: RawApp | null; brokenApprovals: number } {
   let best: RawApp | null = null;
   let bestPri = -1;
+  let brokenApprovals = 0;
 
   for (const app of apps) {
     const s = toStr(app.status);
+    if (s === BROKEN_APPROVAL_STATUS) brokenApprovals++;
     if (!GOOD_STATUSES.has(s)) continue;
     const pri = STATUS_PRIORITY[s] ?? 0;
     if (pri > bestPri) {
@@ -138,7 +148,7 @@ function bestApplication(apps: RawApp[]): RawApp | null {
     }
   }
 
-  return best;
+  return { best, brokenApprovals };
 }
 
 /**
@@ -174,11 +184,13 @@ async function fetchBatch(token: string, batch: BatchInput[]): Promise<BatchOutc
 
   const applications: ExpaApplication[] = [];
   const notFound:     string[]         = [];
+  let   brokenApprovals = 0;
 
   batch.forEach((item, i) => {
     const node = json.data![`p${i}`];
     if (node == null) { notFound.push(item.personId); return; }  // bad ID
-    const best = bestApplication(node.data ?? []);
+    const { best, brokenApprovals: broken } = bestApplication(node.data ?? []);
+    brokenApprovals += broken;
     if (!best) return;                                           // real "no relevant apps"
 
     applications.push({
@@ -199,7 +211,7 @@ async function fetchBatch(token: string, batch: BatchInput[]): Promise<BatchOutc
     });
   });
 
-  return { applications, notFound };
+  return { applications, notFound, brokenApprovals };
 }
 
 function isRetriable(err: unknown): boolean {
@@ -239,7 +251,9 @@ export interface FetchResult {
   applications: ExpaApplication[];
   skipped: number;            // empty / non-numeric expaId
   notFound: string[];         // EXPA says the person doesn't exist
-  failedBatches: number;
+  failedBatches: number;      // chunks that failed even after retries
+  brokenApprovals: number;    // applications dropped (status = approval_broken)
+  degraded: boolean;          // every batch failed → figures are unusable
 }
 
 /**
@@ -282,7 +296,7 @@ export async function fetchApplicationsForLeads(
   }));
 
   if (uniqueLeads.length === 0) {
-    return { applications: [], skipped, notFound: [], failedBatches: 0 };
+    return { applications: [], skipped, notFound: [], failedBatches: 0, brokenApprovals: 0, degraded: false };
   }
 
   // Split into BATCH_SIZE chunks; run a few in parallel at a time.
@@ -294,7 +308,8 @@ export async function fetchApplicationsForLeads(
   const CONCURRENCY = 3;
   const applications: ExpaApplication[] = [];
   const notFound:     string[]         = [];
-  let failedBatches = 0;
+  let failedBatches    = 0;
+  let brokenApprovals  = 0;
 
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     const group   = chunks.slice(i, i + CONCURRENCY);
@@ -304,11 +319,15 @@ export async function fetchApplicationsForLeads(
       if (outcome.status === "fulfilled") {
         applications.push(...outcome.value.applications);
         notFound.push(...outcome.value.notFound);
+        brokenApprovals += outcome.value.brokenApprovals;
       } else {
         failedBatches++;
       }
     }
   }
 
-  return { applications, skipped, notFound, failedBatches };
+  // Every batch failed and nothing came back — the figures cannot be trusted.
+  const degraded = applications.length === 0 && failedBatches > 0;
+
+  return { applications, skipped, notFound, failedBatches, brokenApprovals, degraded };
 }
