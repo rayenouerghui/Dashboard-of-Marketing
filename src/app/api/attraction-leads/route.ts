@@ -17,7 +17,7 @@ const getCachedAttractionLeads = unstable_cache(
       totalRows: leads.length,
       source: "expa" as const,
       fetchedAt: new Date().toISOString(),
-      expaStatus: Object.keys(stats.byUniversity).length > 0 ? "ok" : "empty",
+      expaStatus: stats.byProgramme.length > 0 ? "ok" : "empty",
       leadsFetched: leads.length,
     };
   },
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
             totalRows: leads.length,
             source: "expa" as const,
             fetchedAt: new Date().toISOString(),
-            expaStatus: Object.keys(stats.byUniversity).length > 0 ? "ok" : "empty",
+            expaStatus: stats.byProgramme.length > 0 ? "ok" : "empty",
             leadsFetched: leads.length,
           };
         })()

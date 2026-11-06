@@ -9,18 +9,15 @@ const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 function pct(n: number) { return `${n.toFixed(1)}%`; }
 
 export default function StatisticsChart({ stats }: { stats: AttractionLeadStats }) {
-  const { totalLeads, leadsToday, leadsThisWeek, leadsThisMonth, byUniversity } = stats;
+  const { totalLeads, leadsToday, leadsThisWeek, leadsThisMonth, byProgramme } = stats;
 
-  const universityData = useMemo(() => {
-    return Object.entries(byUniversity)
-      .sort((a, b) => b[1].total - a[1].total)
-      .slice(0, 5)
-      .map(([name, data], i) => ({
-        label: name.length > 12 ? name.substring(0, 12) + "..." : name,
-        value: data.total,
-        color: ["#465FFF", "#34D399", "#A78BFA", "#F59E0B", "#EC4899"][i] ?? "#6B7280",
-      }));
-  }, [byUniversity]);
+  const programmeData = useMemo(() => {
+    return byProgramme.slice(0, 5).map((p, i) => ({
+      label: p.programme,
+      value: p.total,
+      color: ["#465FFF", "#34D399", "#A78BFA", "#F59E0B", "#EC4899"][i] ?? "#6B7280",
+    }));
+  }, [byProgramme]);
 
   const timeData = useMemo(() => [
     { label: "Today", value: leadsToday, color: "#465FFF" },
@@ -28,19 +25,19 @@ export default function StatisticsChart({ stats }: { stats: AttractionLeadStats 
     { label: "This Month",value: leadsThisMonth, color: "#A78BFA" },
   ], [leadsToday, leadsThisWeek, leadsThisMonth]);
 
-  const max = Math.max(...universityData.map((d) => d.value), 1);
+  const max = Math.max(...programmeData.map((d) => d.value), 1);
 
   const options: ApexOptions = {
     chart: { type: "bar", fontFamily: "Outfit, sans-serif", toolbar: { show: false }, animations: { enabled: true, speed: 400 } },
     plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: "60%" } },
-    colors: universityData.map((d) => d.color),
+    colors: programmeData.map((d) => d.color),
     dataLabels: {
       enabled: true,
       formatter: (val: number) => val.toLocaleString(),
       style: { fontSize: "12px", fontFamily: "Outfit, sans-serif" },
     },
     xaxis: {
-      categories: universityData.map((d) => d.label),
+      categories: programmeData.map((d) => d.label),
       labels: { style: { fontSize: "12px", colors: "#6B7280" } },
       axisBorder: { show: false }, axisTicks: { show: false },
     },
@@ -51,16 +48,16 @@ export default function StatisticsChart({ stats }: { stats: AttractionLeadStats 
 
   const series = [{
     name: "Leads",
-    data: universityData.map((d) => d.value),
+    data: programmeData.map((d) => d.value),
   }];
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Top Universities</h3>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white/90">Leads by Programme</h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            EXPA lead volume by LC / university
+            EXPA lead volume by programme (Feb 2026 onwards)
           </p>
         </div>
         {/* Time period pills */}
@@ -88,9 +85,9 @@ export default function StatisticsChart({ stats }: { stats: AttractionLeadStats 
         </div>
       </div>
 
-      {/* University progress bars */}
+      {/* Programme progress bars */}
       <div className="mt-4 space-y-3 border-t border-gray-100 pt-4 dark:border-gray-800">
-        {universityData.map((step) => (
+        {programmeData.map((step) => (
           <div key={step.label} className="flex items-center gap-3">
             <span className="w-24 shrink-0 text-xs font-medium text-gray-500 dark:text-gray-400">{step.label}</span>
             <div className="flex-1 overflow-hidden rounded-full bg-gray-100 h-2 dark:bg-gray-800">

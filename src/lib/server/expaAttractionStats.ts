@@ -8,30 +8,14 @@ export interface AttractionLeadStats {
   leadsToday: number;
   leadsThisWeek: number;
   leadsThisMonth: number;
-  byUniversity: Record<string, { total: number; today: number; thisWeek: number; thisMonth: number }>;
+  byProgramme: Array<{ programme: string; total: number }>;
   byMonth: Array<{ label: string; key: string; count: number }>;
-  recent: Array<{ id: string; fullName: string; email: string; university: string; submittedAt: string }>;
+  recent: Array<{ id: string; fullName: string; email: string; programme: string; submittedAt: string }>;
   computedAt: string;
 }
 
-const INVALID_UNIVERSITY_NAMES = new Set([
-  "information",
-  "classroom",
-  "all sources",
-  "all source",
-  "all",
-  "unknown",
-  "n/a",
-  "na",
-]);
-
-function normalizeUniversityName(value: string | null | undefined): string | null {
-  const name = (value ?? "").trim();
-  if (!name) return null;
-  const normalized = name.replace(/\s+/g, " ").trim();
-  if (INVALID_UNIVERSITY_NAMES.has(normalized.toLowerCase())) return null;
-  return normalized;
-}
+// The dashboard reports from the Feb 2026 campaign onwards.
+const CAMPAIGN_START_MONTH = "2026-02";
 
 function monthLabelFor(date: Date): string {
   return formatDateInTunis(date, "MMM yy");
@@ -51,9 +35,9 @@ export function computeExpaAttractionStats(leads: ExpaLead[], now: Date = new Da
   let leadsToday = 0;
   let leadsThisWeek = 0;
   let leadsThisMonth = 0;
-  const byUniversity: Record<string, { total: number; today: number; thisWeek: number; thisMonth: number }> = {};
+  const byProgrammeMap = new Map<string, number>();
   const byMonthMap = new Map<string, { label: string; count: number }>();
-  const recent: Array<{ id: string; fullName: string; email: string; university: string; submittedAt: string }> = [];
+  const recent: Array<{ id: string; fullName: string; email: string; programme: string; submittedAt: string }> = [];
 
   for (const lead of leads) {
     const createdAt = (lead.createdAt ?? "").trim();
@@ -71,25 +55,25 @@ export function computeExpaAttractionStats(leads: ExpaLead[], now: Date = new Da
     if (dayKey >= weekStart) leadsThisWeek++;
     if (dayKey >= monthStart) leadsThisMonth++;
 
-    const university = normalizeUniversityName(lead.lcName);
-    if (university) {
-      if (!byUniversity[university]) {
-        byUniversity[university] = { total: 0, today: 0, thisWeek: 0, thisMonth: 0 };
-      }
-      byUniversity[university].total++;
-      if (dayKey === today) byUniversity[university].today++;
-      if (dayKey >= weekStart) byUniversity[university].thisWeek++;
-      if (dayKey >= monthStart) byUniversity[university].thisMonth++;
+    // home_lc is pinned to our own LC by the query, so every lead reports the
+    // same value — the programme is the meaningful split EXPA gives us here.
+    if (monthKey >= CAMPAIGN_START_MONTH) {
+      const programme = (lead.programme ?? "").trim() || "Other";
+      byProgrammeMap.set(programme, (byProgrammeMap.get(programme) ?? 0) + 1);
     }
 
     recent.push({
       id: lead.id,
       fullName: (lead.fullName ?? "").trim() || "—",
       email: (lead.email ?? "").trim(),
-      university: university ?? "—",
+      programme: (lead.programme ?? "").trim() || "—",
       submittedAt: createdAt,
     });
   }
+
+  const byProgramme = Array.from(byProgrammeMap.entries())
+    .map(([programme, total]) => ({ programme, total }))
+    .sort((a, b) => b.total - a.total);
 
   const byMonth = Array.from(byMonthMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -102,7 +86,7 @@ export function computeExpaAttractionStats(leads: ExpaLead[], now: Date = new Da
     leadsToday,
     leadsThisWeek,
     leadsThisMonth,
-    byUniversity,
+    byProgramme,
     byMonth,
     recent: recent.slice(0, 20),
     computedAt: now.toISOString(),

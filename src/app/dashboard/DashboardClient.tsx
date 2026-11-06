@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback } from "react";
 // ─── Empty stats placeholder shown while loading ──────────────────────────────
 const EMPTY: AttractionLeadStats = {
   totalLeads: 0, leadsToday: 0, leadsThisWeek: 0, leadsThisMonth: 0,
-  byUniversity: {}, byMonth: [], recent: [], computedAt: "",
+  byProgramme: [], byMonth: [], recent: [], computedAt: "",
 };
 
 export default function DashboardClient() {
