@@ -72,15 +72,70 @@ export function normalizeLeaderboardMemberName(value: string): string {
   return normalized;
 }
 
+// Canonical key for a university name: accents stripped, short code only
+// (everything before ":"), lowercase, alphanumerics only.
+// e.g. "ISG: Institut Supérieur de Gestion" -> "isg".
+function normalizeUniversityKey(value: string): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(":")[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
+}
+
+// Known spelling/casing variants mapped to their canonical short code. Only
+// exact matches are used for attribution, so a lead whose university differs
+// from the attraction's code must be listed here to be counted.
+const UNIVERSITY_ALIASES: Record<string, string> = {
+  // "ESPRIT El Ghazela" (no code, no colon) -> "ESPRIT".
+  espritelghazela: "esprit",
+  // Common misspelling of "ISET Charguia".
+  isetchargia: "isetcharguia",
+};
+
+function resolveUniversityKey(value: string): string {
+  const key = normalizeUniversityKey(value);
+  return UNIVERSITY_ALIASES[key] ?? key;
+}
+
+/**
+ * Assigns each of today's leads to at most ONE of the same-day attractions,
+ * based on the university the lead signed up in. This prevents the shared-day
+ * case from dumping every lead into a single attraction.
+ *
+ * Matching is strict: a lead is attributed only when its canonical university
+ * key equals exactly one attraction's key (after alias resolution). Substring
+ * matching was removed so that e.g. "ENS" can never leak into "ENSIT".
+ */
+export function assignLeadsToAttractions(
+  attractions: CustomEvent[],
+  leads: PhysicalAttractionLead[],
+): PhysicalAttractionLead[][] {
+  const attractionKeys = attractions.map((attraction) => resolveUniversityKey(attraction.extendedProps.university));
+  const buckets = attractions.map(() => [] as PhysicalAttractionLead[]);
+
+  for (const lead of leads) {
+    const leadKey = resolveUniversityKey(lead.university);
+    if (!leadKey) continue;
+
+    const matches = attractionKeys.reduce<number[]>((acc, key, i) => {
+      if (key && key === leadKey) acc.push(i);
+      return acc;
+    }, []);
+
+    // Only attribute when the university maps to exactly one attraction.
+    if (matches.length === 1) buckets[matches[0]].push(lead);
+  }
+
+  return buckets;
+}
+
 function buildAttractionRanking(university: string, leads: PhysicalAttractionLead[]): RankingSnapshot {
-  const universityKey = university.trim().toLowerCase();
-  const universityLeads = leads.filter((lead) => {
-    const leadKey = (lead.university ?? "").trim().toLowerCase();
-    return leadKey === universityKey || leadKey.includes(universityKey) || universityKey.includes(leadKey);
-  });
   const leaderboardMap = new Map<string, number>();
 
-  for (const lead of universityLeads) {
+  for (const lead of leads) {
     const memberName = normalizeLeaderboardMemberName(lead.memberName);
     if (!memberName) continue;
     leaderboardMap.set(memberName, (leaderboardMap.get(memberName) ?? 0) + 1);
@@ -98,7 +153,7 @@ function buildAttractionRanking(university: string, leads: PhysicalAttractionLea
 
   return {
     university,
-    leadCount: universityLeads.length,
+    leadCount: leads.length,
     leaderboard,
     generatedAt: new Date().toISOString(),
   };
@@ -206,11 +261,23 @@ export default function MemberDashboardClient({
     [todaysAttractions]
   );
 
+  // When two or more attractions share the same day, split today's leads across
+  // them by the university each lead signed up in. With a single attraction,
+  // the whole day's leads belong to it.
+  const attractionLeadBuckets = useMemo(
+    () => assignLeadsToAttractions(todaysAttractions, todaysLeads),
+    [todaysAttractions, todaysLeads]
+  );
+  const leadsForAttraction = useMemo(
+    () => (multipleAttractions ? attractionLeadBuckets[activeTab] ?? [] : todaysLeads),
+    [multipleAttractions, attractionLeadBuckets, activeTab, todaysLeads]
+  );
+
   const current = attractionData[activeTab];
   const currentRanking = useMemo(() => {
     if (!currentAttraction || !currentUniversity) return undefined;
-    return buildAttractionRanking(currentUniversity, todaysLeads);
-  }, [currentAttraction, currentUniversity, todaysLeads]);
+    return buildAttractionRanking(currentUniversity, leadsForAttraction);
+  }, [currentAttraction, currentUniversity, leadsForAttraction]);
   const dailyGoal = currentAttraction?.extendedProps.goal ?? DEFAULT_GOAL;
   const leadCount = currentRanking?.leadCount ?? 0;
   const goalPct = currentAttraction ? Math.min(100, Math.round((leadCount / dailyGoal) * 100)) : 0;
