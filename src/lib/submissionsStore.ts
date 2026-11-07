@@ -141,7 +141,8 @@ export async function addSubmission(record: Omit<SubmissionRecord, "id" | "submi
         if (error) throw error;
       } catch (error) {
         console.error("[submissionsStore] Failed to save to Supabase:", error);
-        throw error instanceof Error ? error : new Error(String(error));
+        // Rethrow as-is so callers can read the PostgrestError fields (code, message, …).
+        throw error;
       }
     }
   }

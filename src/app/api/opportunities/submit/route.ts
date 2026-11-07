@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseClient, hasSupabaseConfig } from "@/lib/supabase";
+import { getSupabaseClient, hasSupabaseConfig, formatSupabaseError } from "@/lib/supabase";
 import { addSubmission, productToSheet } from "@/lib/submissionsStore";
 import { getUniversityById, type Opportunity } from "@/lib/dataUtils";
 import { z } from "zod";
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       source: sanitized.source || "Admin Dashboard",
     });
   } catch (err) {
-    errors.push(`Submissions table: ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(`Submissions table: ${formatSupabaseError(err)}`);
     console.error("[api/opportunities/submit] submissions error:", err);
   }
 
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         if (error) throw error;
       }
     } catch (err) {
-      errors.push(`Opportunities table: ${err instanceof Error ? err.message : String(err)}`);
+      errors.push(`Opportunities table: ${formatSupabaseError(err)}`);
       console.error("[api/opportunities/submit] opportunities error:", err);
     }
   }
