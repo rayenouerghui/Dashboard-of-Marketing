@@ -106,6 +106,7 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
         },
         body: JSON.stringify({
           product: selectedOpportunity.product,
+          opportunityType: selectedOpportunity.opportunityType,
           opportunityId: selectedOpportunity.id,
           opportunityTitle: selectedOpportunity.title,
           universityId: university!.id,
@@ -130,7 +131,7 @@ export default function UniversityDetailsClient({ params }: { params: Promise<{ 
       setEpName("");
       setCondition("");
       setSelectedOpportunity(null);
-      setSubmissionMessage("Submitted to Google Sheets successfully.");
+      setSubmissionMessage("Submitted successfully.");
     } catch (error) {
       setSubmissionError(error instanceof Error ? error.message : "Failed to submit opportunity");
     } finally {

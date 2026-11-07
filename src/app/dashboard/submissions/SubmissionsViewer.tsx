@@ -95,6 +95,29 @@ function CopyButton({ value }: { value: string }) {
   );
 }
 
+function RowDeleteButton({ onDelete, deleting }: { onDelete: () => void; deleting: boolean }) {
+  return (
+    <button
+      onClick={onDelete}
+      disabled={deleting}
+      title="Delete this entry"
+      aria-label="Delete this entry"
+      className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-900/20 dark:hover:text-rose-400"
+    >
+      {deleting ? (
+        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+        </svg>
+      ) : (
+        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
   const cfg = SHEET_CONFIG[sheet];
@@ -102,6 +125,8 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [deletingId, setDeletingId]   = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -153,6 +178,27 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
     link.click();
   }
 
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this submission? This cannot be undone.")) return;
+    setDeleteError(null);
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/submissions?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSubmissions((current) => current.filter((s) => s.id !== id));
+      } else {
+        setDeleteError(data.error ?? "Failed to delete submission.");
+      }
+    } catch {
+      setDeleteError("Failed to delete submission. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -201,6 +247,19 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
         className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
       />
 
+      {/* Delete error */}
+      {deleteError && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
+          <span>{deleteError}</span>
+          <button
+            onClick={() => setDeleteError(null)}
+            className="shrink-0 font-medium text-rose-500 hover:text-rose-700 dark:hover:text-rose-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       {loading && submissions.length === 0 ? (
         <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 dark:border-gray-700 dark:bg-white/[0.02]">
@@ -228,6 +287,7 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
                   <th className="px-4 py-3">Country</th>
                   <th className="px-4 py-3">Duration</th>
                   <th className="px-4 py-3">Note</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -262,6 +322,9 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
                         {(s.condition || s.note) && <CopyButton value={s.condition || s.note} />}
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <RowDeleteButton onDelete={() => handleDelete(s.id)} deleting={deletingId === s.id} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -277,9 +340,12 @@ export default function SubmissionsViewer({ sheet }: { sheet: SheetType }) {
                     <span className="font-semibold text-gray-800 dark:text-white truncate">{s.epName || "—"}</span>
                     {s.epName && <CopyButton value={s.epName} />}
                   </div>
-                  <span className="shrink-0 inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                    {s.product}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                      {s.product}
+                    </span>
+                    <RowDeleteButton onDelete={() => handleDelete(s.id)} deleting={deletingId === s.id} />
+                  </div>
                 </div>
                 <p className="text-sm text-gray-700 dark:text-gray-300 truncate">{s.opportunityTitle || "—"}</p>
                 <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">

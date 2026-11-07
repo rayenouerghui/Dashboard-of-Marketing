@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 const fillSchema = z.object({
   product: z.string().min(1).max(50),
+  opportunityType: z.string().max(50).optional(),
   opportunityId: z.string().min(1).max(50),
   opportunityTitle: z.string().min(1).max(200),
   universityId: z.string().min(1).max(50),
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Record submission to Supabase (handled in addSubmission)
     await addSubmission({
-      sheet: productToSheet(sanitized.product),
+      sheet: productToSheet(sanitized.product, sanitized.opportunityType),
       product: sanitized.product,
       opportunityId: sanitized.opportunityId,
       opportunityTitle: sanitized.opportunityTitle,

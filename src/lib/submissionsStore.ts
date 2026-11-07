@@ -155,6 +155,28 @@ export async function addSubmission(record: Omit<SubmissionRecord, "id" | "submi
   return entry;
 }
 
+export async function deleteSubmission(id: string): Promise<void> {
+  await initializeStore();
+
+  if (hasSupabaseConfig()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from("submissions").delete().eq("id", id);
+      // Rethrow as-is so callers can read the PostgrestError fields (code, message, …).
+      if (error) throw error;
+    }
+  }
+
+  // Update in-memory cache (search both sheets)
+  for (const sheet of ["OGV", "OGT"] as const) {
+    const list = store.get(sheet) ?? [];
+    store.set(
+      sheet,
+      list.filter((entry) => entry.id !== id)
+    );
+  }
+}
+
 export async function getSubmissions(sheet: "OGV" | "OGT"): Promise<SubmissionRecord[]> {
   await initializeStore();
   return store.get(sheet) ?? [];
@@ -173,9 +195,22 @@ export async function reloadFromSupabase() {
   await initializeStore();
 }
 
-/** Derive which sheet a product belongs to */
-export function productToSheet(product: string): "OGV" | "OGT" {
+/**
+ * Derive which sheet a submission belongs to.
+ * Volunteering → OGV. Professional / teaching → OGT.
+ * Accepts either the product code (GV / GTa / GTe) or the opportunity type
+ * (volunteering / professional / teaching) so routing is correct regardless
+ * of which value is supplied.
+ */
+export function productToSheet(product: string, opportunityType?: string): "OGV" | "OGT" {
   const p = product.trim().toUpperCase();
-  if (p === "GV" || p === "OGV") return "OGV";
-  return "OGT";
+  const t = (opportunityType ?? "").trim().toLowerCase();
+  const isVolunteering =
+    p === "GV" ||
+    p === "OGV" ||
+    p === "VOLUNTEERING" ||
+    p === "VOLUNTEER" ||
+    t === "volunteering" ||
+    t === "volunteer";
+  return isVolunteering ? "OGV" : "OGT";
 }

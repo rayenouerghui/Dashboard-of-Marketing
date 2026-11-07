@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSubmissions } from "@/lib/submissionsStore";
+import { getSubmissions, deleteSubmission } from "@/lib/submissionsStore";
 import { requireRole, checkIpRateLimit, getClientIp } from "@/lib/auth";
+import { formatSupabaseError } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id")?.trim();
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "id parameter is required." },
+        { status: 400 }
+      );
+    }
+
+    await deleteSubmission(id);
+    return NextResponse.json({ success: true, id });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: formatSupabaseError(error) },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

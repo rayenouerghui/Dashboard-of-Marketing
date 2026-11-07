@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   // 1. Write submission to Supabase submissions table
   try {
     await addSubmission({
-      sheet: productToSheet(sanitized.product),
+      sheet: productToSheet(sanitized.product, fullOpportunity?.opportunityType),
       product: sanitized.product,
       opportunityId: sanitized.opportunityId || "",
       opportunityTitle: sanitized.title,
