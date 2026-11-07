@@ -49,3 +49,27 @@ export function getSupabaseAdminClient() {
 
 export const supabase = getSupabaseClient();
 export const supabaseAdmin = getSupabaseAdminClient();
+
+/**
+ * Supabase returns PostgrestError objects, which are plain objects rather than
+ * Error instances — so `String(err)` collapses them to "[object Object]".
+ * Surface the fields that actually identify the problem instead.
+ */
+export function formatSupabaseError(err: unknown): string {
+  if (err == null) return "unknown error";
+  if (err instanceof Error) return err.message;
+
+  if (typeof err === "object") {
+    const e = err as { code?: string; message?: string; details?: string; hint?: string };
+    const parts = [
+      e.code ? `code ${e.code}` : "",
+      e.message ?? "",
+      e.details ?? "",
+      e.hint ? `hint: ${e.hint}` : "",
+    ].filter(Boolean);
+
+    if (parts.length > 0) return parts.join(" — ");
+  }
+
+  return String(err);
+}
