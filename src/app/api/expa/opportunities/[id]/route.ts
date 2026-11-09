@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth";
 import { ExpaClientError, fetchExpaOpportunityRaw } from "@/lib/server/expaClient";
 import { mapExpaOpportunityToOpportunity } from "@/lib/server/expaOpportunityMapper";
 import { getExpaToken } from "@/lib/server/expaTokenSource";
@@ -31,6 +32,7 @@ function buildDebugInfo(error?: ExpaClientError, expaHttpStatus?: number | null)
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await requireRole("admin"); // Admin only - proxies EXPA opportunity data
     const { id } = await params;
     const diagnostics = getTokenDiagnostics();
 
@@ -49,6 +51,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       { status: 200 }
     );
   } catch (error) {
+    if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 });
+    }
+
     const diagnostics = getTokenDiagnostics();
 
     if (error instanceof ExpaClientError) {
