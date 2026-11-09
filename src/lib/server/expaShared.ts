@@ -20,9 +20,16 @@ export const STATUS_PRIORITY: Record<string, number> = {
 /** Statuses we care about — withdrawn and rejected are ignored. */
 export const GOOD_STATUSES = new Set(Object.keys(STATUS_PRIORITY));
 
-// Deliberately NOT in STATUS_PRIORITY, but counted so the drop stays visible
-// instead of silently disappearing (it matches a non-trivial share of apps).
+// Deliberately NOT in STATUS_PRIORITY: it only affects the conversion funnel,
+// where a broken approval still means the EP did apply.
 export const BROKEN_APPROVAL_STATUS = "approval_broken";
+
+// Conversion-funnel ranking. Same order as STATUS_PRIORITY, but `approval_broken`
+// counts as "applied" (priority 1) instead of being dropped from the funnel.
+export const FUNNEL_PRIORITY: Record<string, number> = {
+  ...STATUS_PRIORITY,
+  [BROKEN_APPROVAL_STATUS]: 1,
+};
 
 // EXPA reports a missing person as a top-level GraphQL error rather than an
 // empty result, so "record not found" must be told apart from real failures.

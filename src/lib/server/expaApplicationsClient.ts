@@ -5,8 +5,7 @@ import {
   EXPA_GRAPHQL_URL,
   EXPA_NOT_FOUND,
   ExpaHttpError,
-  GOOD_STATUSES,
-  STATUS_PRIORITY,
+  FUNNEL_PRIORITY,
   withExpaRetry,
 } from "./expaShared";
 
@@ -100,8 +99,9 @@ function buildBatchQuery(personIds: string[]): string {
 }
 
 /**
- * Pick the best application for a person (highest priority, skip
- * rejected/withdrawn) and count how many were dropped as broken approvals.
+ * Pick the best application for a person (highest funnel priority) and count
+ * how many were approval_broken — they still count as "applied", but the counter
+ * keeps the data-quality signal available.
  */
 function bestApplication(apps: RawApp[]): { best: RawApp | null; brokenApprovals: number } {
   let best: RawApp | null = null;
@@ -111,8 +111,8 @@ function bestApplication(apps: RawApp[]): { best: RawApp | null; brokenApprovals
   for (const app of apps) {
     const s = toStr(app.status);
     if (s === BROKEN_APPROVAL_STATUS) brokenApprovals++;
-    if (!GOOD_STATUSES.has(s)) continue;
-    const pri = STATUS_PRIORITY[s] ?? 0;
+    const pri = FUNNEL_PRIORITY[s] ?? 0; // approval_broken → 1, so it counts as applied
+    if (pri <= 0) continue;              // rejected / withdrawn / unknown
     if (pri > bestPri) {
       best = app;
       bestPri = pri;
@@ -202,7 +202,7 @@ export interface FetchResult {
   skipped: number;            // empty / non-numeric expaId
   notFound: string[];         // EXPA says the person doesn't exist
   failedBatches: number;      // chunks that failed even after retries
-  brokenApprovals: number;    // applications dropped (status = approval_broken)
+  brokenApprovals: number;    // applications with status approval_broken (still counted as applied)
   degraded: boolean;          // every batch failed → figures are unusable
 }
 
