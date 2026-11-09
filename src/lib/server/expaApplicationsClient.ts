@@ -1,7 +1,14 @@
 import "server-only";
 import { getExpaToken } from "./expaTokenSource";
-
-const EXPA_GRAPHQL_URL = "https://gis-api.aiesec.org/graphql";
+import {
+  BROKEN_APPROVAL_STATUS,
+  EXPA_GRAPHQL_URL,
+  EXPA_NOT_FOUND,
+  ExpaHttpError,
+  GOOD_STATUSES,
+  STATUS_PRIORITY,
+  withExpaRetry,
+} from "./expaShared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,46 +30,10 @@ export interface ExpaApplication {
   sheetSource?:     "digital" | "physical";
 }
 
-/** Status priority — higher = more advanced */
-export const STATUS_PRIORITY: Record<string, number> = {
-  completed:           7,
-  finished:            6,
-  realized:            5,
-  matched:             4,
-  approved_ep_manager: 3,
-  approved_tn_manager: 3,
-  approved:            3,
-  accepted:            2,
-  open:                1,
-};
-
-// Statuses we care about — withdrawn and rejected are ignored
-const GOOD_STATUSES = new Set(Object.keys(STATUS_PRIORITY));
-
-// Deliberately NOT in STATUS_PRIORITY, but counted so the drop stays visible
-// instead of silently disappearing (it matches a non-trivial share of apps).
-const BROKEN_APPROVAL_STATUS = "approval_broken";
-
 // ─── Batched person lookup ────────────────────────────────────────────────────
 // We batch up to BATCH_SIZE person IDs per GraphQL request using aliases.
 // EXPA accepts multiple aliased fields in one query body.
 const BATCH_SIZE = 20;
-
-// EXPA reports a missing person as a top-level GraphQL error rather than an
-// empty result, so "record not found" must be told apart from real failures.
-const NOT_FOUND = /record not found/i;
-
-// Retry only on rate-limit / server errors — backoff ~2s, 4s, 8s.
-const RETRY_DELAYS_MS = [2000, 4000, 8000];
-
-class ExpaHttpError extends Error {
-  status: number;
-  constructor(status: number) {
-    super(`EXPA HTTP ${status}`);
-    this.name = "ExpaHttpError";
-    this.status = status;
-  }
-}
 
 interface BatchInput {
   personId: string;
@@ -176,7 +147,7 @@ async function fetchBatch(token: string, batch: BatchInput[]): Promise<BatchOutc
 
   // "Requested record not found." is EXPA's per-alias reply for a person_id that
   // doesn't exist. Anything else is a genuine failure and must not be hidden.
-  const hardErrors = (json.errors ?? []).filter((e) => !NOT_FOUND.test(e.message ?? ""));
+  const hardErrors = (json.errors ?? []).filter((e) => !EXPA_NOT_FOUND.test(e.message ?? ""));
   if (hardErrors.length) {
     throw new Error("EXPA GraphQL: " + hardErrors.map((e) => e.message).join("; "));
   }
@@ -212,27 +183,6 @@ async function fetchBatch(token: string, batch: BatchInput[]): Promise<BatchOutc
   });
 
   return { applications, notFound, brokenApprovals };
-}
-
-function isRetriable(err: unknown): boolean {
-  return err instanceof ExpaHttpError && (err.status === 429 || err.status >= 500);
-}
-
-/** fetchBatch with bounded retry/backoff on 429 and 5xx. */
-async function fetchBatchWithRetry(token: string, batch: BatchInput[]): Promise<BatchOutcome> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      return await fetchBatch(token, batch);
-    } catch (err) {
-      lastError = err;
-      if (!isRetriable(err) || attempt === RETRY_DELAYS_MS.length) break;
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
-    }
-  }
-
-  throw lastError;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -313,7 +263,7 @@ export async function fetchApplicationsForLeads(
 
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     const group   = chunks.slice(i, i + CONCURRENCY);
-    const settled = await Promise.allSettled(group.map((chunk) => fetchBatchWithRetry(token, chunk)));
+    const settled = await Promise.allSettled(group.map((chunk) => withExpaRetry(() => fetchBatch(token, chunk))));
 
     for (const outcome of settled) {
       if (outcome.status === "fulfilled") {
