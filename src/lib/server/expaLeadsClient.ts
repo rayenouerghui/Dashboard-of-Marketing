@@ -1,6 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { getExpaToken } from './expaTokenSource';
-import { EXPA_GRAPHQL_URL, GOOD_STATUSES, STATUS_PRIORITY, ExpaHttpError, withExpaRetry } from './expaShared';
+import { EXPA_GRAPHQL_URL, GOOD_STATUSES, STATUS_PRIORITY, ExpaHttpError, withExpaRetry, CAMPAIGN_START_DAY } from './expaShared';
 
 const PAGE_SIZE = 50;
 const DEFAULT_HOME_LC_ID = Number(process.env.EXPA_HOME_LC_ID ?? 1270);
@@ -50,12 +50,22 @@ function buildHomeLcFilter(): string {
   return `person_home_lc: ${homeLcId}`;
 }
 
+// Bound the pull to the campaign window. Fetching every status is required so the
+// funnel can see sign-ups that later withdrew / got rejected, but without this
+// date bound EXPA returns the LC's entire history (~900 pages) and the paginated
+// pull times out. `created_at` is the only accepted range filter on
+// allOpportunityApplication (there is no `applied_at`).
+function buildCreatedAtFilter(): string {
+  return `created_at: { from: "${CAMPAIGN_START_DAY}" }`;
+}
+
 export function buildExpaLeadQuery(page: number): string {
   return JSON.stringify({
     query: `{
   allOpportunityApplication(
     filters: {
       ${buildHomeLcFilter()}
+      ${buildCreatedAtFilter()}
     }
     per_page: ${PAGE_SIZE}
     page: ${page}
@@ -171,8 +181,8 @@ export function getLeadPriority(status: string | null | undefined): number {
 // reads from this ONE cache entry instead of re-running the full paginated pull
 // on its own key. EXPA pipeline statuses change slowly, so a 6-hour window is
 // plenty; the manual refresh path (?nocache=1) calls fetchAllExpaLeads directly.
-// The key is versioned so the switch to "every status" (needed by the funnel)
-// invalidates the previously cached good-status-only payload.
-export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw-v2'], {
+// The key is versioned so query-shape changes (every status, campaign date bound)
+// invalidate the previously cached payload instead of serving stale rows.
+export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw-v3'], {
   revalidate: 21600, // 6 h
 });
