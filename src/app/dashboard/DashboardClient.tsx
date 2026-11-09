@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
+import { useAdminDashboard } from "@/context/AdminDashboardContext";
 import { EcommerceMetrics } from "@/components/ecommerce/EcommerceMetrics";
 import MonthlyTarget from "@/components/ecommerce/MonthlyTarget";
 import DailyTarget from "@/components/ecommerce/DailyTarget";
@@ -8,7 +9,6 @@ import MonthlySalesChart from "@/components/ecommerce/MonthlySalesChart";
 import StatisticsChart from "@/components/ecommerce/StatisticsChart";
 import RecentOrders from "@/components/ecommerce/RecentOrders";
 import type { AttractionLeadStats } from "@/app/api/attraction-leads/route";
-import { useState, useEffect, useCallback } from "react";
 
 // ─── Empty stats placeholder shown while loading ──────────────────────────────
 const EMPTY: AttractionLeadStats = {
@@ -20,49 +20,10 @@ export default function DashboardClient() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
 
-  const [stats, setStats] = useState<AttractionLeadStats>(EMPTY);
-  const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async (nocache = false) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const url = `/api/attraction-leads${nocache ? "?nocache=1" : ""}`;
-      const res = await fetch(url);
-      const data = await res.json();
-
-      if (!res.ok || !data?.success) {
-        setStats(EMPTY);
-        setError(data?.error ?? "EXPA data unavailable (token expired or service down)");
-        return;
-      }
-
-      if (data.expaStatus !== "ok") {
-        setStats(data.stats ?? EMPTY);
-        setError(data.error ?? "No EXPA lead data is available yet.");
-        return;
-      }
-
-      setStats(data.stats ?? EMPTY);
-      setLastRefresh(data.fetchedAt ? new Date(data.fetchedAt) : new Date());
-      setError(null);
-    } catch {
-      setStats(EMPTY);
-      setError("EXPA data unavailable (token expired or service down)");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Auto-refresh every 2 minutes
-  useEffect(() => {
-    const interval = setInterval(() => load(), 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  // Shared admin data — fetched once for the whole dashboard (see AdminDashboardProvider).
+  const { data, loading, error, refresh } = useAdminDashboard();
+  const stats = data?.attraction ?? EMPTY;
+  const lastRefresh = data?.fetchedAt ? new Date(data.fetchedAt) : null;
 
   return (
     <div className="space-y-6">
@@ -79,7 +40,7 @@ export default function DashboardClient() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => load(true)}
+              onClick={() => refresh(true)}
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-50 transition-colors"
             >
@@ -98,6 +59,12 @@ export default function DashboardClient() {
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
           {error}
+        </div>
+      )}
+
+      {!error && data && data.expaStatus !== "ok" && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+          No EXPA lead data is available yet.
         </div>
       )}
 

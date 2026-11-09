@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { useSidebar } from "@/context/SidebarContext";
+import { AdminDashboardProvider } from "@/context/AdminDashboardContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
 import Backdrop from "@/layout/Backdrop";
@@ -38,7 +39,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Backdrop />
       <div className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}>
         <AppHeader />
-        <div className="p-4 mx-auto max-w-[--breakpoint-2xl] md:p-6">{children}</div>
+        <div className="p-4 mx-auto max-w-[--breakpoint-2xl] md:p-6">
+          {/* One shared fetch fills every admin page; survives sub-page navigation. */}
+          <AdminDashboardProvider>{children}</AdminDashboardProvider>
+        </div>
       </div>
     </div>
   );
