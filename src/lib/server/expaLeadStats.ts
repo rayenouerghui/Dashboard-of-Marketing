@@ -4,7 +4,7 @@ import { FUNNEL_PRIORITY, CAMPAIGN_START_DAY } from "@/lib/server/expaShared";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ExpaLeadStats {
-  totalLeads:     number;  // unique EPs who signed up (one entry per EP)
+  totalLeads:     number;  // people who signed up (form submissions), the funnel denominator
   leadsToday:     number;
   leadsThisWeek:  number;
   leadsThisMonth: number;
@@ -74,7 +74,13 @@ function getDateBounds() {
 
 // ─── Stats computation ────────────────────────────────────────────────────────
 
-export function computeExpaLeadStats(leads: ExpaLead[]): ExpaLeadStats {
+// `signupTotal` is the number of people who actually signed up (form submissions
+// from the sheets). EXPA only contains people who already applied, so using the
+// EXPA population as the Sign-Up denominator inflates the rate (it puts the
+// applied people in their own base). Pass the real sign-up count here; when it is
+// missing (e.g. the sheets failed) we fall back to the EXPA population so the
+// page still renders instead of showing a bogus 0.
+export function computeExpaLeadStats(leads: ExpaLead[], signupTotal?: number): ExpaLeadStats {
   const { today, weekStartDay, monthStart } = getDateBounds();
 
   // One entry per EP: the raw lead query returns one row per application, so we
@@ -139,7 +145,9 @@ export function computeExpaLeadStats(leads: ExpaLead[]): ExpaLeadStats {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, { label, count }]) => ({ key, label, count }));
 
-  const total = bestByPerson.size;
+  // Sign-Up denominator = real form sign-ups when available, else the EXPA
+  // population (fallback only — see note above).
+  const total = signupTotal && signupTotal > 0 ? signupTotal : bestByPerson.size;
 
   return {
     totalLeads:     total,

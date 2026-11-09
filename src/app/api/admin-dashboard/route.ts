@@ -28,7 +28,6 @@ export async function GET(request: Request) {
     // One EXPA pull feeds both the attraction stats and the conversion funnel.
     const { leads } = nocache ? await fetchAllExpaLeads() : await getCachedExpaLeads();
     const attraction = computeExpaAttractionStats(leads);
-    const leadsStats = computeExpaLeadStats(leads);
 
     // The applications set has its own failure domain (sheet reads + per-person
     // EXPA lookups). Keep a failure there from blanking the lead/attraction cards:
@@ -43,6 +42,10 @@ export async function GET(request: Request) {
         degraded: true, totalLeads: 0, fetchedAt: new Date().toISOString(),
       };
     }
+
+    // Sign-Up denominator comes from the real form sign-ups (sheet `totalLeads`),
+    // not the EXPA applicant population. Falls back internally when it is 0.
+    const leadsStats = computeExpaLeadStats(leads, applications.totalLeads);
 
     const payload: AdminDashboardPayload = {
       success: true,
