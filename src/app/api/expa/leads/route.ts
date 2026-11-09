@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
-import { fetchAllExpaLeads, type ExpaLead } from "@/lib/server/expaLeadsClient";
+import { requireRole } from "@/lib/auth";
+import { fetchAllExpaLeads, getCachedExpaLeads, type ExpaLead } from "@/lib/server/expaLeadsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -140,31 +140,23 @@ function computeStats(leads: ExpaLead[]): ExpaLeadStats {
   };
 }
 
-// ─── Cached fetcher (2 min for real-time updates) ──────────────────────────────
-const getCachedLeads = unstable_cache(
-  async () => {
-    const { leads, totalItems } = await fetchAllExpaLeads();
-    const stats = computeStats(leads);
-    return { stats, totalItems };
-  },
-  ["expa-leads-stats"],
-  { revalidate: 120 }
-);
-
 // ─── Route ────────────────────────────────────────────────────────────────────
 export async function GET(request: Request) {
   const nocache = new URL(request.url).searchParams.get("nocache") === "1";
 
   try {
-    const result = nocache
-      ? await (async () => {
-          const { leads, totalItems } = await fetchAllExpaLeads();
-          return { stats: computeStats(leads), totalItems };
-        })()
-      : await getCachedLeads();
+    await requireRole("admin"); // Admin only - contains EP personal data
 
-    return NextResponse.json({ success: true, ...result }, { status: 200 });
+    // Cached path shares one EXPA pull with the attraction-leads route;
+    // ?nocache=1 bypasses the cache for an on-demand refresh.
+    const { leads, totalItems } = nocache ? await fetchAllExpaLeads() : await getCachedExpaLeads();
+
+    return NextResponse.json({ success: true, stats: computeStats(leads), totalItems }, { status: 200 });
   } catch (error) {
+    if (error instanceof Error && (error.message === "Unauthorized" || error.message === "Forbidden")) {
+      return NextResponse.json({ error: error.message }, { status: error.message === "Unauthorized" ? 401 : 403 });
+    }
+
     const msg = error instanceof Error ? error.message : "Failed to fetch EXPA leads.";
     console.error("[api/expa/leads] error:", error);
     return NextResponse.json({ success: false, error: msg }, { status: 500 });
