@@ -161,10 +161,10 @@ export function getLeadPriority(status: string | null | undefined): number {
 }
 
 // ─── Shared cache ─────────────────────────────────────────────────────────────
-// Every EXPA leads consumer (leads / attraction-leads routes) reads from this
-// ONE cache entry instead of re-running the full paginated pull on its own key.
-// EXPA pipeline statuses change slowly, so a 15-minute window is plenty; the
-// manual refresh path (?nocache=1) calls fetchAllExpaLeads directly.
+// Every EXPA leads consumer (admin dashboard / leads / attraction-leads routes)
+// reads from this ONE cache entry instead of re-running the full paginated pull
+// on its own key. EXPA pipeline statuses change slowly, so a 6-hour window is
+// plenty; the manual refresh path (?nocache=1) calls fetchAllExpaLeads directly.
 export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw'], {
-  revalidate: 900,
+  revalidate: 21600, // 6 h
 });

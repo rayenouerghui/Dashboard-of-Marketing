@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
-import type { ExpaLeadStats } from "@/app/api/expa/leads/route";
-import type { ExpaApplication } from "@/lib/server/expaApplicationsClient";
+import { useState, useMemo } from "react";
+import { useAdminDashboard } from "@/context/AdminDashboardContext";
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> = {
@@ -65,50 +64,23 @@ const NO_DIAGNOSTICS: Diagnostics = { notFound: 0, failedBatches: 0, brokenAppro
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function ConversionRateClient() {
-  const [leadsStats, setLeadsStats]  = useState<ExpaLeadStats | null>(null);
-  const [applications, setApplications] = useState<ExpaApplication[]>([]);
-  const [diag, setDiag]              = useState<Diagnostics>(NO_DIAGNOSTICS);
-  const [loading, setLoading]        = useState(true);
-  const [error, setError]            = useState<string | null>(null);
+  // Shared admin data — one fetch for the whole dashboard (see AdminDashboardProvider).
+  const { data, loading, error, refresh } = useAdminDashboard();
+
+  const leadsStats   = data?.leads ?? null;
+  const applications = data?.applications.applications ?? [];
+  const diag: Diagnostics = data
+    ? {
+        notFound:        data.applications.notFound.length,
+        failedBatches:   data.applications.failedBatches,
+        brokenApprovals: data.applications.brokenApprovals,
+        degraded:        data.applications.degraded,
+      }
+    : NO_DIAGNOSTICS;
+
   const [search, setSearch]          = useState("");
   const [filterProg, setFilterProg]  = useState("ALL");
   const [filterStatus, setFilterStatus] = useState("ALL");
-
-  const load = useCallback(async (nocache = false) => {
-    setLoading(true);
-    setError(null);
-    setDiag(NO_DIAGNOSTICS);
-    try {
-      const [leadsRes, appsRes] = await Promise.all([
-        fetch(`/api/expa/leads${nocache ? "?nocache=1" : ""}`),
-        fetch(`/api/expa/applications${nocache ? "?nocache=1" : ""}`),
-      ]);
-      const [leadsData, appsData] = await Promise.all([leadsRes.json(), appsRes.json()]);
-      if (!leadsRes.ok || !leadsData.success) throw new Error(leadsData.error ?? "Failed to load leads.");
-      setLeadsStats(leadsData.stats);
-      if (appsData.success) {
-        setApplications(appsData.applications ?? []);
-        setDiag({
-          notFound:        (appsData.notFound ?? []).length,
-          failedBatches:   appsData.failedBatches ?? 0,
-          brokenApprovals: appsData.brokenApprovals ?? 0,
-          degraded:        appsData.degraded === true,
-        });
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Auto-refresh every 2 minutes
-  useEffect(() => {
-    const interval = setInterval(() => load(), 120000);
-    return () => clearInterval(interval);
-  }, [load]);
 
   const programmes = useMemo(() => {
     const s = new Set(applications.map((a) => a.programme).filter(Boolean));
@@ -185,7 +157,7 @@ export default function ConversionRateClient() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => load(true)} disabled={loading} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            <button onClick={() => refresh(true)} disabled={loading} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
               {loading ? "Loading…" : "↻ Refresh"}
             </button>
             <button onClick={exportCSV} disabled={loading || !filtered.length} className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50">
