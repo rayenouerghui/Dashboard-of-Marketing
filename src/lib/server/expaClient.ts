@@ -1,7 +1,6 @@
 import "server-only";
 import { getExpaToken } from "./expaTokenSource";
-
-const EXPA_GRAPHQL_URL = "https://gis-api.aiesec.org/graphql";
+import { EXPA_GRAPHQL_URL } from "./expaShared";
 
 export class ExpaClientError extends Error {
   status: number;

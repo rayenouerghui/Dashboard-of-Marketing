@@ -1,28 +1,9 @@
+import { unstable_cache } from 'next/cache';
 import { getExpaToken } from './expaTokenSource';
+import { EXPA_GRAPHQL_URL, GOOD_STATUSES, STATUS_PRIORITY, ExpaHttpError, withExpaRetry } from './expaShared';
 
-const EXPA_GRAPHQL_URL = 'https://gis-api.aiesec.org/graphql';
 const PAGE_SIZE = 50;
 const DEFAULT_HOME_LC_ID = Number(process.env.EXPA_HOME_LC_ID ?? 1270);
-const GOOD_STATUSES = new Set([
-  'open',
-  'accepted',
-  'approved',
-  'approved_ep_manager',
-  'matched',
-  'realized',
-  'completed',
-  'finished',
-]);
-const STATUS_PRIORITY: Record<string, number> = {
-  completed: 7,
-  finished: 6,
-  realized: 5,
-  matched: 4,
-  approved_ep_manager: 3,
-  approved: 3,
-  accepted: 2,
-  open: 1,
-};
 
 export interface ExpaLead {
   id: string;
@@ -70,7 +51,7 @@ export function buildExpaLeadQuery(page: number): string {
   allOpportunityApplication(
     filters: {
       ${buildHomeLcFilter()}
-      statuses: ["open", "accepted", "approved", "approved_ep_manager", "matched", "realized", "completed", "finished"]
+      statuses: ${JSON.stringify([...GOOD_STATUSES])}
     }
     per_page: ${PAGE_SIZE}
     page: ${page}
@@ -122,7 +103,7 @@ async function fetchPage(token: string, page: number): Promise<{ leads: ExpaLead
   });
 
   if (!response.ok) {
-    throw new Error(`EXPA HTTP ${response.status} fetching lead page ${page}`);
+    throw new ExpaHttpError(response.status);
   }
 
   const json = (await response.json()) as {
@@ -153,7 +134,7 @@ export async function fetchAllExpaLeads(): Promise<{ leads: ExpaLead[]; totalIte
     throw new Error('EXPA API token is not configured.');
   }
 
-  const first = await fetchPage(token, 1);
+  const first = await withExpaRetry(() => fetchPage(token, 1));
   const pages = Math.min(first.totalPages, 300);
   const all: ExpaLead[] = [...first.leads];
 
@@ -161,7 +142,9 @@ export async function fetchAllExpaLeads(): Promise<{ leads: ExpaLead[]; totalIte
   for (let start = 2; start <= pages; start += batchSize) {
     const end = Math.min(start + batchSize - 1, pages);
     const results = await Promise.all(
-      Array.from({ length: end - start + 1 }, (_, index) => fetchPage(token, start + index)),
+      Array.from({ length: end - start + 1 }, (_, index) =>
+        withExpaRetry(() => fetchPage(token, start + index)),
+      ),
     );
 
     for (const result of results) {
@@ -176,3 +159,12 @@ export function getLeadPriority(status: string | null | undefined): number {
   if (!status) return 0;
   return STATUS_PRIORITY[status] ?? 0;
 }
+
+// ─── Shared cache ─────────────────────────────────────────────────────────────
+// Every EXPA leads consumer (leads / attraction-leads routes) reads from this
+// ONE cache entry instead of re-running the full paginated pull on its own key.
+// EXPA pipeline statuses change slowly, so a 15-minute window is plenty; the
+// manual refresh path (?nocache=1) calls fetchAllExpaLeads directly.
+export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw'], {
+  revalidate: 900,
+});
