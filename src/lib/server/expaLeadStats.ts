@@ -1,15 +1,16 @@
 import type { ExpaLead } from "@/lib/server/expaLeadsClient";
+import { FUNNEL_PRIORITY } from "@/lib/server/expaShared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ExpaLeadStats {
-  totalLeads:     number;
+  totalLeads:     number;  // unique EPs who signed up (one entry per EP)
   leadsToday:     number;
   leadsThisWeek:  number;
   leadsThisMonth: number;
-  // Conversion funnel counts
-  applied:        number;  // has any application (non-withdrawn/rejected)
-  approved:       number;  // approved / approved_ep_manager / accepted
+  // Conversion funnel counts (all "one entry per EP")
+  applied:        number;  // has any application — approval_broken counts as applied
+  approved:       number;  // approved / approved_ep_manager / approved_tn_manager / accepted
   realized:       number;  // realized / completed / finished
   // Rates (percentages)
   signupToApplied:    number; // applied / totalLeads * 100
@@ -24,9 +25,18 @@ export interface ExpaLeadStats {
   computedAt: string;
 }
 
-const APPLIED_S  = new Set(["open","accepted","approved","approved_ep_manager","matched","realized","completed","finished"]);
-const APPROVED_S = new Set(["approved","approved_ep_manager","accepted","matched","realized","completed","finished"]);
+// The dashboard reports from the Feb 2026 campaign onwards.
+const CAMPAIGN_START_DAY = "2026-02-01";
+
+// Funnel buckets. `approval_broken` counts as "applied" (the EP did apply), while
+// withdrawn / rejected people stay in the sign-up denominator but never advance.
+const APPLIED_S  = new Set(["open","accepted","approved","approved_ep_manager","approved_tn_manager","matched","realized","completed","finished","approval_broken"]);
+const APPROVED_S = new Set(["approved","approved_ep_manager","approved_tn_manager","accepted","matched","realized","completed","finished"]);
 const REALIZED_S = new Set(["realized","completed","finished"]);
+
+function statusOf(lead: ExpaLead): string {
+  return (lead.status ?? lead.bestStatus ?? "").trim();
+}
 
 // ─── Date helpers (no Date objects until we actually need them) ───────────────
 const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})/;
@@ -70,20 +80,37 @@ function getDateBounds() {
 export function computeExpaLeadStats(leads: ExpaLead[]): ExpaLeadStats {
   const { today, weekStartDay, monthStart } = getDateBounds();
 
+  // One entry per EP: the raw lead query returns one row per application, so we
+  // keep the most advanced status each person reached (needs EXPA person ids).
+  const bestByPerson = new Map<string, ExpaLead>();
+  for (const lead of leads) {
+    const parts = parseDateParts(lead.createdAt);
+    if (!parts) continue;
+    if (parts.day < CAMPAIGN_START_DAY) continue; // campaign starts 1 Feb 2026
+
+    const key = lead.personId || lead.email || lead.id;
+    if (!key) continue;
+
+    const current = bestByPerson.get(key);
+    if (!current) { bestByPerson.set(key, lead); continue; }
+    const pri = FUNNEL_PRIORITY[statusOf(lead)] ?? 0;
+    const cur = FUNNEL_PRIORITY[statusOf(current)] ?? 0;
+    if (pri > cur) bestByPerson.set(key, lead);
+  }
+
   let leadsToday = 0, leadsThisWeek = 0, leadsThisMonth = 0;
   let applied = 0, approved = 0, realized = 0;
 
   const byProgramme: Record<string, { total: number; applied: number; approved: number; realized: number }> = {};
   const byMonthMap = new Map<string, { label: string; count: number }>();
 
-  for (const lead of leads) {
-    const parts = parseDateParts(lead.createdAt);
-    if (!parts) continue;
+  for (const lead of bestByPerson.values()) {
+    const parts = parseDateParts(lead.createdAt)!; // guaranteed by the filter above
 
     // Date buckets
-    if (parts.day === today)               leadsToday++;
-    if (parts.day >= weekStartDay)         leadsThisWeek++;
-    if (parts.day >= monthStart)           leadsThisMonth++;
+    if (parts.day === today)       leadsToday++;
+    if (parts.day >= weekStartDay) leadsThisWeek++;
+    if (parts.day >= monthStart)   leadsThisMonth++;
 
     // Month series
     if (!byMonthMap.has(parts.monthKey)) {
@@ -92,10 +119,10 @@ export function computeExpaLeadStats(leads: ExpaLead[]): ExpaLeadStats {
     byMonthMap.get(parts.monthKey)!.count++;
 
     // Conversion funnel
-    const s = lead.bestStatus;
-    const isApplied  = s != null && APPLIED_S.has(s);
-    const isApproved = s != null && APPROVED_S.has(s);
-    const isRealized = s != null && REALIZED_S.has(s);
+    const s = statusOf(lead);
+    const isApplied  = APPLIED_S.has(s);
+    const isApproved = APPROVED_S.has(s);
+    const isRealized = REALIZED_S.has(s);
 
     if (isApplied)  applied++;
     if (isApproved) approved++;
@@ -115,7 +142,7 @@ export function computeExpaLeadStats(leads: ExpaLead[]): ExpaLeadStats {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, { label, count }]) => ({ key, label, count }));
 
-  const total = leads.length;
+  const total = bestByPerson.size;
 
   return {
     totalLeads:     total,
@@ -130,8 +157,7 @@ export function computeExpaLeadStats(leads: ExpaLead[]): ExpaLeadStats {
     approvedToRealized: approved > 0 ? (realized / approved) * 100 : 0,
     byProgramme,
     byMonth,
-    recent: leads
-      .slice()
+    recent: Array.from(bestByPerson.values())
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 20),
     computedAt: new Date().toISOString(),

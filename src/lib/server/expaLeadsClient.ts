@@ -7,10 +7,15 @@ const DEFAULT_HOME_LC_ID = Number(process.env.EXPA_HOME_LC_ID ?? 1270);
 
 export interface ExpaLead {
   id: string;
+  /** Person id — lets the funnel collapse the applications of one EP into one entry. */
+  personId?: string;
   fullName: string;
   email: string;
   createdAt: string;
   lcName: string;
+  /** Raw EXPA status (every status is fetched, not just the good ones). */
+  status?: string | null;
+  /** Status kept only when it is a real application status (see GOOD_STATUSES). */
   bestStatus: string | null;
   programme: string | null;
 }
@@ -51,7 +56,6 @@ export function buildExpaLeadQuery(page: number): string {
   allOpportunityApplication(
     filters: {
       ${buildHomeLcFilter()}
-      statuses: ${JSON.stringify([...GOOD_STATUSES])}
     }
     per_page: ${PAGE_SIZE}
     page: ${page}
@@ -85,10 +89,12 @@ function mapApplication(raw: RawApplication): ExpaLead {
 
   return {
     id: readString(raw.id),
+    personId: readString(person?.id),
     fullName: readString(person?.full_name),
     email: readString(person?.email),
     createdAt: readString(raw.created_at),
     lcName: readString(person?.home_lc?.name),
+    status: status || null,
     bestStatus: GOOD_STATUSES.has(status) ? status : null,
     programme: readString(opportunity?.programme?.short_name_display) || null,
   };
@@ -165,6 +171,8 @@ export function getLeadPriority(status: string | null | undefined): number {
 // reads from this ONE cache entry instead of re-running the full paginated pull
 // on its own key. EXPA pipeline statuses change slowly, so a 6-hour window is
 // plenty; the manual refresh path (?nocache=1) calls fetchAllExpaLeads directly.
-export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw'], {
+// The key is versioned so the switch to "every status" (needed by the funnel)
+// invalidates the previously cached good-status-only payload.
+export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw-v2'], {
   revalidate: 21600, // 6 h
 });

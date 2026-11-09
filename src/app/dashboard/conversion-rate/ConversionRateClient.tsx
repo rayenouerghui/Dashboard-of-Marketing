@@ -9,10 +9,12 @@ const STATUS_CFG: Record<string, { label: string; color: string; dot: string }> 
   accepted:            { label: "Accepted",  color: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",               dot: "bg-sky-400"     },
   approved:            { label: "Approved",  color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",   dot: "bg-violet-400"  },
   approved_ep_manager: { label: "Approved",  color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",   dot: "bg-violet-400"  },
+  approved_tn_manager: { label: "Approved",  color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",   dot: "bg-violet-400"  },
   matched:             { label: "Matched",   color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300",   dot: "bg-orange-400"  },
   realized:            { label: "Realized",  color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300", dot: "bg-emerald-400" },
   finished:            { label: "Finished",  color: "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",           dot: "bg-teal-400"    },
   completed:           { label: "Completed", color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",       dot: "bg-green-500"   },
+  approval_broken:     { label: "Applied",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",           dot: "bg-blue-400"    },
 };
 
 const PROG_COLOR: Record<string, string> = {
@@ -133,9 +135,6 @@ export default function ConversionRateClient() {
   }
   if (diag.notFound > 0) {
     warnings.push(`${diag.notFound} lead${diag.notFound > 1 ? "s" : ""} have an EXPA ID that doesn't exist.`);
-  }
-  if (diag.brokenApprovals > 0) {
-    warnings.push(`${diag.brokenApprovals} application${diag.brokenApprovals > 1 ? "s" : ""} ignored (status approval_broken).`);
   }
 
   return (
@@ -291,5 +290,5 @@ export default function ConversionRateClient() {
 }
 
 function normalise(s: string) {
-  return s === "approved_ep_manager" || s === "accepted" ? "approved" : s;
+  return s === "approved_ep_manager" || s === "approved_tn_manager" || s === "accepted" ? "approved" : s;
 }

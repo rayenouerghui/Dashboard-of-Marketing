@@ -38,11 +38,17 @@ export function computeExpaAttractionStats(leads: ExpaLead[], now: Date = new Da
   const byProgrammeMap = new Map<string, number>();
   const byMonthMap = new Map<string, { label: string; count: number }>();
   const recent: Array<{ id: string; fullName: string; email: string; programme: string; submittedAt: string }> = [];
+  let totalLeads = 0;
 
   for (const lead of leads) {
+    // The lead query now returns every status so the conversion funnel can see
+    // the drop-offs; attraction figures stay on real applications only.
+    if (!lead.bestStatus) continue;
+
     const createdAt = (lead.createdAt ?? "").trim();
     const date = parseSubmittedAt(createdAt);
     if (!date) continue;
+    totalLeads++;
 
     const dayKey = formatDateInTunis(date, "yyyy-MM-dd");
     const monthKey = formatDateInTunis(date, "yyyy-MM");
@@ -82,7 +88,7 @@ export function computeExpaAttractionStats(leads: ExpaLead[], now: Date = new Da
   recent.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
   return {
-    totalLeads: leads.length,
+    totalLeads,
     leadsToday,
     leadsThisWeek,
     leadsThisMonth,
