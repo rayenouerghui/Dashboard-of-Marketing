@@ -1,5 +1,5 @@
 import type { ExpaLead } from "@/lib/server/expaLeadsClient";
-import { FUNNEL_PRIORITY } from "@/lib/server/expaShared";
+import { FUNNEL_PRIORITY, CAMPAIGN_START_DAY } from "@/lib/server/expaShared";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,9 +24,6 @@ export interface ExpaLeadStats {
   recent: Array<{ id: string; fullName: string; email: string; createdAt: string; lcName: string; bestStatus: string | null; programme: string | null }>;
   computedAt: string;
 }
-
-// The dashboard reports from the Feb 2026 campaign onwards.
-const CAMPAIGN_START_DAY = "2026-02-01";
 
 // Funnel buckets. `approval_broken` counts as "applied" (the EP did apply), while
 // withdrawn / rejected people stay in the sign-up denominator but never advance.

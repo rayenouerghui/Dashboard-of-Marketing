@@ -4,6 +4,10 @@
 
 export const EXPA_GRAPHQL_URL = "https://gis-api.aiesec.org/graphql";
 
+// The dashboard reports from the Feb 2026 campaign onwards. Used both as the
+// server-side EXPA query bound and the stats cutoff so the two cannot drift.
+export const CAMPAIGN_START_DAY = "2026-02-01";
+
 /** Status priority — higher = more advanced. */
 export const STATUS_PRIORITY: Record<string, number> = {
   completed:           7,

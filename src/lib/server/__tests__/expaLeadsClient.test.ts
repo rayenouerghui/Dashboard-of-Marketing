@@ -16,4 +16,11 @@ describe('buildExpaLeadQuery', () => {
     expect(query).not.toContain('statuses');
     expect(query).toContain('person');
   });
+
+  it('bounds the pull to the Feb 2026 campaign window', () => {
+    const query = buildExpaLeadQuery(1);
+
+    expect(query).toContain('created_at');
+    expect(query).toContain('2026-02-01');
+  });
 });
