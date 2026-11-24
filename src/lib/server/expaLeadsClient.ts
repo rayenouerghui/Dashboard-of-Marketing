@@ -185,4 +185,5 @@ export function getLeadPriority(status: string | null | undefined): number {
 // invalidate the previously cached payload instead of serving stale rows.
 export const getCachedExpaLeads = unstable_cache(fetchAllExpaLeads, ['expa-leads-raw-v3'], {
   revalidate: 21600, // 6 h
+  tags: ['expa-data', 'expa-leads'],
 });

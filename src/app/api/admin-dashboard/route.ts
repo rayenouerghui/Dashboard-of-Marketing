@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth";
-import { fetchAllExpaLeads, getCachedExpaLeads } from "@/lib/server/expaLeadsClient";
+import { getCachedExpaLeads } from "@/lib/server/expaLeadsClient";
 import { computeExpaLeadStats, type ExpaLeadStats } from "@/lib/server/expaLeadStats";
 import { computeExpaAttractionStats, type AttractionLeadStats } from "@/lib/server/expaAttractionStats";
 import { getApplicationsFromSheets, type ApplicationsFromSheets } from "@/lib/server/expaApplicationsFromSheets";
+import { getLastSuccessfulExpaRefresh, performExpaRefresh } from "@/lib/server/expaRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export interface AdminDashboardPayload {
   attraction:  AttractionLeadStats;
   leads:       ExpaLeadStats;
   applications: ApplicationsFromSheets;
+  lastExpaRefreshAt: string | null;
 }
 
 export async function GET(request: Request) {
@@ -26,7 +28,12 @@ export async function GET(request: Request) {
     await requireRole("admin"); // Admin only - contains EP personal data
 
     // One EXPA pull feeds both the attraction stats and the conversion funnel.
-    const { leads } = nocache ? await fetchAllExpaLeads() : await getCachedExpaLeads();
+    // Manual refresh performs a complete EXPA synchronization. Normal reads
+    // continue to use the shared cached payload.
+    const refreshResult = nocache ? await performExpaRefresh() : null;
+    const { leads } = refreshResult
+      ? { leads: refreshResult.leads }
+      : await getCachedExpaLeads();
     const attraction = computeExpaAttractionStats(leads);
 
     // The applications set has its own failure domain (sheet reads + per-person
@@ -34,7 +41,7 @@ export async function GET(request: Request) {
     // flag it degraded so the UI can warn instead of showing zeros.
     let applications: ApplicationsFromSheets;
     try {
-      applications = await getApplicationsFromSheets(nocache);
+      applications = refreshResult?.applications ?? await getApplicationsFromSheets(nocache);
     } catch (err) {
       console.error("[api/admin-dashboard] applications load failed:", err);
       applications = {
@@ -47,6 +54,8 @@ export async function GET(request: Request) {
     // not the EXPA applicant population. Falls back internally when it is 0.
     const leadsStats = computeExpaLeadStats(leads, applications.totalLeads);
 
+    const lastExpaRefreshAt = refreshResult?.refreshedAt ?? await getLastSuccessfulExpaRefresh();
+
     const payload: AdminDashboardPayload = {
       success: true,
       fetchedAt: new Date().toISOString(),
@@ -54,6 +63,7 @@ export async function GET(request: Request) {
       attraction,
       leads: leadsStats,
       applications,
+      lastExpaRefreshAt,
     };
 
     return NextResponse.json(payload, { status: 200 });

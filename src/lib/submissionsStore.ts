@@ -177,16 +177,23 @@ export async function deleteSubmission(id: string): Promise<void> {
   }
 }
 
+export function isMemberSubmission(record: SubmissionRecord): boolean {
+  const source = String(record.source ?? "").trim().toLowerCase();
+  return source !== "admin dashboard" && source !== "admin-dashboard";
+}
+
 export async function getSubmissions(sheet: "OGV" | "OGT"): Promise<SubmissionRecord[]> {
   await initializeStore();
-  return store.get(sheet) ?? [];
+  return (store.get(sheet) ?? []).filter(isMemberSubmission);
 }
 
 export async function getAllSubmissions(): Promise<SubmissionRecord[]> {
   await initializeStore();
-  return [...(store.get("OGV") ?? []), ...(store.get("OGT") ?? [])].sort(
-    (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-  );
+  return [...(store.get("OGV") ?? []), ...(store.get("OGT") ?? [])]
+    .filter(isMemberSubmission)
+    .sort(
+      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+    );
 }
 
 // Force reload from Supabase (useful for manual refresh)

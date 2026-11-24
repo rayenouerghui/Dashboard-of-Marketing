@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseClient, hasSupabaseConfig, formatSupabaseError } from "@/lib/supabase";
-import { addSubmission, productToSheet } from "@/lib/submissionsStore";
-import { getUniversityById, type Opportunity } from "@/lib/dataUtils";
+import type { Opportunity } from "@/lib/dataUtils";
 import { z } from "zod";
 import { sanitizeObject } from "@/lib/sanitize";
 import { requireRole } from "@/lib/auth";
@@ -27,10 +26,10 @@ export async function POST(request: NextRequest) {
   try {
     await requireRole('admin'); // Admin only
     const body = await request.json();
-    
+
     // Validate with Zod
     const validated = submitSchema.parse(body);
-    
+
     // Sanitize user-provided strings
     const sanitized = sanitizeObject(validated, {
       title: 200,
@@ -39,37 +38,13 @@ export async function POST(request: NextRequest) {
       note: 500,
     });
 
-  const university = getUniversityById(sanitized.universityId);
-  const universityName = university?.name ?? sanitized.universityId;
-
   // Full opportunity object sent from the admin form (for cross-device persistence)
   const fullOpportunity = sanitized.opportunity as Opportunity | undefined;
 
   const errors: string[] = [];
 
-  // 1. Write submission to Supabase submissions table
-  try {
-    await addSubmission({
-      sheet: productToSheet(sanitized.product, fullOpportunity?.opportunityType),
-      product: sanitized.product,
-      opportunityId: sanitized.opportunityId || "",
-      opportunityTitle: sanitized.title,
-      universityId: sanitized.universityId,
-      universityName,
-      country: sanitized.country || "",
-      duration: sanitized.duration || "",
-      opportunityDate: sanitized.opportunityDate || "",
-      epName: sanitized.epName || "",
-      condition: sanitized.condition || "",
-      note: sanitized.note || "",
-      source: sanitized.source || "Admin Dashboard",
-    });
-  } catch (err) {
-    errors.push(`Submissions table: ${formatSupabaseError(err)}`);
-    console.error("[api/opportunities/submit] submissions error:", err);
-  }
-
-  // 2. Persist full opportunity object to Supabase opportunities table (for member reads)
+  // Persist only the full opportunity in the opportunities table.
+  // Opportunity creation must never create an entry in the submissions table.
   if (!hasSupabaseConfig()) {
     errors.push("Supabase is not configured (SUPABASE_URL / SUPABASE_ANON_KEY) — members cannot see this opportunity.");
   } else if (!fullOpportunity) {
@@ -101,7 +76,7 @@ export async function POST(request: NextRequest) {
             requirements: JSON.stringify(fullOpportunity.requirements || []),
             updated_at: new Date().toISOString(),
           }, { onConflict: "id" });
-        
+
         if (error) throw error;
       }
     } catch (err) {

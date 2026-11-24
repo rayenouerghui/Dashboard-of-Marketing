@@ -75,7 +75,10 @@ async function loadApplicationsFromSheets(): Promise<ApplicationsFromSheets> {
 const getCached = unstable_cache(
   loadApplicationsFromSheets,
   ["expa-applications-from-leads"],
-  { revalidate: 21600 } // 6 h
+  {
+    revalidate: 21600,
+    tags: ["expa-data", "expa-applications"],
+  } // 6 h
 );
 
 export function getApplicationsFromSheets(nocache = false): Promise<ApplicationsFromSheets> {

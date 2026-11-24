@@ -16,6 +16,23 @@ const EMPTY: AttractionLeadStats = {
   byProgramme: [], byMonth: [], recent: [], computedAt: "",
 };
 
+function formatTunisRefreshTimestamp(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Tunis",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(date);
+
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${value("day")}/${value("month")}/${value("year")} at ${value("hour")}:${value("minute")} ${value("dayPeriod")}`;
+}
+
 export default function DashboardClient() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
@@ -23,7 +40,7 @@ export default function DashboardClient() {
   // Shared admin data — fetched once for the whole dashboard (see AdminDashboardProvider).
   const { data, loading, error, refresh } = useAdminDashboard();
   const stats = data?.attraction ?? EMPTY;
-  const lastRefresh = data?.fetchedAt ? new Date(data.fetchedAt) : null;
+  const lastRefresh = data?.lastExpaRefreshAt ? new Date(data.lastExpaRefreshAt) : null;
 
   return (
     <div className="space-y-6">
@@ -49,7 +66,7 @@ export default function DashboardClient() {
             </button>
             <div className="text-sm text-white/80">
               {lastRefresh
-                ? `Source: EXPA · updated ${lastRefresh.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                ? `Source: EXPA · Last updated: ${formatTunisRefreshTimestamp(lastRefresh)}`
                 : "Source: EXPA · loading…"}
             </div>
           </div>
