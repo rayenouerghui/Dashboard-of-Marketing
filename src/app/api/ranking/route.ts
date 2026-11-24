@@ -73,6 +73,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const filterUniversity = searchParams.get("university")?.trim() || null;
+    const month = searchParams.get("month")?.trim();
 
     const rawRows = await fetchPhysicalLeadsRaw();
     const totalRowsInSheet = rawRows.length;
@@ -104,9 +105,20 @@ export async function GET(request: Request) {
       }, { status: 422 });
     }
 
+    const monthMatch = month?.match(/^\d{4}-\d{2}$/) ? month : null;
+    const monthCutoff = monthMatch ? `${monthMatch}-01` : RANKING_START_DATE;
+    const monthEnd = monthMatch
+      ? (() => {
+          const [year, monthNumber] = monthMatch.split("-").map(Number);
+          const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+          return `${monthMatch}-${String(lastDay).padStart(2, "0")}`;
+        })()
+      : undefined;
+
     const rankingBase = buildMemberRanking(rawRows, {
       filterUniversity,
-      cutoff: RANKING_START_DATE,
+      cutoff: monthCutoff,
+      endCutoff: monthEnd,
     });
 
     const members = [...rankingBase.members].sort((a, b) => b.totalLeads - a.totalLeads || a.name.localeCompare(b.name));

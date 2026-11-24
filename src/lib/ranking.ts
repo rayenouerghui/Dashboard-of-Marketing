@@ -120,6 +120,7 @@ export function buildMemberRanking(
   options: {
     filterUniversity?: string | null;
     cutoff?: string;
+    endCutoff?: string;
     todayOverride?: string;
     gridRowCount?: number;
   } = {},
@@ -127,6 +128,7 @@ export function buildMemberRanking(
   const {
     filterUniversity = null,
     cutoff = RANKING_START_DATE,
+    endCutoff,
     todayOverride,
     gridRowCount: providedGridRowCount,
   } = options;
@@ -167,6 +169,7 @@ export function buildMemberRanking(
     }
 
     if (rowDate < cutoff) continue;
+    if (endCutoff && rowDate > endCutoff) continue;
     rowsSinceCutoff++;
     rowsAfterDateCutoff++;
 
