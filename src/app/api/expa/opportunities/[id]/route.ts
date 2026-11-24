@@ -4,8 +4,6 @@ import { ExpaClientError, fetchExpaOpportunityRaw } from "@/lib/server/expaClien
 import { mapExpaOpportunityToOpportunity } from "@/lib/server/expaOpportunityMapper";
 import { getExpaToken } from "@/lib/server/expaTokenSource";
 
-export const dynamic = "force-dynamic";
-
 function isValidOpportunityId(id: string) {
   return /^\d+$/.test(id.trim());
 }

@@ -87,7 +87,12 @@ export default function DashboardClient() {
 
       <div className="grid grid-cols-12 gap-4 md:gap-6">
         <div className="col-span-12 space-y-6 xl:col-span-7">
-          <EcommerceMetrics stats={stats} loading={loading} />
+          <EcommerceMetrics
+            stats={stats}
+            totalLeads={data?.leads.totalLeads}
+            byMonth={data?.leads.byMonth}
+            loading={loading}
+          />
           <MonthlySalesChart stats={stats} />
         </div>
         <div className="col-span-12 space-y-6 xl:col-span-5">

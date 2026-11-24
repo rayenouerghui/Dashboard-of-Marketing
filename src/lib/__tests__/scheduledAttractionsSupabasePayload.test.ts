@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildSupabaseAttractionPayload } from "@/app/api/scheduled-attractions/route";
 import { assignLeadsToAttractions, mergeTodayAttractions, normalizeLeaderboardMemberName } from "@/app/member-dashboard/MemberDashboardClient";
+import { getMonthOverMonthGrowth } from "@/components/ecommerce/EcommerceMetrics";
 
 describe("Supabase attraction payload", () => {
   it("keeps the configured goal value when saving", () => {
@@ -139,5 +140,27 @@ describe("same-day attraction lead attribution", () => {
     const buckets = assignLeadsToAttractions([ensit] as any, [lead("ENS")] as any);
 
     expect(buckets[0]).toHaveLength(0);
+  });
+});
+
+describe("dashboard month-over-month growth", () => {
+  it("calculates growth from the previous month", () => {
+    const result = getMonthOverMonthGrowth([
+      { key: "2026-10", label: "Oct 26", count: 100 },
+      { key: "2026-11", label: "Nov 26", count: 125 },
+    ], new Date("2026-11-24T12:00:00Z"));
+
+    expect(result.growth).toBe(25);
+    expect(result.lastMonth).toBe(100);
+    expect(result.thisMonth).toBe(125);
+  });
+
+  it("supports decreases and zero previous-month data", () => {
+    expect(getMonthOverMonthGrowth([
+      { key: "2026-10", label: "Oct 26", count: 80 },
+      { key: "2026-11", label: "Nov 26", count: 60 },
+    ], new Date("2026-11-24T12:00:00Z")).growth).toBe(-25);
+
+    expect(getMonthOverMonthGrowth([], new Date("2026-11-24T12:00:00Z")).growth).toBe(0);
   });
 });
