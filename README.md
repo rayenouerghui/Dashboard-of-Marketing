@@ -14,7 +14,7 @@ A web application for coordinating member outreach and reviewing marketing and o
 
 | Welcome page | Member dashboard | Admin dashboard |
 |---|---|---|
-| ![AIESEC LC Tunis welcome page](welcome%20page.png) | ![Member dashboard ranking](member%20side.png) | ![Admin dashboard analytics](admin%20side.png) |
+| ![AIESEC LC Tunis welcome page](docs/screenshots/welcome-page.png) | ![Member dashboard ranking](docs/screenshots/member-dashboard.png) | ![Admin dashboard analytics](docs/screenshots/admin-dashboard.png) |
 
 The screenshots are the original repository images. The member screenshot shows the member ranking view; the admin screenshot shows analytics and navigation.
 
@@ -151,7 +151,7 @@ Create a local environment file from the template:
 cp .env.example .env.local
 ```
 
-Set the values required for the features you intend to run in `.env.local`. The example lists admin session and password-hash settings, Google Sheets service-account settings, EXPA, Supabase, Upstash rate limiting, cron protection, and optional spreadsheet/ranking overrides. Do not commit `.env.local` or use real production secrets in a public fork.
+Set the values required for the features you intend to run in `.env.local`. The example lists admin session and password-hash settings, Google Sheets service-account settings, EXPA, Supabase, Upstash rate limiting, cron protection, and optional spreadsheet/ranking overrides. Do not commit `.env`, `.env.local`, or real production secrets in a public fork.
 
 Start the development server:
 

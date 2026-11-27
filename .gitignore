@@ -31,6 +31,9 @@ scripts/inspect-sheet.mjs
 scripts/live-sheet-test.mjs
 
 # local env files
+/.env
+/.env.*
+!/.env.example
 .env*.local
 
 # vercel
@@ -40,5 +43,6 @@ scripts/live-sheet-test.mjs
 *.tsbuildinfo
 next-env.d.ts
 
-# GCP Service Accounts
-*-*.json
+# service-account credentials
+*-service-account*.json
+*-credentials*.json
